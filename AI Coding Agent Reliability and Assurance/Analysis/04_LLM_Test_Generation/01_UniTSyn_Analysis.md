@@ -21,6 +21,62 @@
 
 ---
 
+## ★ সহজ ভাষায় পুরো Paper (প্রথমবার পড়ার জন্য)
+
+### ক. Paper-টা কী নিয়ে?
+
+- এটা একটা **dataset paper**। মানে AI model-কে শেখানোর জন্য বিশাল একটা data-র সংগ্রহ বানানোর কাহিনী।
+- বানিয়েছেন UC Davis, Tencent-এর একটা lab আর একজন independent researcher মিলে। মোট ছয়জন লেখক। Paper-টা ২০২৪ সালের ফেব্রুয়ারিতে arXiv-এ এসেছে।
+- বিষয় হলো: AI দিয়ে **unit test** (একটা ছোট function ঠিকমতো কাজ করছে কিনা দেখার ছোট code) লেখানো।
+- তারা GitHub থেকে প্রায় ২৭ লাখ জোড়া বের করেছে। প্রতি জোড়ায় থাকে একটা test আর যে function-কে সেই test পরীক্ষা করছে সেটা।
+- তারপর সেই data দিয়ে একটা ছোট model (UniTester) শিখিয়ে দেখিয়েছে যে data-টা সত্যিই কাজের।
+- উপমা: ছাত্রকে শুধু প্রশ্নপত্র আর শুধু উত্তরপত্র আলাদা আলাদা দিলে সে শিখতে পারে না কোন উত্তর কোন প্রশ্নের। এই paper প্রশ্ন আর উত্তর **জোড়া বেঁধে** দিয়েছে।
+
+### খ. সমস্যাটা কী ছিল?
+
+- আগে code LLM-গুলো (code লেখা AI model) test লিখতে ভালো পারত না।
+- কারণ তাদের training data-তে test আর যে function-কে test করছে, এ দুটো আলাদা আলাদা পড়ে থাকত। কে কার test, সেটা জানা যেত না।
+- জোড়া বাঁধার পুরনো উপায়গুলোরও সমস্যা ছিল। কোনোটা প্রতিটা project **চালিয়ে** দেখত (খুব ধীর, তাই বেশি project নেওয়া যেত না)। কোনোটা শুধু file-এর নাম মেলাত (জোড়া দুর্বল)।
+- উদাহরণ: `testAdd` নামের একটা test আছে। সে আসলে `add` function-কে পরীক্ষা করছে। কিন্তু model যদি `add`-এর code না দেখে, তাহলে `add` ঠিক কী করে তা না জেনেই expected output অনুমান করতে হয়। ফলে অনুমান প্রায়ই ভুল হয়।
+- আরেকটা সমস্যা: প্রতিটা language-এর জন্য আলাদা করে নিয়ম লিখতে হতো। তাই Python আর Java ছাড়া বাকি language-এ কাজ খুব কমই ছিল।
+
+### গ. Paper কী solve করেছে?
+
+- Python, Java, Go, C++, JavaScript — পাঁচ language-এর প্রায় ১.৪৫ লাখ project থেকে **২৭ লাখ test-function জোড়া** বানিয়েছে, কোনো project না চালিয়েই।
+- এমন একটা পদ্ধতি দিয়েছে যেটা নতুন language-এ সহজে বাড়ানো যায়। editor-এর "Go to Definition" যে protocol (LSP) দিয়ে কাজ করে, সেটাই ব্যবহার করেছে।
+- এই data দিয়ে ছোট model UniTester বানিয়েছে। সে ২.৭B-এর বড় model-কেও হারিয়েছে।
+- দেখিয়েছে জোড়া বেঁধে দেওয়াটাই আসল লাভের কারণ। আর বহু language একসাথে শেখানো মোটের উপর ভালো, কিন্তু সব language-এ সমান উপকার হয় না।
+- **২.৭M জোড়া:** মানে প্রায় ২৭ লাখ (test, function) জোড়া। এটা এখন পর্যন্ত এই ধরনের সবচেয়ে বড় সংগ্রহগুলোর একটা।
+- **Accuracy 33.9% থেকে 51.5%:** মানে model-এর লেখা ১০০টা assertion-এর মধ্যে আগে প্রায় ৩৪টা সঠিক ছিল, এখন প্রায় ৫২টা। তবুও বাকি প্রায় ৪৮টা ভুল।
+- **গড় pass rate প্রায় 32%:** মানে ১০০টা generated test-এর মধ্যে মাত্র ৩২টার মতো error ছাড়া চলে। বাকি ৬৮টা চলেই না।
+
+### ঘ. কীভাবে solve করেছে?
+
+1. GitHub থেকে "জীবিত" repository বাছাই করেছে। শর্ত: ১০টার বেশি star আর ২০২০-এর পরে নতুন commit। fork আর archived repository বাদ।
+2. প্রতিটা file-কে tree-sitter দিয়ে AST-তে (code-এর গাছ-আকৃতির রূপ) ভেঙেছে। এতে পাঁচ language-ই একই ভাবে পড়া যায়।
+3. গাছ ঘেঁটে test function চিনেছে। কোথাও নাম দেখে (যেমন "test" দিয়ে শুরু), কোথাও `@Test`-এর মতো চিহ্ন দেখে।
+4. প্রতিটা test-এর ভেতরে প্রথম assertion খুঁজেছে। তার ঠিক আগের শেষ function call-টাকেই "যাকে test করা হচ্ছে" বলে ধরেছে।
+5. সেই call-এর definition কোথায় আছে, তা language server-কে (LSP) জিজ্ঞেস করেছে। উত্তর থেকে ওই function-এর code কেটে নিয়েছে। project চালাতে হয়নি।
+6. function আর test-কে পাশাপাশি জোড়া করে রেখেছে। এটাই dataset।
+7. SantaCoder (1.1B) model-কে এই জোড়াগুলো টানা text হিসেবে আরও শিখিয়েছে (36,000 step, প্রায় ২৪ ঘণ্টা)। নাম হয়েছে UniTester।
+8. HumanEval-X-এ (164টা ছোট problem × 5 language) model-কে function দিয়ে test লিখতে বলেছে। মেপেছে assertion কতটা সঠিক, test কতটা চলে, আর কতটা code ছোঁয় (coverage)।
+
+### ঙ. এরপর কী করা যায়?
+
+- **Authors যা বলেছেন:** C++ আর JavaScript-এর জন্য আরও framework-এর hook লিখলে অনেক বেশি জোড়া পাওয়া যাবে। আর কিছু manual কাজ থেকেই যায়, সেটা কমানো যেতে পারে।
+- **খোলা প্রশ্ন ১:** জোড়াগুলো আসলে কতটা নির্ভুল? paper কখনো হাতে গুনে দেখেনি।
+- **খোলা প্রশ্ন ২:** "assertion সঠিক" মানেই কি test bug ধরতে পারে? mutation score (ইচ্ছে করে bug ঢুকিয়ে দেখা test তাকে ধরে কিনা) মাপা হয়নি।
+- **খোলা প্রশ্ন ৩:** HumanEval-X খুব ছোট আর পুরনো benchmark। বাস্তব repository-তে ফল কেমন হবে, জানা নেই।
+- **আমরা SPL3-তে করতে পারি:** UniTSyn-এর LSP পদ্ধতি দিয়ে agent-এর patch যে function বদলেছে, তার সাথে জড়িত test খুঁজে বের করা।
+- **আমরা আরও করতে পারি:** generated test-কে ছেঁকে (filter) আর অনিশ্চয়তা সহ, static judge-এর পাশে আলাদা "dynamic signal" হিসেবে ব্যবহার করা। সাথে mutation score যোগ করা।
+
+> **মনে রাখো:**
+> UniTSyn ছিল test আর তার target function-কে জোড়া বেঁধে বিশাল data বানানোর কাজ, যা project না চালিয়েই হয়।
+> তাতে model ভালো হয়েছে, কিন্তু সেরা model-এরও প্রায় অর্ধেক assertion ভুল আর বেশিরভাগ test চলে না।
+> তাই আমাদের জন্য শিক্ষা: generated test কাজের, কিন্তু সরাসরি রায় নয়; ছেঁকে আর সাবধানে ব্যবহার করতে হবে।
+
+---
+
 ## ১. এক লাইনে Paper (TL;DR)
 
 **UniTSyn হলো GitHub-এর 5টা language (Python, Java, Go, C++, JavaScript)-এর প্রায় 1.45 লাখ project থেকে tree-sitter (parsing) আর Language Server Protocol (definition খোঁজা) ব্যবহার করে, কোনো project execute না করেই, 2.7 million "test function ↔ যে function-কে test করছে (focal function)" জোড়া সংগ্রহ করা একটা dataset; এর উপর 1.1B SantaCoder-কে আরও train করে বানানো UniTester HumanEval-X-এ test-এর assertion accuracy 33.9% থেকে 51.5%-এ তুলেছে।**
@@ -63,6 +119,8 @@ public void testAdd() {
 | Heuristic | নামের মিল (`testAdd` → `add`), language-specific নিয়ম | প্রতি language-এ আলাদা, ভঙ্গুর | AthenaTest, TOGA, A3Test |
 | File-level | `test_foo.py` ↔ `foo.py` | জোড়া দুর্বল — কোন function তা জানা যায় না | CAT-LM |
 | **Static + LSP (এই paper)** | AST থেকে focal call খুঁজে LSP দিয়ে তার definition বের করা | Language server লাগে; call heuristic ভুল হতে পারে | UniTSyn |
+
+**সহজ কথায়:** পুরনো উপায়গুলো হয় ধীর (project চালাতে হয়), নয়তো আন্দাজি (শুধু নাম মেলানো)। UniTSyn code না চালিয়ে editor-এর মতো "এই function-এর definition কোথায়?" জিজ্ঞেস করে। তাই দ্রুত আর ঠিকঠাক।
 
 ### ২.৫ Abstract Syntax Tree (AST) ও tree-sitter
 - **AST:** source code-কে গাছের মতো structure-এ রূপান্তর — function, variable declaration, call, assertion সব আলাদা node।
@@ -150,6 +208,8 @@ Paper-এর explicit RQ (Section 4.2):
 
 **Contribution (paper-এর ভাষায় ৩টা):** (১) 2.7M focal-test pair, 5 language; (২) LSP-ভিত্তিক generic, extendable dataset-building approach; (৩) UniTester train করে dataset-এর মান যাচাই।
 
+**সহজ কথায়:** লক্ষ্য ছিল তিনটা। এক, বিশাল জোড়া-বাঁধা data বানানো। দুই, সেটা বানানোর এমন উপায় যা নতুন language-এও চলে। তিন, একটা model শিখিয়ে প্রমাণ করা যে data-টা ভালো। আর চারটা প্রশ্ন (RQ) আসলে চার রকম পরীক্ষা: test কতটা সঠিক, কতটা চলে, জোড়া বাঁধা কি সত্যিই দরকার, আর বহু language একসাথে শেখানো কি লাভজনক।
+
 ---
 
 ## ৫. Methodology — কীভাবে কাজটা করা হয়েছে
@@ -171,9 +231,13 @@ Paper-এর explicit RQ (Section 4.2):
 | 5 | Focal extraction via LSP (backend) | Language server-কে JSON-RPC request: ঐ call-এর definition কোথায়? উত্তর থেকে focal function-এর source code কাটা | শুধু language server চালু করার command |
 | 6 | Store | Function-level focal-test pair সংরক্ষণ | কিছু না |
 
+**সহজ কথায়:** প্রথম চার ধাপ code-কে পড়ে আর test চেনে। পঞ্চম ধাপে language server বলে দেয় focal function কোথায়। শেষে জোড়াটা জমা হয়। শুধু ধাপ ৩, ৪ আর ৫-এ language অনুযায়ী সামান্য কাজ লাগে।
+
 **ধাপ 3 — Test identification-এর দুই রকম implementation:** (ক) function-এর নাম দেখে heuristic; (খ) language feature — যেমন Java JUnit-এ প্রতিটা test-এ `@Test` modifier থাকতে হয়। নতুন test framework যোগ করতে নতুন hook লিখলেই হয়।
 
 **ধাপ 4 — Focal call heuristic (TeCo থেকে নেওয়া):** একটা test সাধারণত setup-এর জন্য অনেক function call করে; আসল focal call চেনা কঠিন। নিয়ম: postorder traversal-এ প্রথম assertion node খুঁজে, **তার আগের শেষ call যেটা repository-তে defined function-কে ডাকে**। Listing 1-এ: `new Position(x, y)` (line 5) ও `mp.add(...)` (line 6) দুটোই assertion (line 7)-এর আগে; শেষেরটা `add` → focal।
+
+**সহজ কথায়:** test-এর শুরুতে অনেক setup call থাকে। আসল কাজের call-টা সাধারণত assertion-এর ঠিক আগে আসে। তাই "প্রথম assertion-এর আগের শেষ call"-টাকেই focal ধরা হয়। এটা একটা অনুমান, সবসময় ঠিক হয় না।
 
 **ধাপ 5 — কেন LSP:** project build বা run করতে হয় না, প্রতি language-এ dependency analysis লিখতে হয় না; language server-এর "definition খোঁজা" ক্ষমতা ধার নেওয়া হয়।
 
@@ -189,6 +253,8 @@ Paper-এর explicit RQ (Section 4.2):
 | **মোট (আমার হিসাব)** | — | **145,144** | **2,715,710** (≈ paper-এর "2.7M") |
 
 > নোট: সাধারণ `pdftotext` layout mode-এ এই table-এর Go/C++/JS-এর #pairs কলাম এলোমেলো দেখায়; `pdftotext -raw` দিয়ে আবার বের করে উপরের মানগুলো নিশ্চিত করা হয়েছে, আর যোগফল paper-এর 2.7M-এর সাথে মেলে।
+
+**সহজ কথায়:** Python আর Java মিলে প্রায় ২৩ লাখ জোড়া, অর্থাৎ বেশিরভাগ data এই দুটোর। C++ আর JavaScript-এ মাত্র কয়েক হাজার। এই অসমতা পরে ফলাফলেও দেখা যায়।
 
 ### ৫.৪ UniTester Model (Section 4.1)
 
@@ -206,6 +272,8 @@ Paper-এর explicit RQ (Section 4.2):
 | Data size | প্রায় **এক billion token** |
 | Hardware / সময় | **8 × Nvidia V100**, প্রায় **24 ঘণ্টা** |
 
+**সহজ কথায়:** model-টা ছোট (1.1B), আর training-ও ছোট: ৮টা GPU-তে এক দিনের মতো। মানে এই কাজ বড় কোম্পানির বিশাল খরচ ছাড়াই হয়েছে। আমাদের জন্য শিক্ষা: সঠিক data থাকলে ছোট model দিয়েই অনেক দূর যাওয়া যায়।
+
 ### ৫.৫ Evaluation Setup (Section 4.2)
 
 | বিষয় | মান |
@@ -220,6 +288,8 @@ Paper-এর explicit RQ (Section 4.2):
 | Accuracy-র জন্য | Generated test থেকে **প্রথম 10টা assertion** parse করে প্রতিটা আলাদা করে যাচাই (Chen et al. — CodeT অনুসারে) |
 | Completeness-এর জন্য | প্রতিটা output আলাদা test হিসেবে চালানো; শুধু Java-তে test class-এর closing bracket যোগ করা হয়েছে, অন্য কোনো জটিল post-processing নেই; 10 trial-এর গড় coverage |
 
+**সহজ কথায়:** প্রতিটা model-কে একই 164টা problem দেওয়া হয়েছে। প্রতি problem-এ ১০ বার test লিখতে বলা হয়েছে। তারপর দুটো জিনিস গোনা হয়েছে: assertion ঠিক কিনা, আর পুরো test চলে কিনা।
+
 **তুলনার model:**
 | Model | ধরন | Parameter |
 |---|---|---|
@@ -231,9 +301,11 @@ Paper-এর explicit RQ (Section 4.2):
 | CAT-LM | **Test generation**, Python+Java, file-level aligned, 60B token-এ trained | 2.7B |
 | UniTester | **Test generation**, UniTSyn, ~1B token | 1.1B |
 
+**সহজ কথায়:** তুলনাটা ন্যায্য করার চেষ্টা হয়েছে। CAT-LM-এর data ৬০ গুণ বেশি আর model ২ গুণ বড়। তবুও UniTester জিতলে বোঝা যায়, জিতেছে data-র মানের জোরে, আকারের জোরে নয়।
+
 > Paper-এর যুক্তি: CAT-LM বেশি data (60B বনাম 1B token) ও দ্বিগুণের বেশি বড় model — তবুও হারানো গেলে data-র মান প্রমাণ হয়।
 
-### ৫.৬ Ablation Variant (RQ3, RQ4)
+### ৫.৬ Ablation Variant (RQ3, RQ4) — অর্থাৎ একটা একটা করে অংশ বদলে দেখার সংস্করণ
 - **Baseline:** SantaCoder, UniTSyn-এ train হয়নি।
 - **Unpaired:** একই data, কিন্তু test ও focal function আলাদা snippet হিসেবে।
 - **Paired:** UniTester (Multi)।
@@ -252,11 +324,15 @@ $$
 \text{keep}(r) = \mathbb{1}\left[\text{stars}(r) > 10 \;\land\; \text{lastCommit}(r) > \text{2020-01-01} \;\land\; \neg\,\text{archived}(r) \;\land\; \neg\,\text{fork}(r) \;\land\; \neg\,\text{mirror}(r)\right]
 $$
 
+**এটা কী হিসাব করে:** একটা repository নেওয়া হবে কিনা, তার হ্যাঁ বা না উত্তর। সব শর্ত একসাথে সত্য হলে ফল 1 (নেওয়া হবে), না হলে 0।
+
 ### ৬.২ Test Function Identification (Hook)
 Repository-র প্রতিটা function $g$-এর জন্য একটা hook $h_q(g) \in \{0, 1\}$। Test set:
 $$
 T_r = \{\, g \in \text{Functions}(r) \;:\; h_q(g) = 1 \,\}
 $$
+
+**এটা কী হিসাব করে:** repository-র সব function থেকে শুধু সেগুলো বেছে নেয়, যাদের hook "এটা test" বলে। বাকিগুলো বাদ।
 উদাহরণ: Java-তে $h_{\text{Java}}(g) = 1$ যদি $g$-এর `@Test` modifier থাকে; নাম-ভিত্তিক hook-এ $h(g) = 1$ যদি নাম "test" দিয়ে শুরু হয়।
 
 ### ৬.৩ Focal Call Selection
@@ -264,14 +340,20 @@ Test $t$-এর AST-কে postorder-এ traverse করলে node-গুলো
 $$
 a^{\star} = \arg\min_{a \in \text{Asserts}(t)} \text{pos}(a)
 $$
+
+**এটা কী হিসাব করে:** test-এর ভেতরে যত assertion আছে, তার মধ্যে সবচেয়ে আগে যেটা আসে সেটা খুঁজে বের করে।
 Candidate call: যেসব call $c$ assertion-এর আগে এবং যাদের definition repository-র ভেতরে:
 $$
 C(t) = \{\, c \in \text{Calls}(t) \;:\; \text{pos}(c) < \text{pos}(a^{\star}) \;\land\; \text{def}(c) \in r \,\}
 $$
+
+**এটা কী হিসাব করে:** assertion-এর আগের সব call থেকে শুধু সেগুলো রাখে যাদের definition ওই repository-র ভেতরেই আছে। এরাই focal-এর প্রার্থী।
 Focal call হলো এদের মধ্যে **শেষেরটা**:
 $$
 c^{\star}(t) = \arg\max_{c \in C(t)} \text{pos}(c)
 $$
+
+**এটা কী হিসাব করে:** প্রার্থীদের মধ্যে যেটা assertion-এর সবচেয়ে কাছে (সবচেয়ে পরে), সেটাকেই focal call ধরে।
 **Worked example (Listing 1):** Assertion line 7। Line 5-এ `Position(...)` আর line 6-এ `add(...)` — দুটোই repository-তে defined, দুটোই line 7-এর আগে। $\arg\max$ = line 6 → $c^{\star}$ = `add`।
 
 **আমার পর্যবেক্ষণ:** যদি test-এ কোনো assertion না থাকে (যেমন শুধু exception না হওয়া পরীক্ষা করে) বা $C(t)$ খালি হয়, তাহলে কী হয় — paper বলেনি। সম্ভবত ঐ test বাদ যায়, যার মানে dataset assertion-ওয়ালা test-এর দিকে ঝুঁকে আছে।
@@ -281,10 +363,14 @@ $\text{LSP}_q$ = language $q$-এর server-এর "definition" request। Call 
 $$
 \text{loc}(f) = \text{LSP}_q\big(\text{file}(c^{\star}),\, \text{line}(c^{\star}),\, \text{col}(c^{\star})\big), \qquad f = \text{extract}(\text{loc}(f))
 $$
+
+**এটা কী হিসাব করে:** focal call-এর জায়গা (file, line, column) language server-কে দিলে সে ফেরত দেয় function-টা কোথায় আছে। সেখান থেকে function-এর code কেটে নেওয়া হয়।
 Dataset:
 $$
 \mathcal{D} = \cup_{q} \; \cup_{r \in R_q,\, \text{keep}(r)} \; \{\, (f(t),\, t) \;:\; t \in T_r,\; C(t) \text{ খালি নয়} \,\}
 $$
+
+**এটা কী হিসাব করে:** সব language আর সব বাছাই-করা repository-র সব (focal, test) জোড়া একসাথে জুড়লে পুরো dataset হয়। শুধু সেই test ধরা হয় যার focal call পাওয়া গেছে।
 **আমার হিসাব:** $\sum_q$ #pairs = 1,218,311 + 1,097,518 + 361,075 + 25,513 + 13,293 = **2,715,710**।
 
 **প্রতি project-এ গড় pair (আমার হিসাব):**
@@ -298,11 +384,15 @@ $$
 
 C++ ও JavaScript-এ project প্রতি 1-এর কাছাকাছি বা তারও কম pair — authors-এর limitation-এর সাথে মেলে (শুধু GoogleTest ও MochaJS hook লেখা হয়েছে)।
 
+**সহজ কথায়:** Java-তে একটা project থেকে গড়ে ৪৩টার মতো জোড়া মেলে, কিন্তু JavaScript-এ এক project থেকে একটাও না-ও মেলে। কারণ ওই দুই language-এ মাত্র একটা করে test framework ধরা হয়েছে।
+
 ### ৬.৫ Training Objective
 Training sample $x = f \oplus \text{newline} \oplus t$ (এখানে $\oplus$ = string জোড়া)। সব sample টানা জুড়ে $L = 2048$ দৈর্ঘ্যের sequence $s = (s_1, \ldots, s_L)$ কাটা হয় (packing)। Loss:
 $$
 \mathcal{L}(\theta) = -\frac{1}{L} \sum_{i=1}^{L} \log p_\theta(s_i \mid s_{<i})
 $$
+
+**এটা কী হিসাব করে:** model প্রতিটা token আগের token-গুলো দেখে কতটা ভালো অনুমান করেছে, তার গড় "ভুলের মাত্রা"। যত কম, তত ভালো। Training-এর লক্ষ্য এটাকেই কমানো।
 **গুরুত্বপূর্ণ:** loss focal ও test দুই অংশের token-এর উপরই — অর্থাৎ model focal function লেখাও শেখে, শুধু test নয়। Inference-এ focal দেওয়া থাকে, model test অংশ complete করে।
 
 Weight decay সহ Adam update (paper-এ শুধু "Adam" + "weight decay 0.05" বলা; decoupled নাকি L2 তা বলা নেই):
@@ -310,11 +400,15 @@ $$
 \theta \leftarrow \theta - \eta_k \left( \frac{\hat{m}_k}{\sqrt{\hat{v}_k} + \epsilon} + \lambda\, \theta \right), \qquad \lambda = 0.05
 $$
 
+**এটা কী হিসাব করে:** model-এর প্রতিটা সংখ্যা (weight) এক ধাপে কতটা বদলাবে। সাথে $\lambda\,\theta$ অংশটা সংখ্যাগুলোকে একটু ছোট রাখে, যাতে model পুরনো জ্ঞান বেশি না ভোলে।
+
 ### ৬.৬ Learning-rate Schedule
 প্রথম 500 step "logarithmic warmup" (paper সঠিক সূত্র দেয়নি)। তারপর cosine annealing (Loshchilov & Hutter):
 $$
 \eta_k = \eta_{\min} + \frac{1}{2}\left(\eta_{\max} - \eta_{\min}\right)\left(1 + \cos\left(\frac{(k - 500)\,\pi}{36000 - 500}\right)\right), \quad 500 \leq k \leq 36000
 $$
+
+**এটা কী হিসাব করে:** step যত এগোয়, শেখার গতি (learning rate) তত মসৃণভাবে কমে। শুরুতে বড় পা, শেষে ছোট পা।
 $\eta_{\max} = 5 \times 10^{-5}$। $\eta_{\min}$ paper-এ বলা নেই।
 **Worked example:** ধরো $\eta_{\min} = 0$ (আমার অনুমান)। মাঝামাঝি $k = 18250$-এ cosine-এর argument $\pi/2$, তাই $\eta = \frac{1}{2} \times 5 \times 10^{-5} \times 1 = 2.5 \times 10^{-5}$।
 
@@ -322,6 +416,8 @@ $\eta_{\max} = 5 \times 10^{-5}$। $\eta_{\min}$ paper-এ বলা নেই�
 $$
 \text{Tokens}_{\text{seen}} = \text{steps} \times \text{batch} \times L = 36000 \times 32 \times 2048 = 2{,}359{,}296{,}000 \approx 2.36\text{B}
 $$
+
+**এটা কী হিসাব করে:** মোট step, প্রতি step-এ কয়টা sequence আর প্রতি sequence-এ কয়টা token — তিনটা গুণ করলে model মোট কতগুলো token দেখেছে তা পাওয়া যায়।
 Data "around one billion tokens" হলে $\frac{2.36}{1} \approx 2.4$ epoch-এর মতো। (Paper epoch সংখ্যা বলেনি; "around" শব্দের কারণে এটা মোটামুটি হিসাব।)
 
 ### ৬.৮ Temperature Sampling
@@ -329,6 +425,8 @@ Logit $z_v$ থেকে token $v$-এর probability:
 $$
 p_T(v) = \frac{\exp(z_v / T)}{\sum_{u \in V} \exp(z_u / T)}, \qquad T = 0.2
 $$
+
+**এটা কী হিসাব করে:** প্রতিটা সম্ভাব্য পরের token-এর বাছাই হওয়ার সম্ভাবনা। $T$ ছোট হলে সবচেয়ে সম্ভাব্য token-টাই প্রায় সবসময় জেতে।
 **Worked example (আমার উদাহরণ):** দুটো token-এর logit 2.0 ও 1.0। $T = 1$-এ probability অনুপাত $e^{1} \approx 2.72$; $T = 0.2$-এ $e^{1/0.2} = e^{5} \approx 148$ — অর্থাৎ বড় logit-ওয়ালা token প্রায় নিশ্চিতভাবে বাছাই হয়। তাই 10টা sample-এর মধ্যে বৈচিত্র্য কম।
 
 ### ৬.৯ RQ1: Assertion Accuracy
@@ -336,9 +434,13 @@ Task $j$-এর (মোট $N = 164$) জন্য 10টা generated output থ
 $$
 \text{ok}(a) = \begin{cases} 1, & \text{যদি } a \text{ চালালে } f_j^{\star} \text{-এর উপর error ছাড়া true হয়} \\ 0, & \text{অন্যথায় (false, exception, compile error)} \end{cases}
 $$
+
+**এটা কী হিসাব করে:** একটা assertion সঠিক solution-এর উপর error ছাড়া সত্য হলে 1, নইলে 0।
 $$
 \text{Acc}_q = \frac{\sum_{j=1}^{N} \sum_{i=1}^{m_j} \text{ok}(a_{j,i})}{\sum_{j=1}^{N} m_j} \times 100
 $$
+
+**এটা কী হিসাব করে:** সব task-এর সব assertion গুনে, তার মধ্যে কয়টা সঠিক, সেটার শতকরা হার। এটাই accuracy।
 **সতর্কতা:** paper সূত্রটা লেখেনি; "parse the assertions … examine their standalone correctness" বর্ণনা থেকে আমার formalization। Task-ভিত্তিক গড় (প্রতি task-এর accuracy, তারপর গড়) নাকি assertion-ভিত্তিক মোট — paper স্পষ্ট নয়।
 
 **আসলে কী মাপে:** assertion-টা **সঠিক code-এর আচরণের সাথে মিলছে কিনা** (oracle correctness)। এটা মাপে না assertion-টা **ভুল code ধরতে পারে কিনা** (fault-detection strength)। যেমন `assert f([1.0, 2.0], 0.5) == f([1.0, 2.0], 0.5)` সবসময় "accurate", কিন্তু কোনো bug ধরে না।
@@ -349,12 +451,16 @@ $$
 $$
 \bar{\text{Acc}} = \frac{1}{5} \sum_{q} \text{Acc}_q
 $$
+
+**এটা কী হিসাব করে:** পাঁচ language-এর accuracy-কে যোগ করে ৫ দিয়ে ভাগ, মানে সাধারণ গড়।
 **যাচাই (আমার হিসাব):** WizardCoder: (36.8 + 43.9 + 28.7 + 31.3 + 47.7) ÷ 5 = 188.4 ÷ 5 = 37.68 → paper 37.7 ✓। UniTester: (52.5 + 55.1 + 48.8 + 41.7 + 59.7) ÷ 5 = 257.8 ÷ 5 = 51.56 → paper লিখেছে **51.5** (সাধারণ rounding-এ 51.6 হওয়ার কথা; সম্ভবত unrounded মান থেকে গড় করা — ছোট অসঙ্গতি, ফলাফলে প্রভাব নেই)।
 
 ### ৬.১০ Relative Improvement
 $$
 \Delta_{\text{rel}} = \frac{\text{Acc}_{\text{UniTester}} - \text{Acc}_{\text{other}}}{\text{Acc}_{\text{other}}} \times 100\%
 $$
+
+**এটা কী হিসাব করে:** অন্য model-এর তুলনায় UniTester শতকরা কত ভাগ বেশি ভালো। যেমন 37.5 থেকে 52.5 হলে ঠিক 40% বেশি।
 **Paper-এর দুই দাবি যাচাই (আমার হিসাব):**
 - Python, CAT-LM-এর বিপরীতে: $\frac{52.5 - 37.5}{37.5} = 0.40$ → **40%** ✓ ("up to a 40% relative margin")।
 - গড়ে WizardCoder-এর বিপরীতে: $\frac{51.5 - 37.7}{37.7} = 0.366$ → **36.6%** ✓।
@@ -364,6 +470,8 @@ Task $j$, trial $k$ ($K = 10$)-এর generated test $t_{j,k}$:
 $$
 \text{Pass}_q = \frac{1}{K} \sum_{k=1}^{K} \sum_{j=1}^{N} \mathbb{1}\left[t_{j,k} \text{ error ছাড়া চলে}\right], \qquad \text{PassRate}_q = \frac{\text{Pass}_q}{N}
 $$
+
+**এটা কী হিসাব করে:** ১০ বারের চেষ্টায় গড়ে 164টার মধ্যে কয়টা test error ছাড়া চলেছে (#Pass), আর সেটাকে 164 দিয়ে ভাগ করলে শতকরা pass rate।
 **Worked example (আমার হিসাব):** UniTester Python #Pass = 41.2 → $41.2 / 164 = 25.1\%$। Java #Pass = 103.1 → $103.1 / 164 = 62.9\%$।
 
 **Paper-এর "2% থেকে 32%" দাবি কোথা থেকে (আমার হিসাব):** প্রতি model-এর 5 language-এর #Pass-এর গড় ÷ 164:
@@ -379,10 +487,14 @@ Focal function $f_j$-এর executable line set $\mathcal{L}_j$, branch set $B_j
 $$
 \text{LineCov}(t, f_j) = \frac{|\text{Exec}_L(t) \cap \mathcal{L}_j|}{|\mathcal{L}_j|} \times 100, \qquad \text{BranchCov}(t, f_j) = \frac{|\text{Exec}_B(t) \cap B_j|}{|B_j|} \times 100
 $$
+
+**এটা কী হিসাব করে:** focal function-এর যতগুলো line চলার কথা, তার কত শতাংশ test চালানোর সময় সত্যিই চলেছে (line coverage), আর একইভাবে branch-এর কত শতাংশ (branch coverage)।
 Reported মান (আমার formalization; paper "average coverage rates from ten trials" বলেছে):
 $$
 \bar{\text{LineCov}}_q = \frac{1}{K N} \sum_{k=1}^{K} \sum_{j=1}^{N} \text{LineCov}(t_{j,k}, f_j)
 $$
+
+**এটা কী হিসাব করে:** সব task আর সব ১০ বারের coverage-এর গড়। এটাই table-এ দেখানো সংখ্যা।
 **Worked example 1 (Listing 1):** focal `add`-এর executable line মাত্র 1টা (`return new Position(...)`)। Test সেটা call করে → $\text{LineCov} = 1/1 = 100\%$। Branch নেই, তাই branch coverage সংজ্ঞায়িত নয় (tool-ভেদে 100% বা বাদ)।
 
 **Worked example 2 (আমার উদাহরণ, কাল্পনিক):** focal-এ 10টা executable line, 4টা branch outcome। Test 7টা line আর 2টা branch outcome চালায় → LineCov = 70%, BranchCov = 50%।
@@ -400,13 +512,17 @@ Paper বলে UniTester line coverage-এ সর্বোচ্চ 6.32% ও �
 | Go (Stmt) | 12.39 | CodeGen2 10.99 | +1.40 |
 | **গড়** | — | — | (1.20 + 6.32 + 5.16 − 0.06 + 1.40) ÷ 5 = **2.80** ✓ |
 
+**সহজ কথায়:** coverage-এর উন্নতি আছে, কিন্তু ছোট: গড়ে প্রায় ২.৮ point। শুধু C++-এ বড় লাফ (+6.32)। JavaScript-এ UniTester আসলে সামান্য পিছিয়ে।
+
 দাবি দুটোই মেলে — কিন্তু লক্ষ্য করো **JavaScript-এ UniTester line (27.59 বনাম 27.65) ও branch (23.34 বনাম 23.87) দুটোতেই CodeGen2-এর চেয়ে সামান্য পিছিয়ে** — paper এটা আলাদা করে বলেনি।
 
 ### ৬.১৪ Mutation Score (paper-এ নেই — আমাদের প্রস্তাবিত পরিপূরক metric)
 $M$ = focal function-এর non-equivalent mutant-এর set (equivalent mutant — যা আচরণ বদলায় না — আগেই বাদ); test suite $S$:
 $$
-	ext{MS}(S) = rac{|\{\, \mu \in M \;:\; \exists\, t \in S,\; t(\mu) = 	ext{FAIL} \,\}|}{|M|} = rac{	ext{killed}}{	ext{total} - 	ext{equivalent}}
+\text{MS}(S) = \frac{|\{\, \mu \in M \;:\; \exists\, t \in S,\; t(\mu) = \text{FAIL} \,\}|}{|M|} = \frac{\text{killed}}{\text{total} - \text{equivalent}}
 $$
+
+**এটা কী হিসাব করে:** ইচ্ছে করে ঢোকানো bug-গুলোর (mutant) কত শতাংশ অন্তত একটা test ধরে ফেলেছে। যত বেশি, test তত শক্তিশালী।
 **Worked example (কাল্পনিক, আমার উদাহরণ):** HumanEval-এর `has_close_elements`-এর জন্য 20টা mutant, 2টা equivalent। Generated test 9টা kill করে → $\text{MS} = 9 / 18 = 50\%$। Coverage 100% হলেও MS 50% হতে পারে — কারণ assertion দুর্বল।
 
 **কেন জরুরি:** RQ1-এর accuracy বলে "assertion সঠিক code-এ pass করে"; MS বলে "assertion ভুল code-এ fail করে"। আমাদের patch assurance-এর জন্য দ্বিতীয়টাই আসল — ভুল patch ধরতে হবে।
@@ -424,6 +540,8 @@ $$
 | Metric | Accuracy (RQ1), #Pass + Line/Stmt/Branch coverage (RQ2), Paired/Unpaired (RQ3), Mono/Multi (RQ4) |
 | Branch coverage | C++ ও Go-তে নেই (tool-এর সীমা); Go-তে line-এর বদলে statement |
 | Statistical test | **নেই** — কোনো confidence interval, standard deviation বা significance test report করা হয়নি |
+
+**সহজ কথায়:** মোট 8,200টা output প্রতি model-এ। কিন্তু ফলাফল কতটা ওঠানামা করে, বা পার্থক্যটা ভাগ্যের ফল কিনা, তা paper দেখায়নি।
 
 ---
 
@@ -444,6 +562,8 @@ $$
 † UniTester ছাড়া JS-এ সেরা।
 > নোট: সাধারণ text extraction-এ CAT-LM ও UniTester-এর row এলোমেলো দেখায়; `pdftotext -raw` দিয়ে নিশ্চিত করা হয়েছে CAT-LM = 2.7B ও UniTester = 1.1B।
 
+**সহজ কথায়:** UniTester প্রতিটা language-এ সবার সেরা। গড়ে সে প্রায় ১৪ point এগিয়ে (51.5 বনাম 37.7)। শুধু বড় model হলেই ভালো test লেখা যায় না, এটাও এখানে দেখা যাচ্ছে: CAT-LM বড় হয়েও 33.9-এ আটকে।
+
 **প্রতি language-এ সেরা অন্য model-এর তুলনায় UniTester (আমার হিসাব):**
 | Language | সেরা অন্য | UniTester | Absolute | Relative |
 |---|---|---|---|---|
@@ -452,6 +572,8 @@ $$
 | Java | SantaCoder 36.5 | 48.8 | +12.3 | +33.7% |
 | JavaScript | CodeT5p 37.1 | 41.7 | +4.6 | +12.4% |
 | Go | WizardCoder 47.7 | 59.7 | +12.0 | +25.2% |
+
+**সহজ কথায়:** যে language-এ data বেশি (Python), সেখানে উন্নতি বেশি। যেখানে data কম (JavaScript), সেখানে উন্নতি কম। তাই data-র পরিমাণ গুরুত্বপূর্ণ।
 
 Paper-এর পর্যবেক্ষণ: উন্নতি সবচেয়ে বেশি Python-এ (সবচেয়ে বেশি data), সবচেয়ে কম JavaScript-এ (সবচেয়ে কম data, 13,293 pair) — data-র পরিমাণের সাথে সম্পর্কিত।
 
@@ -471,6 +593,8 @@ Paper-এর পর্যবেক্ষণ: উন্নতি সবচেয�
 
 #Pass = 164টা task-এর মধ্যে কতগুলোর test error ছাড়া চলেছে (10 trial-এর গড়); Line/Branch/Stmt = %।
 
+**সহজ কথায়:** এই table দেখায় model-এর লেখা test আদৌ চলে কিনা। বেশিরভাগ model-এর বেশিরভাগ test চলেই না, এমনকি কয়েকটাতে শূন্য। UniTester সবচেয়ে ভালো, কিন্তু সেও গড়ে মাত্র প্রায় ৩২%। আর যা চলে, তারও coverage কম, কারণ সব test focal function-এর সব অংশ ছোঁয় না।
+
 **মূল পর্যবেক্ষণ:**
 - Model-ভিত্তিক গড় pass rate 2%–32% (UniTester ~32%, CodeGen2 ~16.5%) — **বেশিরভাগ generated test চলেই না**।
 - CAT-LM (Python+Java-তে trained) C++ ও Go-তে **একটাও** চলমান test লেখেনি (#Pass 0.0), Java-তেও মাত্র 0.9 — paper-এর "multilingual দরকার" যুক্তির পক্ষে শক্ত প্রমাণ।
@@ -489,6 +613,8 @@ Paper সংখ্যা দেয়নি, শুধু bar chart। আমি
 | Go | 31.6 | ≈ 39.7 | 59.7 |
 | Overall | 33.9 | ≈ 38.6 | 51.6 |
 
+**সহজ কথায়:** শুধু আলাদা snippet দিয়ে শেখালে সামান্য উন্নতি (প্রায় +4.7)। কিন্তু test আর function জোড়া বেঁধে শেখালে অনেক বড় লাফ (আরও প্রায় +13)। মানে জোড়া বাঁধাটাই আসল চাবিকাঠি।
+
 - **Paper-এর দাবি:** Unpaired baseline-এর চেয়ে ভালো (সম্ভবত UniTSyn-এ test ও focal-এর ভারসাম্যপূর্ণ মিশ্রণের কারণে), আর Paired অনেক বেশি ভালো → **জোড়া বাঁধাই মূল কারণ**।
 - **আমার পর্যবেক্ষণ:** Overall-এ উন্নতির ভাগ — Baseline → Unpaired ≈ +4.7, Unpaired → Paired ≈ +13.0। অর্থাৎ মোট উন্নতির প্রায় তিন-চতুর্থাংশ জোড়া বাঁধার কারণে। তবে **Java-তে Unpaired baseline-এর চেয়ে সামান্য খারাপ** (≈34.8 বনাম 36.5) — paper-এর "unpaired more accurate than baseline" সব language-এ সত্য নয়।
 - Paper-এর ব্যাখ্যা: focal function context-এ থাকলে model "expected usage and behavior" বোঝে; না থাকলে সব সম্ভাব্য focal function মুখস্থ করে predict করতে হয়, reasoning দিয়ে নয়।
@@ -504,6 +630,8 @@ Paper সংখ্যা দেয়নি, শুধু bar chart। আমি
 | JavaScript | 30.7 | ≈ 35.0 | 41.7 |
 | Go | 31.6 | ≈ 36.6 | 59.7 |
 | Overall | 33.9 | ≈ 37.7 | 51.6 |
+
+**সহজ কথায়:** শুধু Python শিখলে Python-এ ভালো, কিন্তু C++ আর Java-তে বরং খারাপ হয়ে যায়। পাঁচ language একসাথে শেখালে সব মিলিয়ে অনেক ভালো। তবে এক language-এ ওস্তাদ হতে চাইলে শুধু সেটাই শেখানো ভালো।
 
 - **Python-এ Mono, Multi-এর চেয়ে ভালো** (≈55.2 বনাম 52.5) — একটা language-এ বিশেষজ্ঞ model সেই language-এ ভালো।
 - Python থেকে JavaScript ও Go-তে **positive transfer** (baseline-এর উপরে), কিন্তু C++ ও Java-তে **negative transfer** (baseline-এর নিচে: C++ ≈31.0 বনাম 34.7, Java ≈30.7 বনাম 36.5)।
@@ -522,6 +650,8 @@ Paper সংখ্যা দেয়নি, শুধু bar chart। আমি
 7. **Coverage কম:** সর্বোচ্চ গড় line coverage ~28% (JavaScript); coverage উন্নতি গড়ে মাত্র 2.8 point।
 8. **(আমাদের lens) Generated test সরাসরি patch-এর রায় দেওয়ার মতো নির্ভরযোগ্য নয়:** ~50% ভুল assertion মানে generated test-এ fail করা মানেই patch ভুল নয় — test-টাই ভুল হতে পারে। তাই dynamic signal-কে **filter** করে (যেমন gold/reference আচরণে pass করা test-ই রাখা) এবং **uncertainty-সহ** report করতে হবে।
 
+**সহজ কথায়:** আট পয়েন্টের মূল কথা: জোড়া বাঁধা data কাজের, কিন্তু LLM-এর লেখা test এখনো নির্ভরযোগ্য নয়। তাই আমাদের assurance layer-এ test হবে একটা সাহায্যকারী সংকেত, চূড়ান্ত বিচারক নয়।
+
 ---
 
 ## ১০. কেন এই Solution অন্যগুলোর থেকে ভালো?
@@ -534,11 +664,13 @@ Paper সংখ্যা দেয়নি, শুধু bar chart। আমি
 | Language | Java (1,270 project) | মূলত Java | Python, Java | **Python, Java, Go, C++, JS** |
 | Scale | ছোট | মাঝারি | বড় (60B token) | বড় (2.7M pair, ~1B token) |
 
+**সহজ কথায়:** UniTSyn একসাথে তিনটা পায়: function-level জোড়া (নিখুঁত), project না চালানো (সহজ), আর পাঁচ language (বিস্তৃত)। অন্যরা এর একটা-দুটো পায়, তিনটা একসাথে না।
+
 **মূল শক্তি:**
 1. **Language-agnostic design:** tree-sitter (parsing) + LSP (definition) — দুটোই বহু-ভাষার standard tool।
 2. **Execution-free:** environment setup-এর ঝামেলা নেই — scalability-র মূল কারণ।
 3. **Data efficiency প্রমাণ:** ছোট model + কম token দিয়ে বড় test model-কে হারানো।
-4. **Ablation দিয়ে design choice যাচাই:** pairing (RQ3) ও multilinguality (RQ4) দুটোই আলাদা করে পরীক্ষা।
+4. **Ablation (একটা অংশ সরিয়ে বা বদলে দেখা ফল কেমন হয়) দিয়ে design choice যাচাই:** pairing (RQ3) ও multilinguality (RQ4) দুটোই আলাদা করে পরীক্ষা।
 5. **Leakage নিয়ে সচেতনতা:** নিজেদের সংগ্রহ করা data-তে test না করে public benchmark (HumanEval-X) বেছে নেওয়া — যদিও এর কার্যকারিতা প্রশ্নসাপেক্ষ (Section ১২)।
 
 ---
@@ -570,14 +702,14 @@ Paper সংখ্যা দেয়নি, শুধু bar chart। আমি
 4. (Section 4.2-তে) Branch coverage C++ ও Go-তে মাপা যায়নি — tool-এর সীমা।
 
 ### ১২.২ আমার Critical Analysis (Professor-level observation)
-1. **Pairing-এর নির্ভুলতা কখনো মাপা হয়নি (সবচেয়ে বড় method gap):** Dataset paper হলেও কোনো manual sample audit নেই — কত % pair-এ LSP সঠিক focal function পেয়েছে, "শেষ call before first assertion" heuristic কত % ক্ষেত্রে ভুল (যেমন `assertEquals(expected, helper.compute(x))`-এ আসল call assertion-এর **ভেতরে**; বা শেষ call একটা getter/builder) — জানা যায় না। Dataset-এর label noise অজানা। আমাদের CG10/CG11 ("assurance tool-এর নিজের validity, verifier health")-এর ঠিক উদাহরণ।
+1. **Pairing-এর নির্ভুলতা কখনো মাপা হয়নি (সবচেয়ে বড় method gap):** Dataset paper হলেও কোনো manual sample audit নেই — কত % pair-এ LSP সঠিক focal function পেয়েছে, "শেষ call before first assertion" heuristic কত % ক্ষেত্রে ভুল (যেমন `assertEquals(expected, helper.compute(x))`-এ আসল call assertion-এর **ভেতরে**; বা শেষ call একটা getter/builder) — জানা যায় না। Dataset-এর label noise (ভুল জোড়ার পরিমাণ) অজানা। আমাদের CG10/CG11 ("assurance tool-এর নিজের validity, verifier health")-এর ঠিক উদাহরণ।
 2. **Accuracy মাপে oracle-এর সঠিকতা, fault-detection নয়:** একটা assertion canonical solution-এ pass করলেই "accurate"। `assert f(x) == f(x)` বা খুব সাধারণ assertion-ও accurate। **Mutation score বা আসল bug ধরার পরীক্ষা নেই।** Patch assurance-এর জন্য দরকার উল্টোটা — ভুল code-এ fail করা।
 3. **"Pass" মানে error ছাড়া চলা — কিন্তু কিছু language-এ assertion fail-ও error দেয় না (আমার hypothesis, যাচাই দরকার):**
    - JavaScript prompt-এ `console.assert` ব্যবহার — Node.js-এ `console.assert` false হলে শুধু message print করে, exception throw করে না। তাহলে ভুল assertion-ওয়ালা JS test-ও "#Pass"-এ গোনা হতে পারে।
    - Java prompt-এ `assert` keyword — JVM-এ assertion default-এ বন্ধ থাকে (`-ea` flag ছাড়া)। বন্ধ থাকলে assert-এর ভেতরের expression **চলেই না** — তাহলে test "error ছাড়া চলে" কিন্তু focal function call-ই হয় না। এটা Java-তে উচ্চ #Pass (103.1, ~62.9%) অথচ কম line coverage (10.78%)-এর অসঙ্গতি ব্যাখ্যা করতে পারে।
    - C++ prompt-এ authors নিজেরা `#undef NDEBUG` দিয়েছেন — অর্থাৎ এই ঝুঁকি সম্পর্কে তারা অন্তত C++-এ সচেতন ছিলেন। Java-তে `-ea` ব্যবহার হয়েছে কিনা paper বলেনি।
    - **আমাদের জন্য শিক্ষা:** generated test-কে dynamic signal বানালে test runner-এর configuration (assertion enabled কিনা) নিজেই verifier health-এর অংশ।
-4. **Contamination দাবি দুর্বল:** Paper বলে HumanEval-X-এর focal ও test function "had never been seen by any of the models"। কিন্তু HumanEval (2021) ও HumanEval-X-এর solution ও test GitHub-এ বহুল প্রচারিত; UniTSyn নিজেই 2020-এর পরের GitHub repository mine করেছে, আর baseline model-গুলোর training corpus-ও GitHub-ভিত্তিক। কোনো **decontamination (n-gram/duplicate) check** report করা হয়নি। (CG6)
+4. **Contamination দাবি দুর্বল:** Paper বলে HumanEval-X-এর focal ও test function "had never been seen by any of the models"। কিন্তু HumanEval (2021) ও HumanEval-X-এর solution ও test GitHub-এ বহুল প্রচারিত; UniTSyn নিজেই 2020-এর পরের GitHub repository mine করেছে, আর baseline model-গুলোর training corpus-ও GitHub-ভিত্তিক। কোনো **decontamination (evaluation data-র সাথে training data-র মিল ছেঁকে বাদ দেওয়া) check** report করা হয়নি। (CG6)
 5. **Toy benchmark — repository-level নয়:** HumanEval-X-এর প্রতিটা focal function একক, ছোট, dependency-মুক্ত। অথচ dataset বাস্তব project থেকে — train/eval distribution আলাদা। বাস্তব repository-তে (mock, fixture, import, class state) generated test কেমন করে, তা মাপা হয়নি।
 6. **কোনো variance বা significance নেই:** 10 trial-এর শুধু গড়; standard deviation, confidence interval বা paired test নেই। JavaScript-এ UniTester ও CodeGen2-এর coverage পার্থক্য 0.06 — noise-এর ভেতরে কিনা বলা যায় না। (CG4, CG8)
 7. **Text ও result-এ ছোট অসঙ্গতি:**
@@ -590,6 +722,8 @@ Paper সংখ্যা দেয়নি, শুধু bar chart। আমি
 10. **Loss focal অংশেও:** Training-এ focal function-এর token-এর উপরও loss — model-এর capacity-র একটা অংশ test-এর বদলে production code লেখায় যায়। Test অংশে loss mask করলে কী হতো — ablation নেই।
 11. **Dataset-এর অন্যান্য অজানা দিক:** deduplication, license filtering, test-এর মান (flaky/trivial test বাদ দেওয়া), focal function-এর দৈর্ঘ্য বা test-এ assertion সংখ্যার বণ্টন — কিছুই report করা হয়নি।
 12. **Release:** v1-এ code ও data "upon acceptance" — reproducibility তখন যাচাই করা সম্ভব ছিল না।
+
+**সহজ কথায়:** সীমাবদ্ধতার সারকথা: জোড়া কতটা ঠিক তা মাপা হয়নি, bug ধরার ক্ষমতা মাপা হয়নি, benchmark খেলনার মতো ছোট, আর ফল কতটা ওঠানামা করে তা বলা নেই। এগুলোই আমাদের কাজের সুযোগ।
 
 ---
 
@@ -610,6 +744,8 @@ Paper সংখ্যা দেয়নি, শুধু bar chart। আমি
 | TG1-G11 | **C++/JS-এ কম data (hook-নির্ভরতা)** | বহু-ভাষার assurance-এ এই language-গুলোতে signal দুর্বল | CG9 | Coding-Agent Evaluation & Reliability (SWE-Bench Pro-তে JS/TS/Go) |
 | TG1-G12 | **Buggy focal function-এর test** — focal function নিজেই ভুল হলে generated test ভুল আচরণকে "সঠিক" হিসেবে assert করবে | Patch-এর জন্য test লিখলে patch-এর ভুলও test-এ ঢুকে যায় (circularity) | CG1, CG12 | Patch Validation; Trustworthy AI for SE |
 
+**সহজ কথায়:** gap-গুলোর বেশিরভাগই একই প্রশ্ন ঘুরিয়ে বলা: "generated test কি সত্যিই ভুল patch ধরতে পারে, আর কখন তাকে বিশ্বাস করা যায়?" এই প্রশ্নের উত্তরই আমাদের research-এর কেন্দ্রে।
+
 **আমার পর্যবেক্ষণ — TG1-G12 কেন বিশেষ গুরুত্বপূর্ণ:** UniTSyn-এর setup-এ focal function (canonical solution) সঠিক ধরে নেওয়া হয় আর test তার আচরণ অনুসরণ করে। কিন্তু আমাদের ক্ষেত্রে focal function = agent-এর **patched code**, যেটা ভুল হতে পারে। Model যদি patched code দেখে test লেখে, তাহলে ভুল আচরণকেই assert করবে — test "pass" করবে, কিন্তু কিছু প্রমাণ করবে না। তাই dynamic signal-এর জন্য test-কে **patch দেখে নয়, issue/specification দেখে** লেখাতে হবে, অথবা original ও patched দুই version-এ চালিয়ে **differential** তুলনা করতে হবে।
 
 ---
@@ -619,11 +755,13 @@ Paper সংখ্যা দেয়নি, শুধু bar chart। আমি
 1. **Linking audit:** প্রতি language-এ 200টা random pair manually দেখে precision মাপা; "শেষ call" বনাম "assertion-এর ভেতরের call" বনাম "নাম-মিল" heuristic তুলনা।
 2. **Mutation score যোগ:** HumanEval-X-এর প্রতিটা canonical solution-এর mutant বানিয়ে generated test-এর kill rate মাপা। Accuracy ও MS-এর মধ্যে correlation দেখা।
 3. **Assertion-strength classification:** প্রতিটা assertion-কে strong (নির্দিষ্ট মান তুলনা), weak (type/None check), trivial (tautology) ভাগ করা — "All Smoke, No Alarm"-এর oracle taxonomy-র মতো।
-4. **Runner hardening:** Java-তে `-ea`, JavaScript-এ `console.assert`-এর বদলে `assert` module বা throw-করা wrapper, সব language-এ "focal function আসলে call হয়েছে কিনা" check।
+4. **Runner hardening (test চালানোর পরিবেশ শক্ত করা):** Java-তে `-ea`, JavaScript-এ `console.assert`-এর বদলে `assert` module বা throw-করা wrapper, সব language-এ "focal function আসলে call হয়েছে কিনা" check।
 5. **Repository-level evaluation:** SWE-bench-ধাঁচের task-এ generated test-কে **reproduction test** হিসেবে মাপা (patch-এর আগে fail, পরে pass)।
-6. **Variance report:** 10 sample-এর SD ও bootstrap CI; model-গুলোর paired comparison।
+6. **Variance report (ফল কতটা ওঠানামা করে তার হিসাব):** 10 sample-এর SD ও bootstrap CI; model-গুলোর paired comparison।
 7. **Loss masking ablation:** শুধু test অংশে loss — data efficiency বাড়ে কিনা।
-8. **Decontamination:** HumanEval-X-এর solution/test-এর সাথে UniTSyn-এর n-gram overlap check।
+8. **Decontamination (মিল থাকলে সেই data বাদ দেওয়া):** HumanEval-X-এর solution/test-এর সাথে UniTSyn-এর n-gram overlap check।
+
+**সহজ কথায়:** আট রকম উন্নতির মধ্যে সবচেয়ে সস্তা আর কাজের: linking-এর নির্ভুলতা হাতে গুনে দেখা, আর mutation score যোগ করা।
 
 ---
 
@@ -659,6 +797,8 @@ Paper সংখ্যা দেয়নি, শুধু bar chart। আমি
 | 5. Oracle filter | Generated test original ও patched code-এ চালিয়ে differential; reference থাকলে reference-এ fail করা assertion বাদ | pytest |
 | 6. Metrics | #Pass, line/branch coverage, mutation score, assertion-strength | coverage.py (`--branch`), mutmut |
 | 7. Assurance report | প্রতিটা signal আলাদা, uncertainty (k sample-এর SD), tool ও model version সহ | JSON + HTML |
+
+**সহজ কথায়:** পুরো tool-টা সাতটা ধাপের একটা সারি। প্রথমে test আর function চেনা ও জোড়া বাঁধা। তারপর patch থেকে প্রাসঙ্গিক test খোঁজা। তারপর issue দেখে নতুন test লেখানো ও ছেঁকে নেওয়া। শেষে সব সংকেত আলাদা আলাদা রেখে report বানানো।
 
 **Practical সতর্কতা:**
 - Language server চালানো ও JSON-RPC handle করা প্রথমবার ঝামেলার — প্রথমে শুধু Python, একটা server।
@@ -768,6 +908,8 @@ A: Dataset paper হয়েও dataset-এর label (focal-test pairing)-এ�
 | Reproduction test benchmark | — | SWT-bench, TDD-Bench-এ বর্তমান model-এর ফল **পাওয়া যায়নি** | Fact sheet §6 |
 | Benchmark-এর test-এর মান | HumanEval-X-এর test ধরে নেওয়া হয়েছে নির্ভুল | SWE-bench Verified-এর audited hard subset-এর অন্তত 59.4%-এ flawed test (OpenAI, search-snippet only); SWE-Bench Pro-র public task-এর 27.4% (automated + Codex review) থেকে 34.1% (5 জন মানুষ) broken (secondary report) | Fact sheet §3 |
 
+**সহজ কথায়:** ২০২৪ থেকে ২০২৬-এ test লেখে ছোট model থেকে বড় agent, কিন্তু মূল সমস্যা একই: oracle দুর্বল। আর benchmark-এর নিজের test-ও অনেক সময় ভুল।
+
 **আমার পর্যবেক্ষণ:** দুটো সংখ্যা সরাসরি তুলনীয় নয় — paper-এর 51.5% হলো "assertion সঠিক code-এ সত্য কিনা", আর 80.2% হলো "test patch-এ শক্ত oracle আছে কিনা"। কিন্তু দুটো একই দিকে ইঙ্গিত করে: **2024-এর ছোট model থেকে 2026-এর agent পর্যন্ত, generated test-এর oracle-ই দুর্বলতম অংশ**। আর এই paper accuracy মাপলেও oracle **শক্তি** মাপেনি — 2026-এর গবেষণা ঠিক সেই মাত্রাটাই মাপছে।
 
 ### ২১.২ কোন Finding এখনো সত্য, কোনটা পুরনো হয়ে গেছে
@@ -795,6 +937,8 @@ A: Dataset paper হয়েও dataset-এর label (focal-test pairing)-এ�
 | TG1-G10 / CG5: Security-oriented test | **খোলা** | SusVibes/Endor: FuncPass 62.6–84.4% কিন্তু SecPass 7.8–17.3% (independent, পুরনো agent); বর্তমান model-এর ফল নেই |
 | TG1-G11 / CG9: C++/JS-এ কম data | **তথ্য পাওয়া যায়নি** | Fact sheet-এ language-ভিত্তিক test generation-এর তথ্য নেই |
 | TG1-G12 / CG1, CG12: Buggy code দেখে test লেখা (circularity) | **খোলা** | "Rethinking the Value of Agent-Generated Tests" (search-snippet only) — agent-এর test-এর মূল্য সীমিত; সরাসরি circularity মাপা কোনো গবেষণা fact sheet-এ নেই |
+
+**সহজ কথায়:** ২০২৬-এ এসেও প্রায় সব gap খোলা। কারণ বর্তমান model দিয়ে এসব মাপাই হয়নি। এটাই আমাদের জন্য সুযোগ।
 
 ### ২১.৪ বর্তমান Model দিয়ে আবার পরীক্ষা করলে — SPL3 Idea (cost-aware)
 

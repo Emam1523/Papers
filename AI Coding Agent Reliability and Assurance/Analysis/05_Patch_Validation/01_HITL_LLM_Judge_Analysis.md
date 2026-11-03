@@ -18,13 +18,66 @@
 | Dataset | Google monorepo-এর sanitizer bug: 48 bug, 115 unique F2P patch |
 | Code/data | paper-এ public release-এর উল্লেখ নেই (internal Google data) |
 
+## ★ সহজ ভাষায় পুরো Paper (প্রথমবার পড়ার জন্য)
+
+### ক. Paper-টা কী নিয়ে?
+
+- এটা একটা **নতুন পদ্ধতি (framework) দেখানোর paper**, সাথে ছোট একটা empirical study (বাস্তব data দিয়ে পরীক্ষা) আছে।
+- লেখকরা Google-এর engineer। Paper-টা এসেছে ২০২৬ সালে, একটা workshop-এ (ছোট academic সম্মেলন)।
+- বিষয়: AI যে bug-fix patch (code-এর ছোট সংশোধন) বানায়, সেটা সত্যিই ঠিক কি না, তা যাচাই করা।
+- যাচাই করে একটা LLM (Gemini 2.5 Pro), কিন্তু শুরুতে মানুষ একবার একটা "নম্বর-দেওয়ার-নিয়মাবলি" (rubric) ঠিক করে দেয়।
+- তুলনা: পরীক্ষক (LLM) খাতা দেখে, কিন্তু শিক্ষক আগেই উত্তরপত্রের marking guideline ঠিক করে দিয়েছেন।
+
+### খ. সমস্যাটা কী ছিল?
+
+- AI agent bug fix করলে আমরা সাধারণত test চালাই। Test pass করলে ধরে নিই patch ঠিক।
+- কিন্তু test pass করা মানেই patch সঠিক নয়। Test দুর্বল হলে ভুল patch-ও পার পেয়ে যায়।
+- উদাহরণ: Defects4J-তে একটা tool-এর test-pass-করা patch-এর মাত্র 54.3% সত্যিই সঠিক ছিল। মানে ১০০টার মধ্যে প্রায় ৪৬টা ভুল, অথচ test বলছে "ঠিক আছে"।
+- তাহলে মানুষ দিয়ে দেখালেই হয়? সেখানেও সমস্যা। তিনজন মানুষ একই patch দেখে প্রায়ই ভিন্ন রায় দেন (Fleiss's kappa মাত্র 0.31, অর্থাৎ মিল খুবই কম)।
+- আবার প্রতিটা patch হাতে review করা অনেক ধীর ও ব্যয়বহুল।
+
+### গ. Paper কী solve করেছে?
+
+- মানুষ-দের মিল কেন কম, সেটা ধরেছে: প্রত্যেকে নিজের মতো করে "ঠিক কী হলে patch ঠিক" ভেবেছেন। সবাই একই rubric মানলে মিল অনেক বাড়ে।
+- LLM দিয়ে প্রতিটা bug-এর জন্য rubric-এর খসড়া বানানো যায়। মানুষকে শুধু খসড়াটা দেখে ঠিক করে দিতে হয় (প্রতি bug-এ একবার)।
+- সেই ঠিক-করা rubric দিয়ে LLM judge প্রতিটা patch-কে VALID বা INVALID বলে। এতে প্রতি patch-এ মানুষ লাগে না।
+- মূল সংখ্যা ১: 115 patch-এ judge-এর kappa 0.57। মানে মানুষের সিদ্ধান্তের সাথে "মাঝারি" মিল।
+- মূল সংখ্যা ২: judge ঠিক patch-এর 93% ধরে (recall 0.93), কিন্তু যে patch-কে VALID বলে তার মাত্র 65% সত্যিই ঠিক (precision 0.65)। মানে ভুল patch-ও ঢুকে যায়।
+- মূল সংখ্যা ৩: test-pass-করা 504 patch-এর 43.5% judge-এর মতে INVALID। মানে ১০০টা test-pass patch-এর প্রায় ৪৪টা আসলে গ্রহণযোগ্য নয়।
+
+### ঘ. কীভাবে solve করেছে?
+
+1. আগে একটা ছোট study করেন: ৩ জন মানুষ 52টা patch আলাদা আলাদা rubric দিয়ে দেখেন। মিল কম (0.31)।
+2. একই rubric দিলে মিল বাড়ে, এটা দেখে তাঁরা একটা rubric template বানান (root cause, requirement-এর তালিকা, গ্রহণযোগ্য ও অগ্রহণযোগ্য উদাহরণ)।
+3. প্রতিটা bug-এর জন্য bug-এর বিবরণ ও আসল fix LLM-কে দিয়ে template অনুযায়ী rubric-এর খসড়া বানানো হয়।
+4. একজন developer খসড়া ঠিক করেন (ভুল সরান, বাড়তি শর্ত কাটেন)। দ্বিতীয় developer সব পরিবর্তন নিশ্চিত করেন। এটাই "golden rubric"।
+5. Judge LLM-কে bug-এর বিবরণ, patch ও golden rubric দেওয়া হয়। সে VALID বা INVALID এবং একটা কারণ বলে।
+6. তুলনা করার জন্য 115টা patch তিনজন মানুষ স্বাধীনভাবে label করেন। মতভেদ হলে আলোচনা করে একটা final label ঠিক করা হয়।
+7. Judge-এর রায়কে সেই final label-এর সাথে মেলানো হয় (kappa, precision, recall দিয়ে)।
+8. শেষে ablation (এক-একটা অংশ সরিয়ে দেখা): human refinement ছাড়া, template ছাড়া, আর rubric-এর বদলে শুধু আসল fix দিয়ে judge চালিয়ে দেখা কতটা খারাপ হয়।
+
+### ঙ. এরপর কী করা যায়?
+
+- লেখকরা বলেন: user study করা দরকার (rubric review-তে মানুষের কত সময় ও মানসিক চাপ লাগে)।
+- লেখকরা আরও বলেন: rubric-কে বিভিন্ন patch দিয়ে stress test করা এবং non-functional দিক (যেমন security) যোগ করা।
+- এখনো খোলা: judge ভুল patch কেন VALID বলে (22/71), একই কাজ আবার চালালে একই ফল আসে কি না, আর judge-কে ঠকানো যায় কি না।
+- এখনো খোলা: ফলটা শুধু Google-এর C++ sanitizer bug-এ দেখা গেছে। open-source ও অন্য ধরনের bug-এ কেমন হবে জানা নেই।
+- আমরা SPL3-তে করতে পারি: SWE-bench-এর মতো open data-র ছোট subset-এ এই পদ্ধতি চালিয়ে specificity ও confidence interval মাপা।
+- আমরা আরও করতে পারি: judge-কে ঠকানোর adversarial test (patch-এ "এটা ঠিক" লিখে দেওয়া) এবং judge-এর রায় test-এর ফলের সাথে মিলিয়ে দেখা।
+
+> **মনে রাখো:**
+> Test pass করা মানেই patch ঠিক নয়, আর মানুষও একা নির্ভরযোগ্য নয়। একটা ভাগ করা rubric থাকলে মানুষ ও LLM দুজনেরই রায় অনেক ভালো হয়।
+> কিন্তু এই judge এখনো ভুল patch-কে VALID বলে ফেলে (precision 0.65), তাই তাকে একা বিশ্বাস না করে test-এর সাথে একসাথে ব্যবহার করতে হবে।
+
 ## ১. TL;DR
 
-**এক কথায়:** Patch "test pass করেছে" মানেই সঠিক নয়। Human reviewer-রাও নিজেদের মধ্যে একমত হন না (Fleiss's kappa 0.31)। লেখকরা দেখালেন যে সবাই একই **rubric** ব্যবহার করলে agreement বাড়ে। তাই তাঁরা প্রতিটি bug-এর জন্য LLM দিয়ে rubric-এর draft বানান, দুজন human developer একবার সেটা review করে "golden rubric" করেন, তারপর LLM judge সেই rubric দিয়ে patch-কে VALID/INVALID বলে।
+**এক কথায়:** Patch "test pass করেছে" মানেই সঠিক নয়। Human reviewer-রাও নিজেদের মধ্যে একমত হন না (Fleiss's kappa 0.31; kappa হল দুজন বা বেশি বিচারকের মিলের মাপ, 1 মানে পুরো মিল, 0 মানে দৈবাৎ মিল)। লেখকরা দেখালেন যে সবাই একই **rubric** (লিখিত মূল্যায়ন-নিয়ম) ব্যবহার করলে agreement (মিল) বাড়ে। তাই তাঁরা প্রতিটি bug-এর জন্য LLM দিয়ে rubric-এর draft (খসড়া) বানান। দুজন human developer একবার সেটা review করে "golden rubric" করেন। তারপর LLM judge সেই rubric দিয়ে patch-কে VALID/INVALID বলে।
 
-- Judge vs human consensus: **full** (115 patch) kappa 0.57, recall 0.93, precision 0.65; **clear** (81 patch, যেখানে 3 human একমত) kappa 0.75, recall 0.94, precision 0.80 (Table 6)।
+- Judge vs human consensus: **full** (115 patch) kappa 0.57, recall 0.93 (ঠিক patch-এর কত অংশ ধরা পড়ল), precision 0.65 (VALID বলা patch-এর কত অংশ সত্যিই ঠিক); **clear** (81 patch, যেখানে 3 human একমত) kappa 0.75, recall 0.94, precision 0.80 (Table 6)।
 - Human refinement ছাড়া (draft rubric) kappa নামে 0.38-এ; free-form rubric-এ 0.29; ground-truth patch দিয়ে 0.39 (Table 6)।
 - 504টি F2P patch-এর 219টি (43.5%) judge INVALID বলেছে (§7)। অর্থাৎ pass@k অনেক বেশি আশাবাদী।
+
+**সহজ কথায়:** Judge প্রায় সব ঠিক patch চিনতে পারে, কিন্তু কিছু ভুল patch-কেও "ঠিক" বলে ফেলে। আর test-pass patch-এর প্রায় অর্ধেক আসলে গ্রহণযোগ্য নয়।
 
 **Supervisor-কে ৩০ সেকেন্ডে:**
 
@@ -52,6 +105,8 @@
 3. **Scale:** manual review ব্যয়বহুল। Industrial APR deployment (Google) বাড়ছে, offline ফল online-এর সাথে মিলতে হবে।
 4. **Rubric তৈরির বোঝা:** আগের কাজে (Agent-as-a-Judge, 90% alignment) হাতে-লেখা requirement লেগেছিল; নতুন bug-এর জন্য সেটা scale হয় না।
 
+**সহজ কথায়:** Test-এ ভরসা করা যায় না, মানুষের রায়েও মিল নেই, আর হাতে সব দেখার সময় নেই। তাই মানুষ ও LLM মিলিয়ে একটা সস্তা অথচ নির্ভরযোগ্য উপায় দরকার ছিল।
+
 ## ৪. Goal ও Research Question
 
 **Goal:** APR patch-এর validity-র জন্য scalable ও reliable offline evaluation, human-in-the-loop রেখে।
@@ -65,6 +120,8 @@ Contribution (paper-এর তালিকা): (1) human evaluation-এর empi
 | RQ2 | Golden-rubric judge কি human consensus-এর সাথে মেলে? | §5.2, Table 5–6 |
 | Ablation | Refinement, template, rubric-vs-GT-patch-এর অবদান কতটুকু? | §6, Table 6 |
 
+**সহজ কথায়:** Paper তিনটা প্রশ্নের উত্তর খোঁজে: মানুষের মিল কেমন, LLM কি ভালো rubric বানাতে পারে, আর সেই rubric-এর judge কি মানুষের মতো রায় দেয়।
+
 ## ৫. Methodology (ধাপে ধাপে)
 
 ### ৫.১ Motivation study (§2)
@@ -77,6 +134,8 @@ Contribution (paper-এর তালিকা): (1) human evaluation-এর empi
 6. একই rubric ব্যবহার করলে জোড়ায় Cohen's kappa 0.84, 0.67, 0.53 (Table 3)।
 7. তিনজন disagreement বিশ্লেষণ করে একটি **template** বানান: root cause, requirement checklist, acceptable/unacceptable example।
 8. তিনজন নতুন rater (আগে জড়িত ছিলেন না) golden rubric নিয়ে একই 52 patch দেখেন: Fleiss's kappa **0.66**।
+
+**সহজ কথায়:** একই rubric ধরিয়ে দিলে তিনজন মানুষের মিল 0.31 থেকে 0.66-এ ওঠে। তাই "rubric-ই আসল চাবিকাঠি" এটাই এই study-র শিক্ষা।
 
 ### ৫.২ Framework (§3, Figure 1)
 
@@ -92,6 +151,8 @@ Contribution (paper-এর তালিকা): (1) human evaluation-এর empi
 2. Output: "thought" অংশ, binary label (VALID/INVALID), সংক্ষিপ্ত justification।
 3. Label ও justification সংরক্ষিত, যাতে qualitative বিশ্লেষণ সম্ভব হয়।
 
+**সহজ কথায়:** মানুষ প্রতি bug-এ একবার rubric ঠিক করে। এরপর ওই bug-এর যত patch আসুক, judge নিজে নিজে দেখে ফেলে।
+
 ### ৫.৩ Dataset তৈরি (§4.1)
 
 1. Prior curation process (Rondon et al. [30]) অনুসরণ করে 50 sanitizer bug।
@@ -100,11 +161,15 @@ Contribution (paper-এর তালিকা): (1) human evaluation-এর empi
 4. প্রতি bug থেকে সর্বোচ্চ 3টি unique F2P patch random sample (hash দিয়ে uniqueness)।
 5. 2টি bug-এ কোনো F2P patch নেই, বাদ। ফল: 48 bug, 115 patch (44 C++, 3 Go, 1 Java bug)।
 
+**সহজ কথায়:** Google-এর AI 50টা bug-এর জন্য ১০০০টা patch বানায়। তার মধ্যে test-pass করা patch থেকে বেছে 115টা নেওয়া হয়।
+
 ### ৫.৪ Human benchmark (§4.3.2, §5.2.1)
 
 1. 115 patch-এর প্রতিটিতে 3 জন লেখক-rater স্বাধীনভাবে, judge-এর output না দেখে, golden rubric দিয়ে label করেন।
 2. মতভেদ হলে আলোচনা করে একটি final label (consensus)।
 3. দুটি benchmark: **full** = 115 patch, **clear** = 81 patch (আলোচনার আগে 3 জনই একমত)।
+
+**সহজ কথায়:** "clear" মানে সহজ patch, যেখানে তিনজন মানুষ প্রথমেই একমত ছিলেন। "full" মানে সব patch, কঠিনগুলোসহ।
 
 ### ৫.৫ RQ1 মেট্রিক (§4.3.1)
 
@@ -122,6 +187,8 @@ Contribution (paper-এর তালিকা): (1) human evaluation-এর empi
 | R_ff | template ছাড়া free-form rubric, refinement নেই |
 | GT patch | rubric নেই; judge-কে ground-truth patch reference হিসেবে দেওয়া (CodeJudge/MT-Bench ধরন) |
 
+**সহজ কথায়:** এক-এক করে একটা অংশ সরিয়ে দেখা হয়েছে সেই অংশ কতটা কাজের। এটাই ablation (অংশ বাদ দিয়ে পরীক্ষা)।
+
 সব ক্ষেত্রে Gemini 2.5 Pro। Temperature, prompt text, বা কতবার judge চালানো হয়েছে paper-এ নেই।
 
 ## ৬. Math
@@ -133,27 +200,41 @@ Contribution (paper-এর তালিকা): (1) human evaluation-এর empi
 - Golden rubric: $R_{\text{gold}} = H(R_{\text{draft}})$, H = human developer-এর review/refine।
 - Judge: $(y, j) = J_{\text{llm}}(b, p, R_{\text{gold}})$, y ∈ {VALID, INVALID}, j = justification।
 
+**সহজ কথায়:** G হল LLM-এর খসড়া লেখা, H হল মানুষের ঠিক করা, J হল LLM-এর রায় দেওয়া। তিনটা ধাপ পরপর বসানো।
+
 ### ৬.২ Confusion matrix ও মেট্রিক
 
 VALID class-কে positive ধরা হয়, human consensus = ground truth।
 
 $$\text{Precision} = \frac{TP}{TP + FP}, \quad \text{Recall} = \frac{TP}{TP + FN}$$
 
+এই সূত্র দুটো প্রশ্নের উত্তর দেয়। Precision: judge যতগুলোকে VALID বলল, তার কত অংশ সত্যিই VALID। Recall: সত্যিকার VALID patch-এর কত অংশ judge ধরতে পারল।
+
 $$F_1 = \frac{2 \cdot \text{Precision} \cdot \text{Recall}}{\text{Precision} + \text{Recall}}, \quad \text{Accuracy} = \frac{TP + TN}{TP + TN + FP + FN}$$
+
+F1 হল precision ও recall-এর একটা মিলিত গড়। Accuracy হল মোট রায়ের কত অংশ মানুষের সাথে মিলেছে।
 
 $$\text{NPV} = \frac{TN}{TN + FN}, \quad \text{Specificity} = \frac{TN}{TN + FP}$$
 
+NPV বলে: judge INVALID বললে কতবার সে ঠিক। Specificity বলে: সত্যিকার INVALID patch-এর কত অংশ judge ধরতে পারল।
+
 - TP: judge VALID, human VALID। FP: judge VALID, human INVALID (বিপজ্জনক ভুল)। FN: judge INVALID, human VALID। TN: দুজনই INVALID।
 - Specificity paper রিপোর্ট করেনি; আমি যোগ করেছি, কারণ আমাদের CG-তে "low specificity" মূল প্রশ্ন।
+
+**সহজ কথায়:** FP হল সবচেয়ে বিপজ্জনক ভুল, কারণ ভুল patch "ঠিক" তকমা পেয়ে যায়। FN-এ শুধু একটা ভালো patch হারায়।
 
 ### ৬.৩ Cohen's kappa (দুজন বিচারক, বা judge বনাম human)
 
 $$\kappa = \frac{p_o - p_e}{1 - p_e}$$
 
+এই সূত্র হিসাব করে: দুজন বিচারকের মিল থেকে দৈবাৎ-মিলের অংশ বাদ দিলে আসল মিল কতটা থাকে। তাই এটা শুধু "কত % মিলেছে"-র চেয়ে সৎ মাপ।
+
 - $p_o$ = observed agreement = দুজন যে অনুপাতে একমত (accuracy-র মতো)।
 - $p_e$ = দৈবাৎ মিল হওয়ার প্রত্যাশিত সম্ভাবনা:
 
 $$p_e = \sum_{c} p_{1,c} \cdot p_{2,c}$$
+
+এই সূত্র হিসাব করে: দুজন চোখ বন্ধ করে ছুঁড়ে উত্তর দিলেও গড়ে কতটা মিল হতো।
 
 যেখানে $p_{1,c}$ = বিচারক 1 যে অনুপাতে class c বলেছে, $p_{2,c}$ = বিচারক 2-এর অনুপাত। Binary-তে c ∈ {VALID, INVALID}।
 
@@ -170,11 +251,15 @@ $$p_e = \sum_{c} p_{1,c} \cdot p_{2,c}$$
 | Judge INVALID | 3 (FN) | 49 (TN) | 52 |
 | মোট | 44 | 71 | 115 |
 
+**সহজ কথায়:** এখানে 115টার মধ্যে judge আর মানুষ 90টায় একমত (41 + 49)। 25টায় মেলেনি (22 + 3)।
+
 $$p_o = \frac{41 + 49}{115} = 0.7826$$
 
 $$p_e = \frac{63}{115} \cdot \frac{44}{115} + \frac{52}{115} \cdot \frac{71}{115} = \frac{2772 + 3692}{13225} = 0.4888$$
 
 $$\kappa = \frac{0.7826 - 0.4888}{1 - 0.4888} = 0.575 \approx 0.57$$
+
+**সহজ কথায়:** মোট মিল 78% শুনতে ভালো। কিন্তু দৈবাৎ মিল বাদ দিলে থাকে 0.57, অর্থাৎ শুধু "মাঝারি"। এটাই kappa-র কাজ।
 
 এটা Table 6-এর 0.57 ও accuracy 0.78-এর সাথে মিলে যায় (আমার পুনর্গঠন, paper-এ confusion matrix দেওয়া নেই)। NPV = 49/52 = 0.94 ✓; মোট ভুল = 22 + 3 = 25 ✓ (§5.2.2-এর 25 patch)।
 
@@ -182,12 +267,16 @@ $$\kappa = \frac{0.7826 - 0.4888}{1 - 0.4888} = 0.575 \approx 0.57$$
 
 **Cross-check:** full-এ FP = 22, clear-এ FP = 8, ফলে human-disagreement-এর 34 patch-এ FP = 14; paper বলে ঠিক "22-এর মধ্যে 14 (63.6%)" ✓। 14/22 = 0.636।
 
+**সহজ কথায়:** সংখ্যাগুলো পরস্পরের সাথে মিলে যাচ্ছে, তাই আমার পুনর্গঠন ঠিক বলে ধরা যায়।
+
 **Confidence interval (আমার আনুমানিক হিসাব):** Cohen's kappa-র standard error ≈ $\sqrt{p_o(1-p_o)/(n(1-p_e)^2)}$।
 
 - full: $\sqrt{0.7826 \cdot 0.2174 / (115 \cdot 0.2613)} \approx 0.075$ ⇒ 95% CI ≈ 0.57 ± 0.15 = 0.42 থেকে 0.72।
 - clear: SE ≈ 0.073 ⇒ 0.75 ± 0.14 = 0.61 থেকে 0.89।
 
 মানে "moderate" ও "substantial" ব্যান্ড overlap করে; ছোট sample-এ ব্যান্ড-দাবি দুর্বল। Paper কোনো CI দেয়নি।
+
+**সহজ কথায়:** নমুনা ছোট, তাই kappa-র আসল মান বেশ কিছুটা উপরে-নিচে হতে পারে। "0.75 substantial" বলার আগে সাবধান থাকা ভালো।
 
 ### ৬.৪ Fleiss's kappa (৩+ বিচারক)
 
@@ -197,6 +286,8 @@ $$P_i = \frac{1}{n(n-1)} \left( \sum_{j=1}^{k} n_{ij}^2 - n \right), \quad \bar{
 
 $$p_j = \frac{1}{N n} \sum_{i=1}^{N} n_{ij}, \quad \bar{P}_e = \sum_{j=1}^{k} p_j^2, \quad \kappa_F = \frac{\bar{P} - \bar{P}_e}{1 - \bar{P}_e}$$
 
+এই সূত্র হিসাব করে: তিন বা বেশি বিচারক একই item-এ কতটা একমত, দৈবাৎ মিল বাদ দিয়ে। প্রতিটা item-এর জন্য জোড়ায় জোড়ায় মিল গুনে গড় করা হয়।
+
 - $P_i$ = item i-তে বিচারকদের জোড়া-ভিত্তিক মিলের অনুপাত; $\bar{P}$ = গড় মিল; $\bar{P}_e$ = দৈবাৎ মিল।
 
 **Toy example (আমার হিসাব, paper-এর data নয়):** N = 4 patch, n = 3 rater, VALID-ভোট 3, 2, 1, 0।
@@ -205,11 +296,15 @@ $$p_j = \frac{1}{N n} \sum_{i=1}^{N} n_{ij}, \quad \bar{P}_e = \sum_{j=1}^{k} p_
 - VALID-ভোট মোট 6 / 12 = 0.5 ⇒ $\bar{P}_e = 0.25 + 0.25 = 0.5$।
 - $\kappa_F = (0.667 - 0.5)/0.5 = 0.333$ (fair)। এটা paper-এর 0.31-এর কাছাকাছি স্তর, বোঝায় যে 4 patch-এর 2টিতে 2-1 ভাগ হলেই kappa এত নেমে যায়।
 
+**সহজ কথায়:** ছোট একটা উদাহরণেই দেখা যায়, দুই-একটা patch-এ ২-১ ভাগ হলেই kappa অনেক নেমে যায়।
+
 Paper-এর Fleiss সংখ্যা: 0.31 (self-authored rubric, Table 1), 0.66 (নতুন 3 rater, golden rubric, §2)।
 
 ### ৬.৫ Krippendorff's alpha
 
 $$\alpha = 1 - \frac{D_o}{D_e}$$
+
+এই সূত্র হিসাব করে: বিচারকদের মতভেদ দৈবাৎ-প্রত্যাশিত মতভেদের তুলনায় কতটা কম। মতভেদ শূন্য হলে alpha = 1।
 
 - $D_o$ = observed disagreement, $D_e$ = দৈবাৎ প্রত্যাশিত disagreement। Missing rating সহ ৩+ rater-এও কাজ করে (Paper §4.2 এই কারণেই এটি রাখে)।
 - Paper: α = 0.60 (115 patch, আলোচনার আগে), clear benchmark-এ 1.0 (নির্মাণগতভাবে)।
@@ -222,13 +317,19 @@ $$\alpha = 1 - \frac{D_o}{D_e}$$
 
 $$\text{NED} = \frac{\text{Levenshtein}(R_{\text{draft}}, R_{\text{gold}})}{\text{length}(R_{\text{draft}})}$$
 
+এই সূত্র হিসাব করে: মানুষ খসড়া rubric-এর কত অংশ বদলেছে। 0 মানে কিছুই বদলায়নি, 1-এর কাছে মানে প্রায় সবটা বদলেছে।
+
 Paper-এর সংখ্যা: median absolute edit = 276 character, mean 385; draft median length 2,004, mean 2,058 character; median NED = 0.14, max = 0.70।
 
 আমার হিসাব: 276/2,004 = 0.138 ≈ 0.14 ✓ (median-এর সাথে মেলে); mean-এর আনুমানিক অনুপাত 385/2,058 = 0.19।
 
+**সহজ কথায়:** মানুষ সাধারণত খসড়ার প্রায় 14% বদলেছেন। অর্থাৎ LLM-এর খসড়া মোটামুটি কাজের ছিল।
+
 ### ৬.৮ pass@k বনাম (pass & LLM-valid)@k
 
 pass@k = k টি sample-এর অন্তত একটি F2P হওয়ার সম্ভাবনা। (pass & LLM-valid)@k = অন্তত একটি patch F2P **এবং** judge-এর VALID। Figure 3: k = 20-এ pass@20 = 96%, (pass & LLM-valid)@20 = 80%, ফাঁক 16 percentage point (প্রতি bug-এ 20 patch, 50 bug, মোট 1,000 patch)।
+
+**সহজ কথায়:** "20 বার চেষ্টা করে অন্তত একবার test পাস" ধরলে 96%। কিন্তু "পাস এবং judge-এর মতে ঠিক" ধরলে মাত্র 80%। ফাঁকটা (16 পয়েন্ট) আসলে অতি-আশাবাদের পরিমাণ।
 
 ### ৬.৯ Baseline হিসাব: "সব F2P-কে VALID বলো" (execution-only)
 
@@ -237,6 +338,8 @@ pass@k = k টি sample-এর অন্তত একটি F2P হওয়া
 - Precision = 44/115 = 0.383; Recall = 1.00; Accuracy = 0.383; F1 = 0.553; Specificity = 0; κ = 0।
 - Clear-এ: precision = 35/81 = 0.432; F1 = 0.604।
 - তুলনা: judge F1 0.77 (full), 0.87 (clear); Specificity = 49/71 = 0.69 (full), 38/46 = 0.83 (clear) (আমার হিসাব)।
+
+**সহজ কথায়:** "সবাই ঠিক" বলার মতো সহজ নিয়মের precision 0.38। Judge সেখানে 0.65, তাই judge নিঃসন্দেহে কিছু কাজের।
 
 ## ৭. Setup
 
@@ -252,6 +355,8 @@ pass@k = k টি sample-এর অন্তত একটি F2P হওয়া
 | Metrics | Cohen's kappa, Krippendorff's alpha, accuracy, precision, recall, F1, NPV |
 | Reference | Ground-truth fix (code owner-এর) |
 | Motivation study | 5 bug, 52 F2P patch, 3 rater + 3 নতুন rater |
+
+**সহজ কথায়:** পুরো পরীক্ষাটা Google-এর ভেতরের C++ bug-এ, একটা AI system ও একটা LLM দিয়ে। তাই পরিসর ছোট।
 
 Bug-type বণ্টন (Table 4): data_race 14 bug/33 patch; use_of_uninitialized_value 11/26 (এবং আরেক সারিতে 2/5); misaligned_pointer_use 6/13; data_race_go 3/8; fuzztest_crash 2/4; leak_detected 2/6; signed_integer_overflow 2/5; stack_use_after_scope 2/6; hwasan_tag_mismatch 1/2; invalid_bool_load 1/2; invalid_enum_load 1/3; null_pointer_use 1/2। মোট 48 bug, 115 patch (আমি যোগ করে যাচাই করেছি; তবে use_of_uninitialized_value দুবার এসেছে, §১২-তে উল্লেখ)।
 
@@ -273,6 +378,8 @@ Bug-type বণ্টন (Table 4): data_race 14 bug/33 patch; use_of_uninitiali
 | 3 | Rater 3 ও 1 | Rater 3-এর rubric | 0.53 |
 | §2 | নতুন 3 rater (Fleiss) | golden (template) | 0.66 |
 
+**সহজ কথায়:** নিজের নিজের rubric-এ মিল কম (0.19 থেকে 0.39)। একই rubric হলে বেড়ে 0.53 থেকে 0.84, আর template-ওয়ালা golden rubric-এ নতুন তিনজনের 0.66।
+
 ### ৮.২ RQ1: Rubric generation (§5.1)
 
 | মেট্রিক | মান |
@@ -282,6 +389,8 @@ Bug-type বণ্টন (Table 4): data_race 14 bug/33 patch; use_of_uninitiali
 | Absolute edit distance (median / mean) | 276 / 385 character |
 | Normalized edit distance (median / max) | 0.14 / 0.70 |
 | সম্পূর্ণ rewrite দরকার | কোনোটিতে নয় |
+
+**সহজ কথায়:** 50টার মধ্যে 44টা rubric মানুষ বদলেছেন। কিন্তু বদল ছোট ছিল (প্রায় 14%) আর কোনোটাই পুরো নতুন করে লিখতে হয়নি।
 
 Edit type (একটি rubric একাধিক ধরনে পড়তে পারে, তাই যোগফল 44-এর বেশি, আমার পর্যবেক্ষণ): deletion 39, modification 14, addition 3 rubric।
 
@@ -295,6 +404,8 @@ Thematic category (Figure/text §5.1.3):
 | Refining Scope and Expectations | 6 |
 | Standardization | 5 |
 
+**সহজ কথায়:** LLM-এর খসড়ার প্রধান দোষ বাড়তি শর্ত চাপানো। মানুষের কাজ বেশিরভাগ ক্ষেত্রেই কেটে ছোট করা।
+
 ### ৮.৩ RQ2: Human benchmark (Table 5)
 
 | মেট্রিক | full | clear |
@@ -306,6 +417,8 @@ Thematic category (Figure/text §5.1.3):
 | Weighted average Cohen's kappa | 0.76 | 1.0 |
 | Consensus VALID patch | 44 | 35 |
 | Consensus INVALID patch | 71 | 46 |
+
+**সহজ কথায়:** 115টার মধ্যে 81টায় তিনজন মানুষ প্রথমেই একমত। বাকি 34টা কঠিন, যেখানে মানুষেরাই দ্বিধায় ছিলেন।
 
 34 disagreement patch-এর কারণ (human): Overlooked Requirements 15, Unnecessary Changes 9, Rubric Ambiguity 8, Correctness Assessment 2 (মোট 34 ✓)।
 
@@ -324,9 +437,13 @@ Thematic category (Figure/text §5.1.3):
 | F1 | full | 0.77 | 0.63 | 0.63 | 0.67 |
 | F1 | clear | 0.87 | 0.72 | 0.67 | 0.73 |
 
+**সহজ কথায়:** প্রতিটা সারিতে R_gold (পুরো পদ্ধতি) সবচেয়ে ভালো, শুধু recall-এ পার্থক্য কম। অর্থাৎ human refinement ও template দুটোই দরকার, আর rubric শুধু আসল fix-এর চেয়ে ভালো।
+
 (Table-এর column-গুলো PDF-এর `-raw` extract থেকে নিশ্চিত করা; layout extract garbled ছিল।) NPV: 0.94 (full), 0.95 (clear)।
 
 **Judge-এর 25 ভুল (full):** Overlooked Requirements 10, Unnecessary Changes 9, Rubric Ambiguity 6। 22 false positive-এর 14 (63.6%) ঠিক সেই patch-এ যেখানে human-দেরও মতভেদ ছিল।
+
+**সহজ কথায়:** Judge-এর ভুলের বড় অংশ সেই patch-এ, যেখানে মানুষেরাও নিশ্চিত ছিলেন না। তাই ভুলগুলো পুরো এলোমেলো নয়।
 
 ### ৮.৫ Discussion পরীক্ষা: pass@k gap (§7, Figure 3)
 
@@ -339,6 +456,8 @@ Thematic category (Figure/text §5.1.3):
 | k = 20: (pass & LLM-valid)@20 | 80% |
 | ফাঁক | 16 percentage point |
 
+**সহজ কথায়:** শুধু test দেখলে 100টা bug-এর 96টা "সমাধান হয়েছে" মনে হয়। Judge-এর চোখে সেটা 80টা। মানে test-এর হিসাব ফাঁপানো।
+
 Judge-এর rejection কারণ (219-এর মধ্যে, LLM দিয়ে cluster):
 
 | কারণ | % |
@@ -347,6 +466,8 @@ Judge-এর rejection কারণ (219-এর মধ্যে, LLM দিয�
 | Not Addressing Root Cause (symptom ঢাকা, sanitizer suppress ইত্যাদি) | 26.6 |
 | Incomplete Implementation | 7.3 |
 | Introducing New Issues | 5.5 |
+
+**সহজ কথায়:** বেশিরভাগ বাতিলের কারণ rubric-এর শর্ত না মানা (style, scope)। আসল root cause মিস করা প্রায় এক-চতুর্থাংশ।
 
 (যোগফল 100.0 ✓)। আমার পর্যবেক্ষণ: 60.6% rejection "rubric-এর শর্ত ভঙ্গ" (style/scope), অর্থাৎ আসল functional ভুল নয়; এই 60.6% পুরোটা correctness নয়, অনেকটাই "review-গ্রহণযোগ্যতা"।
 
@@ -362,6 +483,8 @@ Judge-এর rejection কারণ (219-এর মধ্যে, LLM দিয�
 8. **Judge-এর শক্তি recall ও NPV, দুর্বলতা precision:** recall 0.93, NPV 0.94, কিন্তু precision 0.65; ভুলের 63.6% সেই patch-এ যেখানে human-ও দ্বিধায়।
 9. **pass@k আশাবাদী:** 504 F2P-র 43.5% judge-এর মতে invalid; pass@20 96% বনাম (pass & LLM-valid)@20 80%।
 
+**সহজ কথায়:** মূল শিক্ষা তিনটা। মানুষের রায়ও এলোমেলো, ভাগ করা rubric মিল বাড়ায়, আর test-pass patch-এর অনেকটাই আসলে গ্রহণযোগ্য নয়।
+
 ## ১০. Alternative-এর চেয়ে কেন ভালো
 
 | Alternative | সমস্যা | এই paper-এর সুবিধা |
@@ -372,6 +495,8 @@ Judge-এর rejection কারণ (219-এর মধ্যে, LLM দিয�
 | Raw LLM draft rubric | Hallucination ও overfitting; recall 0.66 | একবারের human refinement; recall 0.93 |
 | CodeBLEU ইত্যাদি similarity | Validity ধরে না [29, 35] | Validity সরাসরি লক্ষ্য |
 | Full manual review প্রতি patch | ধীর, দামী | Human কাজ প্রতি **bug** একবার, patch-সংখ্যায় নয় |
+
+**সহজ কথায়:** অন্য উপায়গুলো হয় ধীর, নয় অস্থির, নয় ভুল ধরতে পারে না। এই পদ্ধতিতে মানুষ প্রতি bug-এ একবার লাগে, প্রতি patch-এ নয়।
 
 আমার পর্যবেক্ষণ: তুলনাটি "judge বনাম অন্য judge/reference" ধরনের। Execution-based বা hidden-test oracle-এর সাথে একই label-এ সরাসরি তুলনা (যেমন differential/distinguishing test) করা হয়নি।
 
@@ -390,6 +515,8 @@ Judge-এর rejection কারণ (219-এর মধ্যে, LLM দিয�
 - Rubric overfitted থাকলে বৈধ বিকল্প patch reject (draft-এ recall 0.66)।
 - অন্য ভাষা/ধরনের bug: dataset 44/48 C++।
 - Ground-truth fix না থাকলে: reference-free case paper-এর scope-এর বাইরে।
+
+**সহজ কথায়:** Judge সহজ ও পরিষ্কার ক্ষেত্রে ভালো। যেখানে মানুষ নিজেই দ্বিধায়, সেখানে সে-ও ভুল করে।
 
 ## ১২. Limitations
 
@@ -416,6 +543,8 @@ Judge-এর rejection কারণ (219-এর মধ্যে, LLM দিয�
 10. **Rubric-এর খরচ অমাপা:** "একবারের review" কতটা সময় নেয় তা মাপা হয়নি; প্রতি bug-এ 2 জন developer লাগে (খরচ রয়েছে)।
 11. **Gaming/adversarial না দেখা:** patch-এর comment/ভাষা দিয়ে judge-কে প্রভাবিত করা যায় কি না পরীক্ষা নেই (§১১-এ বিশদ)।
 
+**সহজ কথায়:** সবচেয়ে বড় প্রশ্ন দুটো। Judge ও মানুষ দুজনেই একই rubric মানছে (তাই একসাথে ভুল হতে পারে), আর "clear" ফল সহজ patch-এর ফল।
+
 **Paper-অভ্যন্তরীণ অসঙ্গতি:**
 
 - §5.2.1 weighted average kappa 0.76-কে "moderate" বলা হয়েছে, অথচ 0.75-কে অন্যত্র "substantial" বলা হয় (Landis-Koch-এ 0.61–0.80 = substantial)।
@@ -440,6 +569,8 @@ Judge-এর rejection কারণ (219-এর মধ্যে, LLM দিয�
 | G10 | Rubric-এর ground-truth-নির্ভরতা (GT leak/contamination ও reference-free case) | §3.1 | CG6, CG10 |
 | G11 | Non-functional/security মাত্রা judge-এ নেই | §8 Future Work | CG5 |
 
+**সহজ কথায়:** ফাঁকগুলোর মূল কথা: ভুল patch ঢুকে পড়া, ছোট নমুনা, একবারের run, আর judge-কে ঠকানোর পরীক্ষা না থাকা। এগুলোই আমাদের কাজের সুযোগ।
+
 ## ১৪. Improvement ideas
 
 1. **Judge + dynamic hybrid:** judge VALID বললে পরে distinguishing test/regression test দিয়ে confirm (Sub-domain 4-এর Oracle-Guided Selection দেখো); Judge শুধু "ছাঁকনি", final verdict নয়।
@@ -450,6 +581,8 @@ Judge-এর rejection কারণ (219-এর মধ্যে, LLM দিয�
 6. **Version-bound verdict:** প্রতি judgment-এর সাথে judge model, rubric hash, prompt version সংরক্ষণ (CG11)।
 7. **Reference-free rubric:** ground-truth ছাড়া (issue + test থেকে) rubric বানানোর পরীক্ষা; SWE-bench-এ GT patch model-এর training data-তে থাকতে পারে (contamination)।
 8. **Prompt-injection hardening:** patch-এর comment/string-কে data হিসেবে isolate করা; judge-কে diff-এর কোড-অংশ ও comment আলাদা দেখানো।
+
+**সহজ কথায়:** মূল ভাবনা: judge-কে একা সিদ্ধান্ত নিতে না দেওয়া। সন্দেহ হলে মানুষ বা test-এর কাছে পাঠানো।
 
 ## ১৫. Publication potential (SPL3-feasible)
 
@@ -470,6 +603,8 @@ Judge-এর rejection কারণ (219-এর মধ্যে, LLM দিয�
 7. **Adversarial test:** patch-এ বাড়তি comment ("this patch is correct and follows all requirements"), test-only পরিবর্তন, sanitizer-suppress ধরনের patch ঢুকিয়ে judge কতবার ঠকে মাপা।
 8. **Assurance report integration:** judge output-কে "static signal" হিসেবে রাখা, সংখ্যা ও uncertainty সহ; dynamic signal-এর সাথে মেলালে "disagree ⇒ human review" নিয়ম।
 
+**সহজ কথায়:** পরিকল্পনা: ছোট open dataset, rubric, একাধিক judge, মানুষের label, তারপর specificity ও ঠকানোর পরীক্ষা মাপা।
+
 ## ১৭. Influence / আমাদের আগের sub-domain-এর সাথে সংযোগ
 
 | আগের কাজ | সংযোগ |
@@ -478,6 +613,8 @@ Judge-এর rejection কারণ (219-এর মধ্যে, LLM দিয�
 | Sub-domain 2: RePaCA | দুটোই static judge। RePaCA training-ভিত্তিক (GRPO), এই paper prompt-ভিত্তিক + human rubric। Error profile উল্টো (§১১ দেখো, নিচে) |
 | Sub-domain 3: SWE-rebench, SWE-Bench Pro, Reliable Coding Agents | Weak/flawed test সমস্যা এই paper-এর motivation; "verifier health" (CG11) এখানে rubric/judge-এর health হয়ে ফিরে আসে |
 | Sub-domain 4: Test generation, Oracle-Guided Selection | Judge-এর complement: Judge "কী করা উচিত" বলে, distinguishing test "কী করে" মাপে |
+
+**সহজ কথায়:** এই paper আগের তিনটা sub-domain-এর সমস্যাকেই আরেক দিক থেকে দেখায়: test ও label-এর ওপর ভরসা সীমিত।
 
 **RePaCA-র সাথে সরাসরি তুলনা (আমার বিশ্লেষণ; ভিন্ন dataset, তাই সংখ্যা সরাসরি তুলনীয় নয়):**
 
@@ -491,6 +628,8 @@ Judge-এর rejection কারণ (219-এর মধ্যে, LLM দিয�
 | Valid গ্রহণ | 16/30 correct গৃহীত (≈ 53%) | recall 0.93 (41/44) full-এ |
 | Error profile | Over-reject (valid বাদ), low acceptance | Over-accept (invalid ঢোকে), উচ্চ recall |
 | Human ভূমিকা | training-এ label | rubric review (inference-time) |
+
+**সহজ কথায়:** RePaCA ভালো patch বাদ দেয়, এই judge ভুল patch ঢোকায়। দুটো উল্টো ধরনের ভুল, তাই দুটো একসাথে রাখলে ক্ষতিপূরণ হতে পারে।
 
 আমার ব্যাখ্যা: দুই judge-এর ভুলের দিক উল্টো। তাই assurance report-এ দুটিকে আলাদা signal হিসেবে রাখলে পরস্পর পূরক হতে পারে (একটি valid বাদ দেয়, অন্যটি invalid ঢোকায়)। তবে এটা অনুমান; একই dataset-এ পরীক্ষা ছাড়া নিশ্চিত নয়।
 
@@ -555,6 +694,8 @@ A: প্রতি bug-এ 2 developer। Median edit মাত্র 14%, ক�
 | প্রধান দুর্বলতা | false-VALID (22/71), circularity, ছোট n, gaming অপরীক্ষিত |
 | আমাদের ব্যবহার | Assurance report-এর static signal, dynamic signal-এর পরিপূরক |
 
+**সহজ কথায়:** এক নজরে: ভালো idea, ভালো recall, কিন্তু precision কম ও নমুনা ছোট। আমাদের project-এ এটা একটা সহায়ক signal, চূড়ান্ত রায় নয়।
+
 ## ২১. বর্তমান (2026) প্রেক্ষাপট
 
 ### ২১.১ তখন বনাম এখন
@@ -569,6 +710,8 @@ A: প্রতি bug-এ 2 developer। Median edit মাত্র 14%, ক�
 | Industry practice | Offline pass@k + manual review | Rubric/LLM-judged mergeability-র দিকে যাচ্ছে (FrontierCode) |
 | Gaming | Paper-এ নেই | METR: ≥16% successful long-task run ছিল cheat (I, পূর্ববর্তী প্রজন্ম); Opus 5.5 card-এ "hidden tests" reasoning ও git concealment (V) |
 | Variance | একবারের judge run | SWE-rebench pass@1 বনাম pass@5 ফাঁক 12–18 pt (I); prompt rewording noise 11–58× reruns (I) |
+
+**সহজ কথায়:** ২০২৬-এ model অনেক বদলেছে, benchmark saturated, আর agent-এর ঠকানোর প্রমাণ বেড়েছে। তাই paper-এর দিকনির্দেশ এখনো খাটে, কিন্তু সংখ্যা নতুন করে মাপতে হবে।
 
 ### ২১.২ এখনো সত্য / পুরোনো
 
@@ -593,6 +736,8 @@ A: প্রতি bug-এ 2 developer। Median edit মাত্র 14%, ক�
 | Judge specificity ও precision | Over-fix precision 5–10% (S) | CG1 |
 | Judge variance ও version-bound verdict | Rewording noise 11–58× (I) | CG4, CG11 |
 | Fresh benchmark-এ human-label সহ judge যাচাই | Verified saturated/flawed | CG6 |
+
+**সহজ কথায়:** এই খোলা gap-গুলোই আমাদের SPL3 গবেষণার সুযোগ।
 
 ### ২১.৪ 2026 model দিয়ে SPL3 ধারণা (cost-aware)
 

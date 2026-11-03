@@ -18,6 +18,57 @@
 | Code / data | github.com/dessertlab/ACCA এবং github.com/dessertlab/Shellcode_IA32 |
 | Paper type | নতুন automated assessment method + empirical comparison (human evaluation vs baseline) |
 
+## ★ সহজ ভাষায় পুরো Paper (প্রথমবার পড়ার জন্য)
+
+### ক. Paper-টা কী নিয়ে?
+
+- এটা একটা **নতুন tool + তার পরীক্ষা**-র paper। Tool-এর নাম ACCA।
+- বানিয়েছেন ইতালির University of Naples Federico II-এর পাঁচজন গবেষক (Cotroneo, Foggia, Improta, Liguori, Natella)। ছাপা হয়েছে Journal of Systems and Software-এ, ২০২৪ সালে।
+- AI আজকাল security-র কাজে ব্যবহৃত ছোট low-level code (assembly, যেটা প্রায় machine-এর ভাষা) লিখে দিতে পারে। প্রশ্ন হলো: AI-এর লেখা সেই code ঠিক কিনা, তা মানুষ না দেখে কম্পিউটার নিজে কীভাবে বলবে?
+- Paper-এ tool বানানো হয়েছে, তারপর সেটা মানুষের রায়ের সাথে এবং পুরোনো পদ্ধতির সাথে মেলানো হয়েছে।
+
+### খ. সমস্যাটা কী ছিল?
+
+- AI-এর লেখা code ঠিক কিনা দেখার সবচেয়ে ভালো উপায় ছিল মানুষ দিয়ে পড়ানো। কিন্তু সেটা ধীর, ক্লান্তিকর, আর দরকার হয় expert।
+- তাই লোকে BLEU বা Edit Distance-এর মতো metric ব্যবহার করত। এরা শুধু দুই code-এর **লেখা কতটা মেলে** সেটা দেখে। কোডটা কাজে কী করে, সেটা দেখে না।
+- একটা উদাহরণ: `mov EDX, EAX` আর `push EAX; pop EDX` দেখতে আলাদা, কিন্তু দুটোর কাজ একই। Metric একে ভুল বলে নিচু নম্বর দেয়।
+- উল্টোটাও হয়: `mov DL, 5` আর `mov BL, 5` প্রায় একই লেখা, কিন্তু আলাদা জায়গায় মান বসায়, তাই ভুল। Metric একে প্রায় ঠিক বলে দেয়।
+- এটা অনেকটা পরীক্ষার খাতায় শুধু হুবহু উত্তর মেলানোর মতো। ছাত্র একই উত্তর অন্য ভাষায় লিখলে শূন্য পায়।
+
+### গ. Paper কী solve করেছে?
+
+- ACCA নামের একটা automatic checker বানিয়েছে। সে লেখা না মিলিয়ে code চালিয়ে **শেষ অবস্থা** (register, flag, stack) মেলায়।
+- ৫টি generator থেকে মোট 2,950টি prediction এই tool দিয়ে যাচাই করেছে এবং মানুষের রায়ের সাথে তুলনা করেছে।
+- ACCA মানুষের সাথে গড়ে 0.93 sample-এ একমত। মানে ১০০টার মধ্যে প্রায় ৯৩টিতে একই রায়।
+- Correlation (দুই রায় কতটা একসাথে ওঠানামা করে) 0.84। সেরা পুরোনো metric Edit Distance-এর ছিল 0.69। মানে ACCA মানুষের চিন্তার অনেক কাছাকাছি।
+- গড়ে একটি snippet যাচাইয়ে 0.20 সেকেন্ড লাগে, মানুষের লাগে প্রায় 20 সেকেন্ড। মানে প্রায় ১০০ গুণ দ্রুত।
+- দুর্বলতা: ACCA একটু বেশি কড়া। মানুষ যেগুলো ঠিক বলে, তার কিছু সে ভুল বলে দেয় (ACCA 65% correct বনাম মানুষ 71%)।
+
+### ঘ. কীভাবে solve করেছে?
+
+1. আগে দেখে prediction আর সঠিক উত্তর (reference) হুবহু এক কিনা। এক হলে সঙ্গে সঙ্গে "ঠিক"। এতে সময় বাঁচে।
+2. তারপর snippet-কে ছোট একটা পূর্ণ program বানিয়ে assemble করে। Assemble মানে assembly-কে machine code-এ বদলানো। এতে syntax ঠিক আছে কিনা বোঝা যায়।
+3. কোনো label snippet-এ নেই বলে error এলে ACCA নিজে একটা বানানো label বসিয়ে আবার চেষ্টা করে।
+4. Syntax ভুল হলে সঙ্গে সঙ্গে "ভুল"। বাকি ক্ষেত্রে reference আর prediction দুটোকেই angr নামের tool দিয়ে symbolic execution করে। মানে আসল সংখ্যার বদলে "যেকোনো মান" ধরে সব সম্ভাব্য পথ চালায়।
+5. দুই program-এর প্রতিটি পথের শেষে register, flag, stack আর path-র শর্ত মেলায়। সব মিললে "semantically ঠিক"।
+6. Loop থাকলে পথ খুব বেড়ে যায়। তাই 100 ধাপের বেশি গেলে থেমে "ভুল" ধরে নেয়।
+7. এরপর 5টি AI generator-এর output-এ ACCA চালায় এবং ৩ জন মানুষ evaluator-এর রায়ের সাথে মেলায়।
+8. তুলনায় Compilation, BLEU, Edit Distance, ChatGPT-judge ইত্যাদি baseline-ও চালায়। মাপে matching rate, offset আর Pearson correlation।
+
+### ঙ. এরপর কী করা যায়?
+
+- Authors বলেছেন: Python-এর মতো high-level ভাষায় নেওয়া, আর static analysis ও binary matching-এর সাথে জোড়া লাগানো।
+- এখনও খোলা: ACCA বৈধ কিন্তু ভিন্ন ধরনের code-কে ভুল বলে দেয় (false negative)। আবার কিছু ভুল code-কে ঠিক বলে দেয় (false positive)।
+- Paper-এ recall, precision, κ আর confidence interval নেই। এগুলো আমরা নিজেরা হিসাব করে বের করতে পারি।
+- SPL3-তে আমরা ACCA-কে LLM judge-এর সাথে তুলনা করতে পারি। ACCA-র ভুল এক দিকে, LLM judge-এর ভুল উল্টো দিকে, তাই দুটো মিলিয়ে ভালো ফল হতে পারে।
+- আমরা ACCA-কে ঠকানোর (gaming) পরীক্ষা করতে পারি, আর "could not verify" নামে তৃতীয় একটা ফলাফল যোগ করতে পারি।
+- ধারণাটা ছোট Python patch-এও নেওয়া যায়: reference patch আর agent patch একই input-এ চালিয়ে output মেলানো।
+
+> **মনে রাখো:**
+> ACCA code-এর লেখা না মিলিয়ে চালিয়ে শেষ অবস্থা মেলায়, তাই মানুষের সাথে 0.93 একমত।
+> সে নিশ্চিত ঠিক ধরায় ভালো, কিন্তু বৈধ বিকল্প code-কে ভুল বলে ফেলে এবং security মাপে না।
+> আমাদের কাজের মূল প্রশ্ন: assurance tool নিজে কতটা বিশ্বাসযোগ্য?
+
 ## ১. TL;DR
 
 - Paper-এর প্রশ্ন: AI যে security-oriented assembly code (shellcode) বানায়, সেটা correct কিনা মানুষ ছাড়া কীভাবে বলা যাবে? BLEU, Edit Distance-এর মতো text-similarity metric semantically equivalent কিন্তু আলাদা code-কে (যেমন `mov EDX, EAX` বনাম `push EAX; pop EDX`) ভুলভাবে নিচু score দেয়।
@@ -25,6 +76,8 @@
 - Dataset: extended Shellcode_IA32, মোট 5,900 NL-intent/assembly pair; test set 590 sample; 5টি generator (Seq2Seq, CodeBERT, CodeT5+, PLBart, ChatGPT) থেকে মোট 2,950 prediction।
 - ফল: human evaluation-এর সাথে matching rate গড়ে 0.93 (min 0.90, max 0.95); Pearson ρ গড়ে 0.84 (সেরা baseline Edit Distance 0.69); গড় offset 0.06 (সেরা baseline Edit Distance 0.08)। ACCA correct-কে কম ধরে (65% বনাম human 71%) এবং 99% mismatch হলো "human correct, ACCA incorrect"।
 - আমাদের জন্য মূল শিক্ষা: ACCA হলো high-precision, low-recall assurance tool (HITL judge-এর উল্টো error direction) এবং এর oracle হলো reference implementation, intent নয়। এটা Patch Validation ও RePaCA-র সাথে সরাসরি তুলনীয়।
+
+**সহজ কথায়:** ACCA code-এর লেখা না দেখে চালিয়ে শেষ ফল মেলায়। তাই মানুষের সাথে প্রায় সবসময় একমত হয়। তবে সে একটু বেশি কড়া, কিছু ঠিক code-কেও ভুল বলে।
 
 **Supervisor-কে ৩০ সেকেন্ডে:** "Sir, এই paper দেখায় যে code-এর correctness-কে text similarity দিয়ে না মেপে reference-এর সাথে execution-state equivalence দিয়ে মাপলে human judgement-এর সাথে correlation 0.56–0.69 থেকে 0.84-এ ওঠে। কিন্তু tool-টা reference-কে ground truth ধরে, human-কে ground truth ধরে validate করে, এবং শুধু একটি ছোট ধরনের (IA-32 shellcode) code-এ কাজ করে। আমাদের SPL3-এর জন্য এটা 'assurance tool নিজেই কতটা valid' (CG10, CG16, CG17)-এর একটি ভালো case study।"
 
@@ -43,6 +96,8 @@
 - **Oracle problem:** কোন output সঠিক তা নির্ধারণের কঠিনতা। এখানে reference snippet-ই oracle।
 - **Matching rate ও offset:** ACCA/baseline-এর সাথে human-এর কত % sample-এ একই রায় (matching rate); অথবা মোট correctness-এর পার্থক্য (offset)।
 
+**সহজ কথায়:** এই section-এর শব্দগুলো মনে রাখলেই পুরো paper বোঝা সহজ হবে: shellcode (ছোট exploit code), symbolic execution (সব সম্ভাব্য পথে "যেকোনো মান" ধরে চালানো), আর oracle (কোনটা সঠিক তা ঠিক করার মাপকাঠি)।
+
 ## ৩. Problem
 
 - Human evaluation (manual code review) "gold standard" কিন্তু ধীর (গড়ে প্রায় 20 s/snippet), subjective, ক্লান্তিজনিত ভুলের সম্ভাবনা, এবং expert (assembly + cybersecurity) দরকার।
@@ -52,6 +107,8 @@
 - Contrastive-learning embedding model-এ বড় compute ও training data লাগে, offensive code-এর corpus কম।
 - সমস্যার সংক্ষিপ্ত রূপ: low-level security code-এর জন্য এমন automated oracle নেই যা human-এর মতো semantic correctness বলতে পারে।
 
+**সহজ কথায়:** মানুষ ধীর, text-metric ভুল করে, আর বাকি পদ্ধতিগুলো অসম্পূর্ণ snippet-এ চলেই না। তাই এমন tool দরকার যা দ্রুত, আর মানুষের মতো বোঝে।
+
 ## ৪. Goal ও Research Question
 
 - Goal: human effort ছাড়া AI-generated assembly (security context) code-এর syntactic (SYN) ও semantic (SEM) correctness automatically মাপা, human evaluation-এর কাছাকাছি।
@@ -60,6 +117,8 @@
   2. Single-prediction level-এ human-এর সাথে correlation কেমন (Section 5.3, Pearson ρ)?
   3. Computational cost human-এর চেয়ে কম কিনা (Section 5.4)?
 - আরেকটি qualitative প্রশ্ন: ACCA ও human কোথায় একমত নয় (Section 5.2, Table 5)।
+
+**সহজ কথায়:** Paper তিনটি প্রশ্নের উত্তর খোঁজে: ACCA মানুষের কত কাছে? প্রতিটি আলাদা sample-এও কি মেলে? আর কত দ্রুত?
 
 ## ৫. Methodology (ধাপে ধাপে)
 
@@ -87,6 +146,8 @@ ACCA প্রতিটি prediction-এর জন্য জোড়া (SYN, 
 10. **Human evaluation (Section 4.4):** 3 evaluator (2 PhD student with master's, 1 PhD researcher), প্রত্যেকে স্বাধীনভাবে প্রতি snippet দেখেছে; মতভেদ "human oversight" বলে সংশোধন করে 100% unanimous consensus। Inter-rater κ বা মতভেদের সংখ্যা paper-এ নেই।
 11. **Hardware:** Debian, 8 vCPU, 16 GB RAM, একটি Nvidia T4 GPU। ACCA Linux ও Windows-এ চলে।
 
+**সহজ কথায়:** ধাপগুলো একটা ছাঁকনির মতো। আগে সহজ পরীক্ষা (হুবহু মিল, syntax), তারপর ভারী পরীক্ষা (symbolic execution)। বেশিরভাগ ক্ষেত্রে ভারী কাজ লাগেই না, তাই tool দ্রুত।
+
 ## ৬. Math
 
 **৬.১ ACCA-র সিদ্ধান্ত নিয়ম (paper-এর বর্ণনা থেকে আমার formal রূপ)**
@@ -94,6 +155,8 @@ ACCA প্রতিটি prediction-এর জন্য জোড়া (SYN, 
 $$
 \text{SEM}(p, r) = \begin{cases} 1 & \text{if } p = r \\ 0 & \text{if } \text{SYN}(p) = 0 \\ 1 & \text{if } \mathcal{S}(p) = \mathcal{S}(r) \\ 0 & \text{otherwise} \end{cases}
 $$
+
+**কী হিসাব করে:** প্রথমে দেখে prediction আর reference হুবহু এক কিনা, এক হলে 1। না হলে syntax ভুল থাকলে 0। তারপর দুই program-এর শেষ অবস্থার set মিললে 1, নইলে 0।
 
 - $p$ = model-এর prediction, $r$ = reference (ground truth) snippet।
 - $\mathcal{S}(x)$ = $x$-এর symbolic execution-এর সব leaf state-এর set; প্রতিটি leaf state = (register, flag, stack, path constraint)।
@@ -107,6 +170,8 @@ $$
 \text{MR} = \frac{1}{N} \sum_{i=1}^{N} \mathbb{1}\left[ \text{ACCA}_i = \text{Human}_i \right]
 $$
 
+**কী হিসাব করে:** ACCA আর মানুষ কতগুলো sample-এ একই রায় দিয়েছে, সেটা মোট sample দিয়ে ভাগ করে।
+
 - $N$ = test prediction সংখ্যা (প্রতি model 590); $\mathbb{1}[\cdot]$ = শর্ত সত্য হলে 1।
 - Paper-এর যুক্তি: দুই পদ্ধতি 50% করে correct বললেও মতভেদ 100% হতে পারে, তাই MR দরকার।
 
@@ -116,6 +181,8 @@ $$
 \text{Offset} = \left| \bar{c}_{\text{Human}} - \bar{c}_{\text{method}} \right|
 $$
 
+**কী হিসাব করে:** মানুষের মতে গড়ে কত শতাংশ code ঠিক আর tool-এর মতে কত শতাংশ, এই দুই সংখ্যার ফারাক।
+
 - $\bar{c}$ = test set-এর গড় correctness (0 থেকে 1)। Paper "difference" বলেছে; absolute মান ধরা হয়েছে (আমার পাঠ), কারণ সব মান ধনাত্মক।
 - সীমাবদ্ধতা: offset শুধু aggregate মাপে; দুই উল্টো ধরনের ভুল একে অপরকে বাতিল করে দিতে পারে।
 
@@ -124,6 +191,8 @@ $$
 $$
 \rho = \frac{\text{cov}(X, Y)}{\sigma_X \, \sigma_Y}
 $$
+
+**কী হিসাব করে:** মানুষের রায় আর tool-এর মান একসাথে ওঠানামা করে কিনা। 1-এর কাছে মানে খুব মিল, 0 মানে কোনো সম্পর্ক নেই।
 
 - $X$ = human label (0/1), $Y$ = ACCA বা baseline-এর মান। Binary দুই চলকে এটি phi coefficient-এর সমান। Continuous baseline (BLEU, ED)-এর সাথে এটি point-biserial। Paper কোনো threshold বা binarization উল্লেখ করেনি।
 
@@ -138,6 +207,8 @@ $$
 $$
 
 - Paper-এ 0.87; পার্থক্য rounding-এর (আমার হিসাব)। এটি দেখায় Table 3, 4, 6 internally সঙ্গত।
+
+**সহজ কথায়:** Paper-এর দেওয়া তিনটি table থেকে আমরা নিজে হিসাব করে প্রায় একই ফল (0.88 বনাম 0.87) পেয়েছি। মানে সংখ্যাগুলো পরস্পরের সাথে মেলে।
 - Recall (ACCA, human-কে ground truth ধরে) = 0.60 / 0.66 ≈ 0.91; precision = 1.00; specificity = 1.00 (আমার হিসাব, সব মতভেদ FN ধরে)।
 - ChatGPT column: Matching 0.95, ACCA 0.71, Human 0.73; FN − FP = 0.02, FN + FP = 0.05 ⇒ FN = 0.035, FP = 0.015 ⇒ phi ≈ 0.88 (paper 0.87) (আমার হিসাব)।
 
@@ -146,6 +217,8 @@ $$
 - ACCA: 2,950 × 0.20 s ≈ 590 s ≈ 9.8 মিনিট (Table 7 all-model average)।
 - Human: 2,950 × 20 s = 59,000 s ≈ 16.4 ঘণ্টা (paper-এর "≈ 20 s" অভিজ্ঞতা-ভিত্তিক অনুমান)।
 - অনুপাত প্রায় 100 গুণ। কিন্তু Table 7 অনুযায়ী Symbolic execution-এ যেসব prediction যায় (PR ≠ GT & SYN = 1) সেগুলোর গড় 0.43 s।
+
+**সহজ কথায়:** ACCA সব মতভেদ সামলে human-এর 91% ঠিক code ধরে এবং যা ঠিক বলে তার সবই ঠিক। আর সময়ে মানুষের চেয়ে প্রায় ১০০ গুণ দ্রুত।
 
 ## ৭. Setup (table)
 
@@ -164,6 +237,8 @@ $$
 | Hardware | 8 vCPU, 16 GB RAM, 1× Nvidia T4 |
 | Training seeds | একবারই training; একাধিক training run করা হয়নি (Section 6-এ যুক্তি) |
 
+**সহজ কথায়:** মোট ৫,৯০০ জোড়া data, তার ৫৯০টি test। পাঁচটি AI প্রত্যেকে ৫৯০টি করে code লিখেছে, তাই মোট ২,৯৫০টি code যাচাই হয়েছে।
+
 ## ৮. Results
 
 **৮.১ Table 3: ACCA বনাম human evaluation (average correctness ও matching)**
@@ -178,6 +253,8 @@ $$
 
 - ACCA সব model-এ human-এর চেয়ে কম বা প্রায় সমান: underestimation; 99% মতভেদ "human = 1, ACCA = 0"।
 
+**সহজ কথায়:** ACCA আর মানুষ প্রতি ১০০টিতে ৯০ থেকে ৯৫টিতে একমত। যেখানে মতভেদ, প্রায় সবখানেই মানুষ বলেছে ঠিক আর ACCA বলেছে ভুল।
+
 **৮.২ Table 4: Human-এর সাপেক্ষে offset (কম = ভালো)**
 
 | Evaluation | Seq2Seq | CodeBERT | CodeT5+ | PLBart | ChatGPT | Average |
@@ -190,6 +267,8 @@ $$
 | ChatGPT-NL | 0.08 | 0.02 | 0.07 | 0.17 | 0.24 | 0.12 |
 | ChatGPT-GT | 0.06 | 0.13 | 0.10 | 0.10 | 0.05 | 0.09 |
 | ACCA | 0.06 | 0.10 | 0.07 | 0.07 | 0.02 | 0.06 |
+
+**সহজ কথায়:** Offset যত কম, তত ভালো। ACCA-র গড় 0.06, মানে মানুষের সাথে গড়ে মাত্র ৬ শতাংশ-পয়েন্ট ফারাক। কিন্তু প্রতি model-এ সে সবসময় একা সেরা নয়, নিচে §১২-এ দেখো।
 
 **৮.৩ Table 6: Human-এর সাথে Pearson ρ (বেশি = ভালো)**
 
@@ -204,6 +283,8 @@ $$
 | ChatGPT-GT | 0.67 | 0.61 | 0.70 | 0.68 | 0.56 | 0.64 |
 | ACCA | 0.87 | 0.78 | 0.85 | 0.85 | 0.87 | 0.84 |
 
+**সহজ কথায়:** এখানে বেশি মানে ভালো। ACCA-র 0.84 সব পদ্ধতির চেয়ে উপরে। Compilation পাস করা মানেই ঠিক নয়, তাই তার মান সবচেয়ে কম (0.43)।
+
 **৮.৪ Table 7: ACCA-র সময় (সেকেন্ড/snippet; গড় ± SD, median)**
 
 | Model | All predictions | PR ≠ GT | PR ≠ GT এবং SYN = 1 |
@@ -216,6 +297,8 @@ $$
 | All Models | 0.20 ± 1.28, 0.00 | 0.37 ± 1.73, 0.21 | 0.43 ± 1.87, 0.22 |
 
 (Table 7-ও PDF text-layer-এ এলোমেলো ছিল; raw extraction থেকে মেলানো।)
+
+**সহজ কথায়:** গড়ে একটা snippet যাচাই করতে এক সেকেন্ডের পাঁচ ভাগের এক ভাগ লাগে। বেশিরভাগ হুবহু মিলে যায় বলে median 0.00 s। শুধু ভারী ক্ষেত্রে সময় বেশি।
 
 **৮.৫ অন্যান্য সংখ্যা**
 
@@ -238,6 +321,8 @@ $$
 - সারি ৩ (false positive): label L1 register state বদলায় না, কিন্তু পুরো program-এর behaviour বদলায়।
 - সারি ৪ (false positive): `loop` শর্তযুক্ত jump; prediction-এর `dec ecx; jmp` শর্তহীন; এই run-এ ecx শূন্য ছিল না বলে একই state, কিন্তু intent ভুল।
 
+**সহজ কথায়:** ACCA-র ভুল দুই রকম। প্রথম দুই সারি: ঠিক code-কে ভুল বলেছে, কারণ আলাদা register ব্যবহার হয়েছে। শেষ দুই সারি: ভুল code-কে ঠিক বলেছে, কারণ শেষ অবস্থা দৈবাৎ মিলে গেছে।
+
 ## ৯. Key findings
 
 1. Text-similarity metric-এর মধ্যে সেরা Edit Distance (ρ = 0.69, offset 0.08); সবচেয়ে দুর্বল Compilation Accuracy (ρ = 0.43): syntax-সঠিক হলেই semantic-সঠিক নয়।
@@ -249,6 +334,8 @@ $$
 7. ACCA security বিশ্লেষণ নয়: এটি vulnerability খোঁজে না, শুধু reference-এর সাথে semantic equivalence মাপে (Section 6 "Relevance to Security")।
 8. ChatGPT-3.5 নিজেও generator: ACCA ও human একই হারের কাছাকাছি (0.71 বনাম 0.73) এবং ChatGPT-এর output সবচেয়ে বেশি syntactically correct (577/590)।
 
+**সহজ কথায়:** ACCA সবচেয়ে ভালো মেলে, দ্রুত চলে, কিন্তু কড়া। আর সে শুধু "ঠিক কাজ করে কিনা" দেখে, "নিরাপদ কিনা" দেখে না।
+
 ## ১০. কেন বিকল্পের চেয়ে ভালো
 
 - **বনাম similarity metric:** token নয়, execution state মেলায়; তাই equivalent-কিন্তু-ভিন্ন (`jz` বনাম `je`, `mov` বনাম `push/pop`) গ্রহণ করে এবং এক character ভিন্ন কিন্তু ভুল (`DL` বনাম `BL`) প্রত্যাখ্যান করে।
@@ -257,6 +344,8 @@ $$
 - **বনাম code embedding (contrastive learning):** training data ও compute লাগে না; offensive assembly corpus কম, তাই embedding অপ্রয়োগযোগ্য।
 - **বনাম ChatGPT judge:** deterministic (একই input একই output), repetition দরকার নেই, prompt engineering ও মানুষের iteration নেই, এবং correlation অনেক বেশি (0.84 বনাম 0.64 / 0.34)।
 - **বনাম human:** প্রায় 100 গুণ দ্রুত (আমার হিসাব, §৬.৬), ক্লান্তি/subjectivity মুক্ত।
+
+**সহজ কথায়:** বাকি পদ্ধতিগুলো হয় লেখা মেলায়, নয় পুরো program চায়, নয় ভারী training চায়। ACCA এই তিনটি ঝামেলাই এড়ায়।
 
 ## ১১. কখন কাজ করে / কখন ব্যর্থ হয়
 
@@ -271,6 +360,8 @@ $$
 - Loop-সমৃদ্ধ বা দীর্ঘ snippet: max_steps = 100 পেরোলে স্বয়ংক্রিয়ভাবে 0; 16/2,950 ক্ষেত্রে।
 - Compare/loop/conditional jump-এ ধীর (23.92 s ও 11.98 s উদাহরণ)।
 - Reference না থাকলে ব্যবহার অসম্ভব; reference ভুল হলে ACCA-ও ভুল।
+
+**সহজ কথায়:** ছোট, সরল, reference-ওয়ালা code-এ ACCA ভালো। লম্বা loop-ওয়ালা code, ভিন্ন কিন্তু বৈধ লেখা, আর reference না থাকা, এই তিন ক্ষেত্রে সে সমস্যায় পড়ে।
 
 ## ১২. Limitations
 
@@ -296,6 +387,8 @@ $$
 - **একক dataset ও একক architecture:** IA-32 Linux shellcode; 100-step cap-এর বৈধতা অন্য ধরনের code-এ অজানা।
 - **Reference ও ground truth-এর পরিমাণগত অসম্পূর্ণতা:** reference-এর ভুল (dataset noise) গণনা হয়নি; paper স্পষ্টভাবে এই ধারণা "out of scope" বলেছে।
 
+**সহজ কথায়:** Authors নিজেই স্বীকার করেছেন tool security মাপে না আর reference-কে সত্য ধরে। আমরা আরও দেখেছি: human label-এর বৈধতা অস্পষ্ট, কিছু সংখ্যায় অসঙ্গতি আছে, আর confidence interval নেই।
+
 ## ১৩. Research gaps
 
 | G-id | Gap | Evidence (paper-এ) | Related CG / sub-domain folder |
@@ -311,6 +404,8 @@ $$
 | G9 | Test split ও train data-র duplicate/leakage ও dataset reference noise-এর প্রভাব মাপা হয়নি | Table 1 বনাম 1,369 unique pair | CG6, CG16 |
 | G10 | Path explosion সীমা (100 step) ও timeout কে "incorrect" গণনা করা: "could not verify" নামে আলাদা ফল নেই | §3.3, 16/2,950 | CG7, CG11 |
 
+**সহজ কথায়:** Gap-গুলো মূলত তিন ভাগে পড়ে: tool-এর ভুল (G1, G2, G10), মাপার পদ্ধতির দুর্বলতা (G3, G4, G9), আর ব্যবহারের সীমা (G5 থেকে G8)।
+
 ## ১৪. Improvement ideas
 
 1. **Intent-aware tri-state output:** SEM ∈ {equivalent, not equivalent, could not verify} (step-cap ও unsupported-instruction ক্ষেত্রে)। Context.md-র "could not verify" ধারণার সাথে সংযুক্ত।
@@ -322,6 +417,8 @@ $$
 7. **Security-aware layer:** correctness-এর পর sanitizer/CodeQL ধরনের check আলাদা signal হিসেবে (CG5); ACCA-র সাথে মিশিয়ে একক score নয়।
 8. **Reference noise audit:** reference-ও ACCA-তে এক সংখ্যক sample-এ cross-check করে dataset label noise মাপা।
 
+**সহজ কথায়:** সবচেয়ে কাজের ধারণা: ACCA-কে LLM judge-এর সাথে জোড়া লাগানো, কারণ দুজনের ভুল উল্টো দিকে। আর "যাচাই করা গেল না" নামে তৃতীয় ফলাফল রাখা।
+
 ## ১৫. Publication potential (SPL3-feasible)
 
 - সম্ভাব্য contribution: "Reference-based equivalence judge বনাম rubric-based LLM judge: error-direction ও specificity-র তুলনামূলক বিশ্লেষণ" (workshop/short paper স্তর)।
@@ -329,6 +426,8 @@ $$
 - Feasibility: SPL3 ঘণ্টা ও compute সীমার মধ্যে 300–600 patch-এ labelled সেট ও কয়েকটি judge চালানো সম্ভব; ACCA নিজে খোলা কোড (github), Shellcode_IA32 খোলা ডেটা: Replication সহজ।
 - ঝুঁকি: human label বানানো সবচেয়ে ব্যয়বহুল; সেজন্য প্রথম ধাপে paper-এর নিজস্ব ডেটার reproduction ও confusion matrix পুনর্গণনা (যেটা paper দেয়নি)।
 - বাস্তব প্রকাশযোগ্য ছোট ফল: "ACCA-র reported 0.93 matching rate আসলে 0.91 recall ও ≈ 1.0 precision; error direction স্পষ্ট" ধরনের reproducibility note (আমার হিসাব, replication দিয়ে যাচাই সাপেক্ষ)।
+
+**সহজ কথায়:** ছোট একটা paper-এর জন্য যথেষ্ট: ACCA-র confusion matrix আর error direction নতুন করে হিসাব করে দেখানো, যেটা original paper দেয়নি।
 
 ## ১৬. SPL3 implementation
 
@@ -340,6 +439,8 @@ $$
 6. **Output:** assurance report-এর একটি আলাদা signal: "behavioural equivalence to reference: equivalent / different / could not verify" + tool version + step cap।
 7. **খরচ:** ACCA CPU-ভিত্তিক, ≈ 0.2 s/snippet; LLM judge-এর API খরচ আলাদা গণনা (USD)।
 
+**সহজ কথায়:** পরিকল্পনা: আগে paper-এর ফল নিজে পুনরায় বের করো, তারপর judge তুলনা, তারপর gaming test, সবশেষে patch-এর দিকে ধারণাটা নিয়ে যাও।
+
 ## ১৭. Influence / link to earlier sub-domains
 
 - **Sub-domain 1 (AutoCodeRover 51/78 = 65.4% প্রকৃত correct):** plausible ≠ correct সমস্যার "automated oracle" দিক; ACCA একটি reference-ভিত্তিক বিকল্প।
@@ -348,6 +449,8 @@ $$
 - **Sub-domain 4 (Test generation):** Oracle strength (CG13); ACCA "reference state" কেই oracle ধরে, কিন্তু coverage-style নয়।
 - **Sub-domain 5 (Patch Validation):** HITL judge (Fleiss κ 0.31 → 0.66; judge recall 0.93, precision 0.65, specificity ≈ 0.69) বনাম ACCA (recall ≈ 0.91, precision ≈ 1.0, আমার হিসাব); দুটো মিলিয়ে hybrid; APCA-র label confound (developer patch 82.5%) ও এখানে reference-label confound একই পরিবারের (CG16)।
 - সরাসরি সম্পর্কিত CG: CG10 (assurance tool-এর নিজের বৈধতা), CG16, CG17, CG1, CG5 (security বনাম correctness আলাদা), CG12।
+
+**সহজ কথায়:** আগের sub-domain-গুলোতে "plausible মানেই correct নয়" সমস্যা ছিল। ACCA সেই সমস্যার একটা স্বয়ংক্রিয় সমাধান, যার error direction অন্য judge-দের উল্টো।
 
 ## ১৮. Supervisor Q&A
 
@@ -367,6 +470,8 @@ $$
    উত্তর: ρ = 0.64 (GT) ও 0.34 (NL), non-deterministic, prompt iteration লাগে; কিন্তু ChatGPT-3.5 পুরোনো; আধুনিক model-এর ক্ষেত্রে বর্তমান model-এর তথ্য পাওয়া যায়নি।
 8. **প্রশ্ন: Paper-এ কোনো সংখ্যার অসঙ্গতি আছে?**
    উত্তর: হ্যাঁ: 0.17 s বনাম Table 7-এর 0.20 s; ChatGPT-NL/GT offset text-এ উল্টে গেছে (0.09/0.12 বনাম Table 4: 0.12/0.09); "চার model" বনাম পাঁচ কলাম।
+
+**সহজ কথায়:** Supervisor-কে উত্তর দেওয়ার সময় সবসময় সংখ্যা সাথে রাখো: 0.84 বনাম 0.69, 99% false negative, 0.91 recall।
 
 ## ১৯. Glossary
 
@@ -403,6 +508,8 @@ $$
 | মূল দুর্বলতা | reference = oracle; একক ভাষা; κ/CI/recall নেই; security নয় |
 | আমাদের কাজে | CG10, CG16, CG17; hybrid judge; "could not verify" |
 
+**সহজ কথায়:** পুরো paper এক নজরে: reference-এর সাথে শেষ অবস্থা মেলানো, মানুষের সাথে 0.93 একমত, কিন্তু একটু কড়া এবং security দেখে না।
+
 ## ২১. বর্তমান (2026) প্রেক্ষাপট
 
 **২১.১ তখন বনাম এখন**
@@ -416,6 +523,8 @@ $$
 | Gaming | বিবেচনায় নেই | METR: সফল long-task run-এর ≥ 16% cheat (I, আগের প্রজন্ম); Opus 5.5 card-এ "hidden tests" reasoning ও git concealment (V) |
 | Benchmark | Shellcode_IA32 | SWE-bench Verified saturated (Vals.ai 97.0%, I); SWE-Bench Pro Verified-এ leakage বন্ধে 78.80% → 57.32% (I) |
 | খরচ | ACCA ≈ 0.2 s CPU | Agent task খরচ (Vals Terminal-Bench 4.0, I): Opus 5.5 13.20 USD, Kimi K3.1 Pro 4.57, GPT-6.1 Sol 1.72; deterministic checker-এর খরচ এর তুলনায় নগণ্য (আমার হিসাব, paper-এর 0.2 s ও CPU-ভিত্তিক) |
+
+**সহজ কথায়:** ২০২৪-এর পরে generator অনেক শক্তিশালী হয়েছে, কিন্তু ACCA ওদের উপর পরীক্ষিত নয়। Security আর gaming এখন বড় প্রশ্ন, যা এই paper ধরেনি।
 
 **২১.২ এখনও সত্য / পুরোনো**
 
@@ -433,6 +542,8 @@ $$
 | Execution-equivalence + LLM judge-এর hybrid | পাওয়া যায়নি |
 | Correctness বনাম security আলাদা assurance signal | SusVibes (I, Opus 4.6/GPT-5.4 যুগ) আংশিক; current-model SusVibes/BaxBench নেই |
 | Equivalence checker-কে gaming | METR ও system card প্রসঙ্গ আছে (I/V); equivalence checker-এ নির্দিষ্ট study নেই |
+
+**সহজ কথায়:** আজকের model-এ এই checker কেমন চলে, তার কোনো study এখনও নেই। এটাই আমাদের সুযোগ।
 
 **২১.৪ আজকের model-সহ SPL3 idea (খরচ-সচেতন)**
 

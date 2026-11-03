@@ -2,6 +2,7 @@
 
 > **ভিত্তি:** ৭টা sub-domain-এর ২৬টা paper-এর analysis, প্রতিটা sub-domain summary, আর October 2026-এর বর্তমান অবস্থার fact sheet (`00_Current_State_2026_Sources.md`)।
 > **উদ্দেশ্য:** সব gap এক জায়গায় সাজানো, SPL3-তে সবচেয়ে মূল্যবান ও করা-সম্ভব gap বাছাই, চূড়ান্ত research প্রশ্ন, SPL3 software-এর পরিকল্পনা, ১০ মাসের timeline আর publication পরিকল্পনা।
+> **সংশোধন (3 November 2026):** Research direction PatchAssure থেকে **CalibraPatch**-এ বদলানো হয়েছে। কারণ ও বিস্তারিত যাচাই: `09_CalibraPatch_Review/CalibraPatch_Review.md`। §১–§২ অপরিবর্তিত; §৩-এর শেষে নোট; §৪ থেকে নতুন করে লেখা।
 
 ---
 
@@ -68,32 +69,53 @@
 
 **সিদ্ধান্ত (আমার সুপারিশ):** Direction **A** মূল কাজ; B, C, D তার অংশ হিসেবে; E বাদ (future work)।
 
+**সংশোধনী নোট (3 November 2026):** Direction A-এর "নতুনত্ব ⭐⭐⭐⭐⭐" এখন আর পুরো সত্য নয়। নতুন যাচাইয়ে পাওয়া গেছে, কয়েকটা signal জোড়া দেওয়া patch validation আগেই আছে: TrustPatch-X (IJACSA 2026, স্থির weighted sum), PatchBench (arXiv 2609.04075, hard AND), R2E-Gym (NeurIPS 2025, hybrid verifier), আর একটা master's thesis (Comillas 2026)। কিন্তু এদের কেউই **calibrated সম্ভাবনা, signal-এর conflict ধরা, আর প্রমাণ কম হলে abstention** দেয় না। তাই direction A টিকে আছে, কিন্তু তার কেন্দ্র সরে গেছে CG7 (confidence ও abstention), CG10, CG21 আর CG25-এর দিকে। নতুন রূপ নিচে।
+
 ---
 
 ## ৪. চূড়ান্ত Research Direction ও প্রশ্ন
 
-### ৪.১ শিরোনাম (প্রস্তাব)
-**"PatchAssure: Multi-Signal Assurance Reports for Patches from AI Coding Agents"**
+### ৪.১ শিরোনাম
+**"CalibraPatch: Calibrated, Abstention-Aware Acceptance of AI Coding Agent Patches from Heterogeneous Verification Evidence"**
+
+পুরনো নাম "PatchAssure" বাদ, দুই কারণে: (১) এটা Doble Engineering-এর একটা বাণিজ্যিক product-এর নাম; (২) শুধু "multi-signal assurance report" এখন আর নতুন দাবি নয়।
 
 ### ৪.২ মূল ধারণা
-AI agent একটা issue-এর জন্য patch দিলে, test pass করলেই গ্রহণ না করে, একটা **assurance report** তৈরি হবে। এতে কয়েকটা **আলাদা** signal থাকবে — কোনো weighted একক score নয় — প্রতিটার রায় তিন অবস্থার একটা (pass / fail / যাচাই করা যায়নি), সাথে অনিশ্চয়তা আর tool/model version।
+AI agent একটা patch দিলে, test pass করলেই গ্রহণ না করে, কয়েকটা আলাদা signal থেকে তিনটা জিনিস হিসাব হবে:
+- **Calibrated acceptance probability** $p$ — "90%" বললে এমন patch-এর সত্যিই প্রায় 90% গ্রহণযোগ্য হতে হবে।
+- **Conflict score** — signal-রা কতটা পরস্পরবিরোধী।
+- **Evidence completeness** — কতগুলো signal আসলে চালানো গেছে।
+
+এই তিনটা থেকে সিদ্ধান্ত: **Accept / Reject / Insufficient Evidence**। মূল লক্ষ্য **false assurance** কমানো — খারাপ patch-কে "ঠিক আছে" বলা।
 
 | Signal | কী যাচাই করে | কোন paper থেকে | Gap |
 |---|---|---|---|
-| S1 Leakage ও trajectory check | Agent .git history, network বা test file থেকে উত্তর নিয়েছে বা test বদলেছে কিনা | SWE-Bench Pro Verified, Agentless, Trustworthy AI SE | CG12, CG24 |
-| S2 Regression check | Project-এর নিজের test, patch-এর আগে-পরে | Agentless, SWE-bench | CG3 |
-| S3 Patch-targeted test | Patch যে line বদলেছে সেগুলো চালায় এমন generated test, mutation score সহ | CoverUp, TestDecision | CG13 |
-| S4 Distinguishing test | একই issue-এর কয়েকটা candidate patch যেখানে আলাদা আচরণ করে, সেই input-এ issue থেকে সঠিক output অনুমান | Oracle-Guided Selection | CG2, CG14 |
-| S5 Rubric-চালিত LLM judge | Issue থেকে rubric বানিয়ে patch বিচার | HITL LLM-as-a-Judge | CG1, CG17 |
-| S6 Static correctness classifier | RePaCA-ধরনের reasoning judge (বা graph-ভিত্তিক classifier) | RePaCA, APCA Representation | CG1, CG17 |
-| S7 Security delta | Patch-এর আগে-পরে নতুন security finding; সম্ভব হলে execution-ভিত্তিক check | CWEval, SecureVibeBench | CG5, CG20, CG21 |
-| S8 Run consistency | একই agent কয়েকবার চালালে একই আচরণের patch আসে কিনা (pass^k) | SWE-rebench, AI Assurance | CG4 |
+| S1 Test outcome | F2P ও P2P একসাথে: pass / fail / চালানো যায়নি | SWE-bench, Agentless | CG3 |
+| S2 Test adequacy | Changed line-এর coverage, আর সংশ্লিষ্ট test-এ oracle শক্ত কিনা (All Smoke, No Alarm-এর taxonomy) | CoverUp, TestDecision, All Smoke No Alarm | CG3, CG13 |
+| S3 Security delta | Semgrep ও Bandit-এ patch-এর পরে নতুন finding | CWEval, Sajadi et al., SecureVibeBench | CG5, CG20, CG21 |
+| S4 Differential behaviour (ঐচ্ছিক) | অন্য candidate বা generated test-এ আচরণের পার্থক্য | Oracle-Guided Selection, PatchDiff | CG1, CG2, CG14 |
+| S5 Issue alignment judge (ঐচ্ছিক) | Rubric-চালিত সস্তা LLM judge | HITL LLM-as-a-Judge, RETRACE | CG1, CG17 |
+
+**বাদ দেওয়া (future work):** পুরনো S1 leakage/trajectory check, S6 static classifier, S8 run consistency। Code quality signal-ও বাদ — Chen & Jiang (SANER 2025)-এ SonarQube patch-এর আগে-পরে কার্যত কিছুই ধরেনি।
 
 ### ৪.৩ Research Questions
-- **RQ1 (সমস্যার আকার):** বর্তমান AI coding agent-দের test-pass করা patch-এর কত অংশ আসলে ভুল বা অনিরাপদ — contamination-মুক্ত task-এ, মানুষের যাচাই করা label দিয়ে?
-- **RQ2 (প্রতিটা signal):** প্রতিটা signal (S1–S8) আলাদাভাবে কতটা ভুল patch ধরে, আর কতটা সঠিক patch ভুল করে বাতিল করে (recall, specificity, precision ≥ 0.8-এ recall)? Signal-গুলোর ভুলের দিক কি আলাদা?
-- **RQ3 (একসাথে):** আলাদা signal-গুলো একসাথে দেখালে (একক score না বানিয়ে) কি candidate patch বাছাই উন্নত হয় (Agentless-ধরনের majority vote-এর তুলনায়), আর "যাচাই করা যায়নি" কতবার আসে?
-- **RQ4 (নির্ভরযোগ্যতা ও robustness):** Assurance report নিজে কতটা স্থির (বারবার চালালে একই রায়?) আর judge-ভিত্তিক signal কি patch-এর ভেতরের প্ররোচনায় (comment-এ লুকানো নির্দেশ) ঠকে?
+- **RQ1 (Signal reliability ও conflict):** AI agent-এর test-pass করা patch-এ প্রতিটা signal অগ্রহণযোগ্য patch কতটা ধরে, সঠিক patch কতটা ভুল করে বাতিল করে, কতবার চালানোই যায় না, আর signal-রা কতবার পরস্পরবিরোধী?
+- **RQ2 (Calibrated fusion):** Signal থেকে শেখা calibrated model কি tests-only, rule-ভিত্তিক, majority vote আর fixed weighted sum-এর চেয়ে ভালো AUROC, ECE ও Brier দেয়?
+- **RQ3 (Selective acceptance — মূল):** Abstention ব্যবহার করলে একই coverage-এ false assurance rate কতটা কমে, আর false assurance ≤ 5% রাখতে কত coverage ছাড়তে হয়?
+- **RQ4 (Conflict-এর মূল্য):** Conflict আর missing evidence-এর উপর abstain করা কি শুধু low-confidence-এর উপর abstain করার চেয়ে ভালো risk–coverage দেয়?
+
+**সহজ কথায়:** RQ1 = "প্রতিটা পরীক্ষা কতটা ভালো?" RQ2 = "সব মিলিয়ে সৎ সম্ভাবনা দেওয়া যায়?" RQ3 = "জানি না বললে কতটা কম ঠকি?" RQ4 = "পরীক্ষাগুলোর ঝগড়া কি নিজেই সতর্কসংকেত?"
+
+Explanation-এর কার্যকারিতা RQ নয় (user study লাগে); assurance report একটা artifact হিসেবে থাকবে।
+
+### ৪.৪ সবচেয়ে কাছের কাজ ও পার্থক্য
+| কাজ | কী করে | CalibraPatch-এর পার্থক্য |
+|---|---|---|
+| Abstain and Validate (Google, ICSE-SEIP 2026) | LLM policy দিয়ে abstain + LLM critic | Calibrated, multi-signal, risk–coverage দিয়ে মাপা |
+| WEAVER (ICML 2025) | Weak verifier-দের reliability শিখে মেলায় | Math/reasoning-এ; আমরা agent patch-এ, abstention সহ |
+| TrustPatch-X (IJACSA 2026) | স্থির weighted sum + explanation | Weight data থেকে শেখা, calibration, conflict, abstention |
+| RETRACE (arXiv 2608.08950) | Issue-patch দুই দিক মিলিয়ে conflict | Test, security, adequacy signal সহ; সিদ্ধান্ত calibrated |
+| Spiess (ICSE 2025), Siddiq (2026) | Code model-এর confidence calibration, "False Trust" | Model-এর confidence নয়, verification evidence-এর calibration |
 
 ---
 
@@ -101,16 +123,17 @@ AI agent একটা issue-এর জন্য patch দিলে, test pass �
 
 | দিক | পরিকল্পনা | কেন |
 |---|---|---|
-| Task | SWE-rebench-এর সর্বশেষ window থেকে নতুন task (contamination এড়াতে) + SWE-Bench Pro Verified-এর সংশোধিত subset (বহু-ভাষা) | CG6, CG9 |
-| Agent | অন্তত একটা বর্তমান সস্তা model (যেমন GPT-6.1 Sol বা open-weight Kimi/GLM) mini-SWE-agent harness-এ; আর প্রকাশিত trajectory/patch যেখানে পাওয়া যায় | খরচ, CG8 |
-| Candidate | প্রতিটা task-এ কয়েকটা (যেমন 5) patch | S4, S8 |
-| Ground truth | দুজন rater, shared rubric, Cohen's κ report; বিতর্কিত ক্ষেত্র আলাদা; developer-এর পূর্ণ test suite চালানো | CG16, HITL-এর শিক্ষা |
-| Metric | Recall, specificity, precision ≥ 0.8-এ recall, প্রকৃত হারে precision, "যাচাই করা যায়নি"-এর হার | CG17, Harden and Catch |
-| Statistics | Bootstrap CI, McNemar paired test, একাধিক run | CG4, CG8 |
-| Baseline | (১) শুধু test pass; (২) শুধু একটা LLM judge; (৩) majority vote (Agentless) | তুলনা |
-| Validity | Repository-ভিত্তিক split, label-উৎস নিয়ন্ত্রণ, version লেখা | CG10, CG11 |
+| Patch | SWE-bench Verified / Lite-এর প্রকাশিত agent submission থেকে test-pass করা patch; নিজে agent চালানো নয় | খরচ শূন্য, ৮ GB laptop-এ সম্ভব |
+| Language | মূল experiment Python; Java পরে generalization হিসেবে | Agent patch আর label Python-এ বেশি; CG9 |
+| আকার | 50-patch pilot, তারপর 300–500টা label করা patch লক্ষ্য | Calibration মাপতে কয়েকশো label লাগে |
+| Ground truth | Developer-এর পূর্ণ test suite + differential evidence + security finding-এর মানব যাচাই + দুজন rater, rubric, Cohen's κ; "uncertain" শ্রেণি আলাদা | CG16; PatchDiff-এ 66.2% uncertain ছিল |
+| Model | Logistic regression + missing indicator → isotonic/Platt calibration | সরল, ব্যাখ্যাযোগ্য, অল্প data-য় চলে |
+| Metric | False assurance rate, coverage, risk–coverage ও AURC, coverage at FAR ≤ 5%, AUROC, Brier, ECE, bad-patch recall, false rejection | CG7, CG25 |
+| Baseline | (১) tests-only; (২) rule AND; (৩) majority vote; (৪) fixed weighted sum (TrustPatch-X-ধরনের); (৫) Dawid–Skene/Snorkel label model (WEAVER-ধরনের); (৬) calibrated, abstention ছাড়া; ঐচ্ছিক (৭) একক LLM judge | তুলনা |
+| Statistics | Repository-ভিত্তিক cross-validation, cluster bootstrap CI, McNemar, Holm সংশোধন | CG4, CG8 |
+| Validity | Ground truth আর signal-এর circularity এড়ানো, version লেখা | CG10, CG11 |
 
-**আকার ও খরচ (প্রাথমিক):** প্রথমে 5টা task-এ pilot চালিয়ে প্রতি task-এর আসল খরচ মাপা হবে; তারপর 60–100 task-এ মূল experiment। খরচের সংখ্যা এখনই নিশ্চিত বলা যাচ্ছে না — pilot-এর পরে ঠিক হবে।
+**খরচ:** সম্পূর্ণ বিনামূল্যে শুরু করা যায় (S1–S3)। ঐচ্ছিক S4/S5-এর জন্য প্রায় 20–80 USD (অনুমান; pilot-এর পরে ঠিক হবে)।
 
 ---
 
@@ -120,15 +143,16 @@ SPL3-এর নিয়ম অনুযায়ী আগে paper-এর ক�
 
 | অংশ | Module | কী করে | কোন paper implement হচ্ছে |
 |---|---|---|---|
-| **ধাপ ১: Paper implementation** | Task loader ও harness | SWE-rebench / SWE-Bench Pro task load, Docker-এ চালানো, F2P/P2P evaluation | SWE-bench, SWE-rebench |
-| | Candidate generator | Agentless-ধরনের pipeline বা mini-SWE-agent দিয়ে কয়েকটা patch | Agentless, SWE-agent |
-| | Baseline judge | Rubric-চালিত LLM judge | HITL LLM-as-a-Judge |
-| | Baseline selector | Majority vote ও distinguishing-test selection | Agentless, Oracle-Guided Selection |
-| **ধাপ ২: Gap সমাধান** | Signal S1–S8 | উপরের table অনুযায়ী | নিজস্ব |
-| | Assurance report | প্রতিটা signal আলাদা, তিন-অবস্থার রায়, CI ও version | নিজস্ব |
-| | Evaluation dashboard | Recall/specificity, R@P=0.8, CI, signal-ভিত্তিক তুলনা | নিজস্ব |
+| **ধাপ ১: Paper implementation** | Patch loader ও harness | প্রকাশিত agent patch load, Docker-এ F2P/P2P চালানো | SWE-bench |
+| | Oracle-strength checker | Test-এর oracle দুর্বল না শক্ত, regex taxonomy দিয়ে | All Smoke, No Alarm |
+| | Security delta | Semgrep + Bandit, patch-এর আগে-পরে, 2-of-3-ধরনের voting baseline | Sajadi et al., CWEval |
+| | Baseline aggregator | Tests-only, rule AND, majority vote, fixed weighted sum | TrustPatch-X, PatchBench |
+| **ধাপ ২: Gap সমাধান** | Calibrated model | Logistic + calibration, missing indicator | নিজস্ব |
+| | Conflict ও completeness | $c_i$ আর $e_i$ হিসাব | নিজস্ব |
+| | Decision engine | Accept / Reject / Insufficient Evidence, validation থেকে threshold | নিজস্ব |
+| | Assurance report ও dashboard | সিদ্ধান্ত, সম্ভাবনা, conflict, missing evidence; risk–coverage curve | নিজস্ব (Spring Boot বা সাধারণ web) |
 
-**অন্য researcher কীভাবে ব্যবহার করবে:** যেকোনো agent-এর patch আর issue দিলে tool একটা assurance report দেবে; আর নতুন signal plugin হিসেবে যোগ করা যাবে।
+**অন্য researcher কীভাবে ব্যবহার করবে:** যেকোনো agent-এর patch আর issue দিলে tool একটা calibrated সিদ্ধান্ত আর report দেবে; নতুন signal plugin হিসেবে যোগ করা যাবে, আর model নতুন label দিয়ে আবার calibrate করা যাবে।
 
 ---
 
@@ -136,28 +160,33 @@ SPL3-এর নিয়ম অনুযায়ী আগে paper-এর ক�
 
 | মাস | কাজ | Output |
 |---|---|---|
-| 1 | Literature চূড়ান্ত, supervisor-এর সাথে direction ঠিক, পরিবেশ (WSL2 + Docker) তৈরি | Proposal |
-| 2–3 | ধাপ ১: harness, candidate generator, baseline judge ও selector | কাজ করা prototype |
-| 3 | 5-task pilot: খরচ ও সময় মাপা | Pilot report |
-| 4 | Ground-truth labelling protocol, দুজন rater, κ | Labelled dataset (ছোট) |
-| 5–6 | ধাপ ২: signal S1–S8 ও assurance report | Tool v1 |
-| 7 | মূল experiment (RQ1–RQ3) | Result tables |
-| 8 | Robustness ও reliability (RQ4), ablation | Result tables |
-| 9 | Paper লেখা, tool documentation | Paper draft, release |
-| 10 | Submission, SPL3 presentation | Final |
+| 1 | Beyond Bypass ও OpenAI post নিজে পড়া; Abstain and Validate ও WEAVER পড়া; supervisor-এর সাথে direction চূড়ান্ত; WSL2 + Docker | চূড়ান্ত proposal |
+| 2 | প্রকাশিত agent patch সংগ্রহ; harness-এ ১০টা patch চালানো | কাজ করা harness |
+| 3 | S1–S3 implement; 50-patch pilot; সময় ও disk মাপা | Pilot report |
+| 4 | Labelling rubric; দ্বিতীয় rater; 100টা patch label, κ | প্রথম label set |
+| 5 | বাকি label (300+ লক্ষ্য); বাজেট থাকলে S4/S5 | Label করা dataset |
+| 6 | RQ1: signal reliability ও conflict | প্রথম ফল; workshop paper draft |
+| 7 | RQ2–RQ3: model, calibration, abstention, baseline | মূল ফল |
+| 8 | RQ4 ও ablation; statistics | সম্পূর্ণ ফল |
+| 9 | Report UI; replication package; paper লেখা | Tool v1, paper draft |
+| 10 | Submission; SPL3 presentation | চূড়ান্ত |
 
 ---
 
 ## ৮. Publication পরিকল্পনা
 
-| স্তর | Venue (সাধারণ নির্দেশনা) | কী পাঠানো যায় |
+| স্তর | Venue | কী পাঠানো যায় |
 |---|---|---|
-| প্রথম | Workshop (যেমন LLM4Code, AI-SQE-ধরনের AI-for-software-quality workshop) | RQ1 + pilot ফল: বর্তমান agent patch-এর কত অংশ ভুল/অনিরাপদ |
-| মূল | ICSE, FSE, ASE, ISSTA (research track) বা journal: EMSE, JSS, IST, TOSEM | RQ1–RQ4 সম্পূর্ণ, tool artifact সহ |
+| প্রথম | Workshop বা short paper (যেমন IEEE AITest, LLM4Code, AI-SQE) | RQ1: agent patch-এর verification signal কতটা নির্ভরযোগ্য ও পরস্পরবিরোধী |
+| মূল (বাস্তবসম্মত) | Journal of Systems and Software (Scopus Q1; JCR Q1, second-hand) | RQ1–RQ4 সম্পূর্ণ, tool ও replication package সহ |
+| মূল (বাস্তবসম্মত, কড়া) | Empirical Software Engineering (Scopus Q1; JCR Q2, second-hand) | একই, আরও কঠোর statistics ও threats to validity |
+| উচ্চাভিলাষী | IEEE TSE, বা ICSE/FSE/ASE research track | বড় dataset, Java extension, conformal guarantee যোগ হলে |
 
-**Paper-এর মূল দাবি (আশা):** "Test pass করা এখন যথেষ্ট নয়; আলাদা আলাদা signal আর তাদের ভুলের দিক দেখিয়ে আমরা বর্তমান agent-এর patch সম্পর্কে আরও বিশ্বাসযোগ্য সিদ্ধান্ত নিতে পারি।" — দাবিটা experiment-এর ফলের উপর নির্ভর করবে।
+Proposal-এ quartile লেখার আগে Clarivate JCR library login দিয়ে নিজে দেখতে হবে। Scopus আর JCR quartile আলাদা।
 
-**Validity-র ঝুঁকি (আগে থেকে লিখে রাখা):** ছোট sample, label-এর বিষয়গততা, একটা harness, LLM judge-এর নিজের contamination, খরচের কারণে সীমিত model।
+**Paper-এর মূল দাবি (আশা):** "Test pass-এর বদলে calibrated, abstention-সহ সিদ্ধান্ত নিলে একই coverage-এ false assurance কমে; আর signal-দের conflict নিজেই ভুলের পূর্বাভাস দেয়।" — দাবিটা experiment-এর ফলের উপর নির্ভর করবে।
+
+**Validity-র ঝুঁকি (আগে থেকে লিখে রাখা):** label-এর বিষয়গততা, ground truth ও signal-এর circularity, শুধু Python ও SWE-bench, ছোট sample-এ ECE-র অনিশ্চয়তা, SWE-bench Verified-এর পরিচিত contamination।
 
 ---
 
@@ -165,35 +194,38 @@ SPL3-এর নিয়ম অনুযায়ী আগে paper-এর ক�
 
 | ঝুঁকি | সমাধান |
 |---|---|
-| API খরচ বেশি | Pilot আগে; সস্তা বা open-weight model; প্রকাশিত patch/trajectory ব্যবহার |
-| Docker environment build ব্যর্থ | SWE-rebench-এর তৈরি image; "যাচাই করা যায়নি" হিসেবে report |
-| Label বানাতে বেশি সময় | ছোট কিন্তু সাবধানে label করা set; rubric দিয়ে দ্রুত |
-| Distinguishing test repository-level-এ কাজ না করা | এটাই একটা ফলাফল হিসেবে report (negative result-ও মূল্যবান) |
-| নতুন কাজ আগেই প্রকাশিত হয়ে যাওয়া | প্রতি দুই মাসে literature check; fact sheet আপডেট |
+| Label বানাতে বেশি সময় | Pilot; rubric; দ্বিতীয় rater আগেই ঠিক; ছোট কিন্তু পরিষ্কার set |
+| অগ্রহণযোগ্য patch খুব কম (imbalance) | Test-pass patch-এ ভুল প্রায় 10–30%; AUROC ও Brier; ভুল বেশি এমন agent বাছাই |
+| Calibration-এর জন্য data কম | সরল model; equal-mass bin; bootstrap CI; conformal পরে |
+| ৮ GB laptop-এ Docker harness না চলা | "Missing" হিসেবে রাখা (পদ্ধতিরই অংশ); lab machine |
+| Calibrated model tests-only-কে হারাতে না পারা | Negative result-ও publishable; RQ1 নিজেই মূল্যবান |
+| কাছের নতুন কাজ প্রকাশিত হয়ে যাওয়া | প্রতি দুই মাসে search; দাবি সংকীর্ণ রাখা |
 
 ---
 
 ## ১০. Supervisor-এর সম্ভাব্য প্রশ্ন
 
 **Q1. তোমার কাজ কেন নতুন?**
-A: আগের কাজগুলো একটা signal নিয়ে (একটা judge, বা test, বা security scan), আর বেশিরভাগ পুরনো model-এ। বর্তমান (2026) agent-এর patch-এ একাধিক আলাদা signal-এর ভুলের দিক মেপে, contamination-মুক্ত task-এ, পরিসংখ্যানসহ — এমন কাজ আমাদের fact sheet-এ পাওয়া যায়নি।
+A: Multi-signal patch validation আগেই আছে (TrustPatch-X, PatchBench, R2E-Gym), আর abstention-ও আছে (Google-এর Abstain and Validate)। কিন্তু কেউ agent patch-এর জন্য ভিন্ন ভিন্ন verification signal থেকে **calibrated** সম্ভাবনা দেয় না, signal-দের conflict ধরে abstain করে না, আর **false assurance বনাম coverage** মাপে না। আমার কাজ সেই পরিমাপ।
 
-**Q2. একটা score না দিয়ে আলাদা signal কেন?**
-A: Engineering Reliable Coding Agents দেখায় weighted একক score-কে optimizer ঠকাতে পারে; আর HITL ও RePaCA দেখায় judge-দের ভুলের দিক আলাদা — একসাথে মেশালে সেই তথ্য হারায়।
+**Q2. WEAVER তো ইতিমধ্যে verifier-দের reliability শিখে মেলায় — তফাত কী?**
+A: WEAVER math ও reasoning-এ, ranking-এর জন্য। আমরা agent patch-এ, absolute গ্রহণ-সিদ্ধান্তের জন্য, abstention আর risk–coverage দিয়ে। WEAVER-ধরনের label model আমাদের একটা baseline।
 
 **Q3. Ground truth কীভাবে ঠিক করবে?**
-A: Developer-এর পূর্ণ test suite, distinguishing input-এ আচরণ তুলনা, আর দুজন rater shared rubric দিয়ে (Cohen's κ report)। HITL paper দেখিয়েছে rubric ছাড়া মানুষের মিল খুব কম।
+A: Developer-এর পূর্ণ test suite, developer patch-এর সাথে আচরণের তুলনা, security finding-এর মানব যাচাই, আর দুজন rater shared rubric দিয়ে (Cohen's κ)। অস্পষ্ট issue-কে "uncertain" রাখবো — PatchDiff-এ এমন ছিল 66.2%।
 
 **Q4. খরচ সামলাবে কীভাবে?**
-A: প্রথমে 5-task pilot, তারপর 60–100 task; সস্তা বর্তমান model আর প্রকাশিত patch ব্যবহার।
+A: নিজে agent চালাবো না; প্রকাশিত patch ব্যবহার করবো। মূল signal (test, adequacy, security) সম্পূর্ণ বিনামূল্যের tool-এ চলে।
 
-**Q5. যদি দেখা যায় কোনো signal কাজ করে না?**
-A: সেটাও একটা গুরুত্বপূর্ণ ফল — "এই signal বর্তমান agent patch-এ নির্ভরযোগ্য নয়" — যা পরের গবেষকদের সময় বাঁচাবে।
+**Q5. যদি calibrated model tests-only-এর চেয়ে ভালো না হয়?**
+A: সেটাও ফল — "এই signal-গুলো দিয়ে false assurance কমানো যায় না" — আর RQ1-এর signal reliability ফল এমনিতেই মূল্যবান।
 
 ---
 
 ## ১১. Supervisor-কে দেখানোর আগে যা যাচাই করতে হবে
-1. Fact sheet-এ "search-snippet" চিহ্নিত তথ্য (যেমন OpenAI-এর SWE-bench Verified ঘোষণা, ComPass-এর 62.14%, SWE Atlas) মূল উৎসে খুলে দেখা।
-2. কয়েকটা paper-এর প্রকাশস্থান অনিশ্চিত (UniTSyn, SecureVibeBench, Security & Quality, TestDecision, Trustworthy AI SE) — DBLP বা arXiv-এ দেখা।
-3. SWE-rebench-এর সর্বশেষ window আর Scale-এর SWE-Bench Pro board-এ নতুন entry এসেছে কিনা দেখা — বর্তমান model-এর সংখ্যা দ্রুত বদলায়।
-4. প্রস্তাবিত venue-গুলোর এ বছরের deadline দেখা।
+1. Beyond Bypass (IEEE AITest 2026)-এর PDF university access দিয়ে পড়া — এর বিষয়বস্তু এখনো যাচাই হয়নি।
+2. OpenAI-এর "Why SWE-bench Verified no longer measures frontier coding capabilities" নিজে browser-এ খুলে সংখ্যা (59.4% ইত্যাদি) মেলানো।
+3. Abstain and Validate (arXiv 2510.03217) ও WEAVER (arXiv 2506.18203) পুরো পড়া।
+4. PatchDiff-এর label আর SWE-bench submission-এর patch download করা যায় কিনা দেখা।
+5. JSS, EMSE, TSE-এর JCR quartile Clarivate-এ নিজে দেখা।
+6. প্রতি দুই মাসে "patch calibration abstention" ধরনের search আবার করা।

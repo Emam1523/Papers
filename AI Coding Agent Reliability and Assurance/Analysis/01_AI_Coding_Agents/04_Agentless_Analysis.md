@@ -21,11 +21,61 @@
 | **Funny fact** | প্রথম কয়েকজন author-এর ordering "Nigiri" দিয়ে ঠিক করা হয়েছে (footnote) — equal contribution |
 | **আমাদের domain-এ গুরুত্ব** | ⭐⭐⭐⭐⭐ — (১) সবচেয়ে **reproducible ও সস্তা** strong baseline; (২) **benchmark reliability** নিয়ে প্রথম দিকের গুরুত্বপূর্ণ evidence (solution leakage, insufficient info, misleading solution); (৩) **generated test দিয়ে patch validation** — আমাদের Patch Validation ও LLM Test Generation sub-domain-এর সাথে সরাসরি যুক্ত |
 
+## ★ সহজ ভাষায় পুরো Paper (প্রথমবার পড়ার জন্য)
+
+> এই অংশটা শুধু প্রথমবার পড়ার জন্য। নিচের সব section-এর বিস্তারিত তথ্য আগের মতোই আছে। আগে এই ৫টা ছোট অংশ পড়ে নাও, তারপর বাকিটা পড়লে সবকিছু সহজ লাগবে।
+
+### ক. Paper-টা কী নিয়ে?
+- এটা একটা **নতুন technique-এর paper**। সাথে একটা **benchmark যাচাইয়ের কাজও** আছে।
+- বানিয়েছেন Illinois বিশ্ববিদ্যালয়ের (UIUC) চারজন গবেষক: Chunqiu Steven Xia, Yinlin Deng, Soren Dunn ও Lingming Zhang। সাল 2024।
+- বিষয়: AI দিয়ে software-এর bug নিজে নিজে ঠিক করানো। Test-এর জন্য ব্যবহার হয়েছে SWE-bench Lite (GitHub থেকে নেওয়া 300টা আসল bug)।
+- তখন সবাই "বুদ্ধিমান agent" বানাচ্ছিল, যে নিজে সিদ্ধান্ত নেয় কী করবে। এই paper বলছে: অত জটিলতা কি আদৌ দরকার?
+- তাদের tool-এর নাম **Agentless**। এখানে সিদ্ধান্ত নেয় মানুষের লেখা একটা সরল তিন-ধাপের নিয়ম, AI নিজে নয়।
+- শেষে তারা দেখিয়েছে, যে benchmark দিয়ে সবাই মাপছে সেটাতেই অনেক ভুল আছে।
+
+### খ. সমস্যাটা কী ছিল?
+- তখনকার agent-গুলো (যেমন SWE-agent) AI-কে বলত "নিজে ঠিক করো কোন file খুলবে, কী চালাবে"। একটা bug ঠিক করতে লাগত ৩০–৪০টা ধাপ।
+- **উপমা:** কাউকে বলা হলো "বাড়ির লোডশেডিং-এর কারণ খুঁজে ঠিক করো", কিন্তু কোনো নিয়ম বলে দেওয়া হলো না। সে প্রথমে ভুল মিটার বোর্ড খুলল। তারপর পরের সব সিদ্ধান্ত সেই ভুলের উপর দাঁড়াল।
+- ফলে তিনটা কষ্ট: (১) খরচ বেশি, (২) কোথায় ভুল হলো বোঝা যায় না, (৩) অনেক tool-এর code-ই প্রকাশিত নয়, তাই তাদের দাবি যাচাই করা যায় না।
+- **দ্বিতীয় সমস্যা:** SWE-bench Lite-এর কিছু problem-এর issue-তেই উত্তর লেখা আছে। কিছুতে এত কম তথ্য যে সঠিক কাজ করলেও test fail করে। কেউ এগুলো যাচাই করেনি।
+- **উদাহরণ:** Test চাইছে error message ঠিক "invalid date" হতে হবে। কিন্তু issue-তে সেটা কোথাও লেখা নেই। AI ভালো fix লিখেও fail করবে।
+
+### গ. Paper কী solve করেছে?
+- **Agentless** বানিয়েছে: bug-এর জায়গা খোঁজা, অনেকগুলো fix বানানো, তারপর test চালিয়ে সেরাটা বাছাই। এই তিন ধাপ আগে থেকেই ঠিক করা।
+- SWE-bench Lite-এর 300টা problem-এর **96টা (32.00%)** সমাধান করেছে। মানে ১০০টার মধ্যে ৩২টা। সব open-source agent-এর চেয়ে বেশি।
+- খরচ গড়ে মাত্র **USD 0.70** প্রতি issue। একই AI (GPT-4o) দিয়ে SWE-agent-এর খরচ USD 2.53। মানে প্রায় ৩.৬ গুণ সস্তা।
+- SWE-bench Lite-এর প্রতিটা problem হাতে পড়ে দেখেছে। **4.3%**-এ হুবহু উত্তর লেখা, **10%**-এ তথ্যই অপর্যাপ্ত, **5%**-এ ভুল পথ দেখানো। এগুলো বাদ দিয়ে পরিষ্কার সেট বানিয়েছে: **Lite-S (249টা)**।
+- আরেকটা গুরুত্বপূর্ণ সংখ্যা: 40টা fix বানানোর পর **126টা (42.0%) issue-তে** অন্তত একটা fix ঠিক ছিল। কিন্তু বাছাই করে পাওয়া গেছে মাত্র 96টা। মানে সঠিক উত্তর হাতে পেয়েও প্রায় ৩০টা issue-তে ভুলটা বেছে ফেলেছে।
+
+### ঘ. কীভাবে solve করেছে?
+1. **Repo-র মানচিত্র বানাও:** পুরো project-এর শুধু folder ও file-এর নাম একটা তালিকায় সাজাও। কোনো code নেই। এতে AI অল্প লেখায় পুরো project দেখতে পায়।
+2. **সন্দেহজনক file খোঁজো:** AI-কে issue ও মানচিত্র দেখিয়ে বলো "কোন ৩টা file-এ bug থাকতে পারে?" সাথে অর্থ মিলিয়ে খোঁজার (embedding) আরেকটা পদ্ধতি চালিয়ে দুটোর ফল মেলাও।
+3. **ধাপে ধাপে zoom করো:** ঠিকানা খোঁজার মতো। আগে file, তারপর file-এর ভেতরের class/function-এর শুধু নাম, শেষে সেই function-এর পুরো code দেখে ঠিক কোথায় বদলাতে হবে।
+4. **অনেক fix বানাও:** একই জায়গার জন্য AI-কে দিয়ে বারবার fix লেখাও। মোট 40টা। প্রতিটা "খুঁজে বদলাও" ধরনের সরল format-এ।
+5. **Bug-টা দেখানোর test বানাও:** AI-কে দিয়ে একটা ছোট test লেখাও যা issue-র bug-টা ঘটিয়ে দেখায়। মূল code-এ চালিয়ে দেখো সত্যিই bug দেখা যায় কিনা।
+6. **পুরনো test চালাও:** project-এর আগের test-গুলো চালাও। যে fix পুরনো কিছু ভেঙে দেয়, তাকে বাদ দাও।
+7. **নতুন test-এ পরীক্ষা করো:** বাকি fix-গুলোর মধ্যে যেগুলো পাওয়া bug-test পাস করে, শুধু সেগুলো রাখো।
+8. **ভোট নাও:** যে fix সবচেয়ে বেশিবার এসেছে (বানান-ফাঁকা-comment-এর পার্থক্য মুছে মিলিয়ে) সেটাই জমা দাও।
+
+### ঙ. এরপর কী করা যায়?
+- **Authors যা বলেছেন:** যে issue-তে "কোথায় bug" তার কোনো ইঙ্গিত নেই, সেখানে agent-রা ভালো। Agentless-কে সেখানে ভালো করানো future কাজ। আর fix বাছাইয়ের পদ্ধতি (re-ranking) আরও ভালো করা।
+- **যা খোলা আছে:** 126 বনাম 96-এর ফাঁক। মানে সঠিক fix হাতে থেকেও ভুলটা বাছা।
+- **যা খোলা আছে:** AI-র বানানো bug-test-এর অর্ধেকের বেশি (213-এর মধ্যে 119টা) ভালো নয়। আর "pass করল" মানেই "ঠিক" নয়।
+- **আমরা SPL3-তে করতে পারি:** Agentless-এর 40টা fix একবার বানিয়ে জমিয়ে রাখি। তারপর নতুন নতুন বাছাইয়ের নিয়ম (re-ranker) বিনা খরচে পরীক্ষা করি।
+- **আমরা করতে পারি:** একই pipeline বারবার চালিয়ে দেখি ফল একই আসে কিনা (reliability)।
+- **আমরা করতে পারি:** বাছাই করা fix-এ security scan চালাই। Test pass করেও যে fix ঝুঁকিপূর্ণ, সেটা ধরি।
+
+> **মনে রাখো:** ১. জটিল agent ছাড়াও সরল ৩-ধাপ pipeline দিয়ে 32.00% সমাধান ও কম খরচ সম্ভব।
+> ২. SWE-bench Lite নিজেই নিখুঁত নয়, তাই score দেখে অন্ধভাবে বিশ্বাস করা যায় না।
+> ৩. আসল সুযোগ হলো সঠিক fix বাছাই করা: 126 হাতে, কিন্তু পেয়েছি 96।
+
 ---
 
 ## ১. এক লাইনে Paper (TL;DR)
 
 **জটিল autonomous agent ছাড়াই, শুধু একটা নির্দিষ্ট ৩-ধাপের pipeline (Localization → Repair → Patch Validation) দিয়ে LLM-কে চালালে SWE-bench Lite-এ সব open-source agent-এর চেয়ে বেশি issue (96/300 = 32.00%) সমাধান করা যায়, তাও গড়ে মাত্র USD 0.70 খরচে; সাথে paper-টা দেখিয়েছে যে SWE-bench Lite-এর বেশ কিছু problem নিজেই ত্রুটিপূর্ণ (solution আগেই লেখা, তথ্য অপর্যাপ্ত, বা ভুল পথ দেখানো)।**
+
+**সহজ কথায়:** AI-কে সব সিদ্ধান্ত নিতে না দিয়ে মানুষ আগে থেকে তিনটা ধাপ ঠিক করে দিয়েছে: bug কোথায় খোঁজো, অনেক fix বানাও, test দিয়ে সেরাটা বাছো। এতে ফল ভালো এসেছে, খরচ কমেছে, আর কোন ধাপে ভুল হলো তা বোঝা যায়। আরেকটা আবিষ্কার: যে benchmark দিয়ে সবাই মাপছে, তার নিজেরই কিছু problem ত্রুটিপূর্ণ।
 
 ### Supervisor-কে ৩০ সেকেন্ডে কীভাবে বলবো
 > "Sir, SWE-bench আসার পর সবাই SWE-agent, AutoCodeRover-এর মতো autonomous agent বানাচ্ছিল — যেখানে LLM নিজেই ঠিক করে পরের ধাপে কী করবে, কোন tool চালাবে। এই paper প্রশ্ন তুলেছে: এত জটিলতা কি আসলেই দরকার? তারা Agentless বানিয়েছে — LLM কোনো সিদ্ধান্ত নেয় না, মানুষের ঠিক করা ৩টা ধাপ চলে: প্রথমে hierarchical ভাবে bug-এর জায়গা খোঁজা (file → function → line), তারপর অনেকগুলো candidate patch তৈরি, শেষে regression test আর LLM-এর বানানো reproduction test দিয়ে filter করে majority voting-এ একটা patch বাছাই। GPT-4o দিয়ে এটা SWE-bench Lite-এ 32% solve করেছে — সব open-source agent-এর চেয়ে বেশি — আর খরচ SWE-agent-এর প্রায় চার ভাগের এক ভাগ। সাথে তারা দেখিয়েছে SWE-bench Lite-এর 4.3% issue-তে হুবহু solution লেখা আছে, 10% issue-তে যথেষ্ট তথ্য নেই, 5% issue ভুল সমাধান suggest করে — তাই তারা 249টা problem-এর পরিষ্কার subset Lite-S বানিয়েছে। পরে OpenAI-এর SWE-bench Verified একই দিকে গেছে। আমাদের reliability ও assurance domain-এর জন্য এটা দুই দিক থেকে গুরুত্বপূর্ণ: সরল-বোধগম্য pipeline, আর benchmark নিজেই কতটা বিশ্বাসযোগ্য সেই প্রশ্ন।"
@@ -76,6 +126,8 @@ Bug-টা code-এর **কোথায়** আছে তা খুঁজে �
 | **Learning-based FL** | একাধিক signal ML দিয়ে combine | DeepFL, FLUCCS, TRANSFER |
 | **LLM-based FL** | LLM সরাসরি code ও bug report বুঝে location বলে | AgentFL ইত্যাদি |
 
+**সহজ কথায়:** Bug খোঁজার পুরনো পদ্ধতিগুলো মূলত test চালিয়ে বা শব্দ মিলিয়ে কাজ করে। Agentless দুটো আলাদা সংকেত মেলায়: AI-র বুদ্ধি আর অর্থ-মেলানো খোঁজ।
+
 Agentless-এর localization = **LLM-based + IR-based (embedding)** এর মিশ্রণ, আর এটা **test চালায় না** (তাই SBFL/MBFL নয়)। কারণ SWE-bench-এর বাস্তব setting-এ শুরুতে কোনো bug-triggering test থাকে না।
 
 ### ২.৬ Hierarchical Localization (file → class/function → edit location)
@@ -98,7 +150,7 @@ django/
         generic/
             detail.py
 ```
-এতে পুরো repo-র "মানচিত্র" খুব কম token-এ LLM-কে দেখানো যায়।
+এতে পুরো repo-র "মানচিত্র" খুব কম token-এ (token = LLM-এর পড়া বা লেখার ছোট শব্দ-টুকরা) LLM-কে দেখানো যায়।
 
 ### ২.৮ Skeleton Format
 একটা file-এর **compressed রূপ**: শুধু class ও function-এর declaration header, class-এর field ও method signature, আর class/module level comment — function-এর ভেতরের body বাদ (`...` দিয়ে বোঝানো)। উদাহরণ (আমার বানানো, paper-এর Figure 2-এর মতো):
@@ -112,7 +164,7 @@ class UUIDField(CharField):
 def slugify(value, allow_unicode=False):
     ...
 ```
-হাজার line-এর file কয়েক ডজন line-এ নেমে আসে।
+হাজার line-এর file কয়েক ডজন line-এ নেমে আসে। (মানে: বইয়ের শুধু সূচিপত্র দেখা, পুরো বই নয়।)
 
 ### ২.৯ Embedding ও Embedding-based Retrieval
 - **Embedding:** একটা text বা code টুকরাকে একটা লম্বা সংখ্যার vector-এ রূপান্তর, যাতে **অর্থে কাছাকাছি** দুটো text-এর vector-ও কাছাকাছি হয়।
@@ -122,7 +174,7 @@ def slugify(value, allow_unicode=False):
 - **Tool:** LlamaIndex (retrieval framework), OpenAI-এর `text-embedding-3-small` model।
 
 ### ২.১০ Search/Replace Diff Format
-Unified diff (Paper 01-এর `-`/`+` format) LLM-এর জন্য লেখা কঠিন — line number, header, context line সব ঠিক হতে হয়। আর পুরো file আবার লেখা ব্যয়বহুল ও hallucination-প্রবণ। **Search/Replace** format (Aider tool থেকে নেওয়া) অনেক সহজ:
+Unified diff (Paper 01-এর `-`/`+` format) LLM-এর জন্য লেখা কঠিন — line number, header, context line সব ঠিক হতে হয়। আর পুরো file আবার লেখা ব্যয়বহুল ও hallucination-প্রবণ (মানে LLM বানিয়ে ভুল কিছু লিখে ফেলে)। **Search/Replace** format (Aider tool থেকে নেওয়া) অনেক সহজ:
 ```text
 ### django/utils/text.py
 <<<<<<< SEARCH
@@ -196,6 +248,8 @@ test_issue()
 | **Insufficient information** | যথেষ্ট তথ্য নেই — যেমন test একটা নির্দিষ্ট function নাম বা error message string চায় যা issue-তে বলা নেই; বা issue-তে দুটো সমাধান suggest করা, test শুধু একটাকে মানে | Functionally ঠিক patch-ও fail — tool-কে অন্যায়ভাবে শাস্তি |
 | **Misleading solution** | Issue-তে প্রস্তাবিত সমাধান developer-এর আসল patch-এর সাথে মেলে না | Issue অনুসরণ করলেই ভুল patch |
 
+**সহজ কথায়:** চার ধরনের গোলমাল আছে। কোথাও উত্তর আগেই লেখা (নকল করা সহজ)। কোথাও তথ্য কম (সঠিক fix-ও fail করে)। কোথাও ভুল পরামর্শ দেওয়া। এগুলো থাকলে score দেখে tool-এর আসল ক্ষমতা বোঝা যায় না।
+
 ### ২.১৭ SWE-bench Lite-S
 উপরের তিন ধরনের problematic problem (exact patch, misleading solution, insufficient info) বাদ দিয়ে SWE-bench Lite-এর **249টা problem-এর filtered subset**। লক্ষ্য: কম "অযৌক্তিক" problem, আর difficulty level normalize করা।
 
@@ -210,7 +264,7 @@ test_issue()
 
 ### ৩.১ মূল সমস্যা: Agent-based approach-এর তিনটা সীমাবদ্ধতা (authors-এর যুক্তি)
 1. **Complex tool usage/design:** Agent-কে tool দিতে হলে environment আর LLM-এর মাঝে একটা abstraction layer (API call format) বানাতে হয়। Input/output format সতর্কভাবে design না করলে tool ভুলভাবে ব্যবহার হয় — performance কমে আর wasted LLM query-তে খরচ বাড়ে। Agent iterative হওয়ায় একবারের ভুল পরের সব turn-এ প্রভাব ফেলে।
-2. **Lack of control in decision planning:** কখন কী action নেবে তা agent নিজে ঠিক করে, প্রায় কোনো check ছাড়াই। Action space বড় হওয়ায় agent সহজেই বিভ্রান্ত হয়ে অপ্রয়োজনীয় exploration করে। 30–40 turn-এর trajectory-তে কোথায় ভুল সিদ্ধান্ত হয়েছে তা বোঝা ও debug করা খুব কঠিন।
+2. **Lack of control in decision planning:** কখন কী action নেবে তা agent নিজে ঠিক করে, প্রায় কোনো check ছাড়াই। Action space বড় হওয়ায় agent সহজেই বিভ্রান্ত হয়ে অপ্রয়োজনীয় exploration করে। 30–40 turn-এর trajectory-তে (trajectory = agent-এর ধাপে ধাপে করা সব কাজের পুরো ইতিহাস) কোথায় ভুল সিদ্ধান্ত হয়েছে তা বোঝা ও debug করা খুব কঠিন।
 3. **Limited ability to self-reflect:** Agent সব feedback গ্রহণ করে, কিন্তু অপ্রাসঙ্গিক, ভুল বা বিভ্রান্তিকর তথ্য filter করতে পারে না। ফলে একটা ভুল step পরের সব সিদ্ধান্তে **amplify** হয়।
 
 ### ৩.২ দ্বিতীয় সমস্যা: Benchmark নিজেই কতটা বিশ্বাসযোগ্য?
@@ -254,6 +308,8 @@ Paper-এ RQ explicitly numbered নেই; evaluation section থেকে impl
 | 9 | Patch Validation | Regression test + reproduction test দিয়ে patch filter ও rank | Execution result | Filtered patches |
 | 10 | Patch Validation | Majority voting দিয়ে top patch | Normalized patches | **Submitted patch** |
 
+**সহজ কথায়:** ১০টা ধাপ আসলে তিন ভাগে ভাগ করা: (১) bug কোথায় খোঁজো (ধাপ ১–৫), (২) fix বানাও (ধাপ ৬), (৩) test দিয়ে সেরা fix বাছাই করো (ধাপ ৭–১০)। প্রতিটা ভাগ আলাদা করে মাপা যায়।
+
 ### ৫.২ Phase 1: Localization (৩ ধাপ, hierarchical)
 
 **৫.২.১ Suspicious file-এ localize করা**
@@ -275,11 +331,15 @@ Paper-এ RQ explicitly numbered নেই; evaluation section থেকে impl
 - LLM final edit location বলে — line number, function, বা class হিসেবে।
 - **Default:** এই ধাপে **4টা sample** নেওয়া হয় → **4টা আলাদা edit location set** (merge করা হয় না — Section ৮.৬ দেখো কেন)।
 
+**সহজ কথায়:** Localization-এ বড় থেকে ছোটর দিকে যাওয়া হয়। প্রথমে ৩টা file, তারপর কয়েকটা function, শেষে কয়েকটা line। প্রতিবার AI কম code দেখে, তাই বিভ্রান্ত হয় কম।
+
 ### ৫.৩ Phase 2: Repair
 1. **Context window তৈরি:** Edit location যদি line $a$ থেকে $b$ হয়, তাহলে $[a - x,\; b + x]$ line পর্যন্ত code দেওয়া হয় ($x$ = context size)। একাধিক location হলে window-গুলো `...` দিয়ে জোড়া লাগানো হয়। **Default:** $x$ = **±10 line**।
 2. **Patch generation:** LLM-কে **Search/Replace** format-এ patch লিখতে বলা হয় (Aider-এর format)।
 3. **Multiple sampling:** প্রতিটা location set-এর জন্য **10টা patch: 1টা greedy + 9টা sampled (T = 0.8)**।
 4. **মোট:** 4 location set × 10 = **প্রতি issue-তে 40টা candidate patch**।
+
+**সহজ কথায়:** Repair-এ AI একটা fix নয়, অনেকগুলো (40টা) fix বানায়। একটা ভুল হলেও বাকিগুলোর মধ্যে ঠিকটা থাকার সম্ভাবনা বাড়ে। AI-কে শুধু বদলানোর জায়গার আশপাশের কয়েকটা line দেখানো হয়, যাতে সে সহজে ঠিক জায়গায় মন দেয়।
 
 ### ৫.৪ Phase 3: Patch Validation
 
@@ -304,13 +364,17 @@ Paper-এ RQ explicitly numbered নেই; evaluation section থেকে impl
 4. **Majority voting:** বাকি patch-গুলোকে AST দিয়ে normalize করে সবচেয়ে বেশিবার আসা normalized patch = **final submission**।
 5. **Conservative design:** একটা patch reproduction test pass করলেও যদি regression-এ খারাপ করে, সেটা বাদ — অর্থাৎ ভুল reproduction test একটা ভুল patch-কে টেনে তোলার সম্ভাবনা কমানো হয়েছে।
 
+**সহজ কথায়:** ৪০টা fix থেকে সেরা বাছাইয়ের ছাঁকনি তিনটা: (১) পুরনো কিছু ভাঙল কিনা (regression), (২) বানানো bug-test পাস করল কিনা, (৩) বাকিদের মধ্যে ভোটে কে এগিয়ে। পরীক্ষা বেশিরভাগ ক্ষেত্রে সত্যিকারের চালানো ফল দেখে হয়, AI-র মতামতে নয়।
+
 ### ৫.৫ Benchmark Analysis-এর পদ্ধতি (Section 6 of paper)
 - SWE-bench Lite-এর **300টা problem-এর প্রতিটা manually classify** করা হয়েছে — issue description ও ground-truth developer patch দেখে।
 - **৩টা dimension:**
   1. **Description quality:** (i) NL-এ যথেষ্ট তথ্য, (ii) reproducible failure example আছে, (iii) আংশিক reproducible example, (iv) যথেষ্ট তথ্য নেই।
   2. **Solution in description:** (i) কোনো solution নেই, (ii) আংশিক (কিছু ধাপ NL-এ), (iii) সম্পূর্ণ ধাপ NL-এ, (iv) exact patch, (v) misleading solution।
-  3. **Location information** (line / function / file তিন granularity-তে): (i) NL-এ exact location, (ii) stack trace-এ exact location, (iii) location খোঁজার মতো keyword, (iv) কিছুই নেই।
+  3. **Location information** (line / function / file তিন granularity-তে): (i) NL-এ exact location, (ii) stack trace-এ (error-এর সময় program কোন কোন জায়গা দিয়ে গিয়েছিল তার তালিকা) exact location, (iii) location খোঁজার মতো keyword, (iv) কিছুই নেই।
 - **Lite-S তৈরি:** "exact patch", "misleading solution" ও "not enough info" — এই problem-গুলো বাদ → **249টা problem**।
+
+**সহজ কথায়:** এই paper-এর দ্বিতীয় অংশের কাজ ছিল পুরো SWE-bench Lite হাতে পড়ে problem-গুলো ভাগ করা: description কেমন, উত্তর আগেই দেওয়া আছে কিনা, bug-এর জায়গার ইঙ্গিত আছে কিনা। এর ফলেই Lite-S তৈরি হয়েছে।
 
 ### ৫.৬ Agent বনাম Agentless — design তুলনা
 
@@ -322,6 +386,8 @@ Paper-এ RQ explicitly numbered নেই; evaluation section থেকে impl
 | Trajectory বোঝা/debug | কঠিন | প্রতিটা phase আলাদা মাপা যায় |
 | Patch সংখ্যা | সাধারণত একটা trajectory → একটা patch | 40টা candidate → selection |
 | Reproduction test বিচার | প্রায়ই LLM নিজে বিচার করে test ঠিক কিনা | Execution result দিয়ে বিচার |
+
+**সহজ কথায়:** Agent-এ "এরপর কী করব" AI ঠিক করে। Agentless-এ সেটা মানুষ আগে থেকে লিখে রেখেছে, তাই এটা একটা সোজা পাইপলাইন, যাতে কোথাও ঘুরে বেড়ানোর সুযোগ নেই।
 
 ---
 
@@ -338,6 +404,9 @@ Localization নিজেই তিনটা function-এর composition:
 $$
 \text{Loc} = L_{\text{edit}} \circ L_{\text{elem}} \circ L_{\text{file}}
 $$
+
+**সূত্রের মানে (কথায়):** প্রথম সূত্র বলছে, শেষ patch আসে তিনটা কাজ পরপর করে: bug-এর জায়গা খোঁজা, সেখানে fix বানানো, তারপর test দিয়ে সেরা fix বাছা। দ্বিতীয় সূত্র বলছে, জায়গা খোঁজার কাজটাও নিজে তিন ধাপের: file, তারপর function, তারপর line।
+
 | Symbol | মানে |
 |---|---|
 | $P$ | Issue description (problem statement) |
@@ -369,6 +438,9 @@ $$
 $$
 F = \text{Top}_N \left( F_{\text{prompt}} \cup F_{\text{embed}} \right) \quad \text{(দুই list-এ কতবার এসেছে সেই অনুযায়ী)}, \qquad N = 3
 $$
+
+**সূত্রের মানে (কথায়):** প্রথম সূত্র বলছে, AI-কে file-এর নামের তালিকা ও issue দিলে সে সর্বোচ্চ N-টা সন্দেহজনক file বলবে। দ্বিতীয় সূত্র (cosine) দুটো লেখা অর্থে কতটা কাছাকাছি তা মাপে। ১-এর কাছে মানে খুব মিল, ০-এর কাছে মানে কোনো মিল নেই। তৃতীয় সূত্র দুই পদ্ধতির ফল মিলিয়ে সবচেয়ে বেশিবার আসা N-টা file বাছে।
+
 | Symbol | মানে |
 |---|---|
 | $\phi(\cdot)$ | Embedding model (`text-embedding-3-small`) — text কে vector বানায় |
@@ -391,6 +463,9 @@ $$
 $$
 E_j = \text{LLM}_{T}\left( P,\; \text{Code}(\mathcal{E}) \right), \qquad j = 1, 2, 3, 4
 $$
+
+**সূত্রের মানে (কথায়):** প্রথম সূত্র: সন্দেহজনক file-গুলোর শুধু ছোট রূপ (skeleton) দেখে AI বলে কোন function বা class দেখতে হবে। দ্বিতীয় সূত্র: সেই function-গুলোর পুরো code দেখে AI ৪ বার আলাদা করে ঠিক করে কোথায় বদলাতে হবে।
+
 - $\text{Skel}(F)$ = $F$-এর সব file-এর skeleton (এক prompt-এ)।
 - $\text{Code}(\mathcal{E})$ = element-গুলোর পুরো code।
 - $E_j$ = $j$-তম sampled edit location set (paper: "four samples of edit locations")।
@@ -400,6 +475,9 @@ Location line $a$ থেকে $b$ হলে:
 $$
 W(a, b) = [\, a - x,\; b + x \,], \qquad x = 10
 $$
+
+**সূত্রের মানে (কথায়):** Bug-এর line-এর দুই পাশে কয়েকটা করে বাড়তি line যোগ করে AI-কে দেখানো হয়, যাতে আশপাশের context-ও থাকে। এখানে সেটা ১০ line করে।
+
 **Worked example (paper-এর নিজের উদাহরণ ব্যবহার করে):** Paper বলে একটা class line 40 থেকে 78। $x = 10$ হলে window = $[30, 88]$, অর্থাৎ $88 - 30 + 1 = 59$ line code LLM দেখবে (মূল 39 line + দুই পাশে 10 করে)।
 
 ### ৬.৫ Temperature Sampling
@@ -407,6 +485,9 @@ Model প্রতিটা সম্ভাব্য token $v$-এর জন্�
 $$
 p_T(v) = \frac{\exp(z_v / T)}{\sum_{u \in V} \exp(z_u / T)}
 $$
+
+**সূত্রের মানে (কথায়):** সূত্রটা প্রতিটা সম্ভাব্য শব্দের জন্য একটা সম্ভাবনা বের করে। T ছোট হলে প্রায় সবসময় সবচেয়ে সম্ভাব্য শব্দটাই আসে। T বড় হলে অন্য শব্দও আসার সুযোগ পায়। তাই T = 0.8 দিয়ে একই issue-র জন্য নানা রকম fix বানানো যায়।
+
 - $T \to 0$ হলে → greedy (সবচেয়ে বড় logit-এর probability → 1)।
 - $T = 1$ → model-এর আসল distribution।
 - $T = 0.8$ (Agentless) → একটু "তীক্ষ্ণ" distribution, তবে বৈচিত্র্য থাকে।
@@ -429,6 +510,8 @@ $$
 \text{মোট patch} = 4 \times 10 = 40
 $$
 
+**সূত্রের মানে (কথায়):** ৪০টা patch মানে ৪টা জায়গা × ১০টা করে চেষ্টা। প্রতি জায়গায় ১টা greedy আর ৯টা random চেষ্টা, যাতে বৈচিত্র্য থাকে।
+
 ### ৬.৭ Reproduction Test নির্বাচন
 Candidate test $r_1, \ldots, r_{40}$ (1 greedy + 39 sampled)। $\text{out}(r, X)$ = codebase $X$-এ test $r$ চালালে কী print করে।
 $$
@@ -437,6 +520,9 @@ $$
 $$
 r^{*} = \arg\max_{r \in \mathcal{R}'} \; \sum_{r' \in \mathcal{R}'} \mathbb{1}\left[ \nu_t(r') = \nu_t(r) \right]
 $$
+
+**সূত্রের মানে (কথায়):** প্রথম সূত্র শুধু সেই test-গুলো রাখে যেগুলো bug-সহ code-এ "Issue reproduced" বলে। দ্বিতীয় সূত্র সেগুলোর মধ্যে সবচেয়ে বেশিবার আসা (comment ও ফাঁকা অংশ বাদ দিয়ে মিলিয়ে) test-টা বাছে।
+
 - $\nu_t$ = test normalization (comment, extra space মুছা, test নাম standardize)।
 - $\mathbb{1}[\cdot]$ = indicator — শর্ত সত্য হলে 1, না হলে 0।
 - অর্থাৎ: যে normalized test সবচেয়ে বেশিবার এসেছে সেটাই $r^{*}$। $\mathcal{R}'$ খালি হলে reproduction test নেই।
@@ -445,6 +531,9 @@ $$
 $$
 \mathcal{T}_{\text{pass}} = \{\, t \;:\; s(t, C) = \text{PASS} \,\}, \qquad \mathcal{T}_{\text{reg}} = \mathcal{T}_{\text{pass}} - \mathcal{T}_{\text{LLM-excluded}}
 $$
+
+**সূত্রের মানে (কথায়):** মূল code-এ যে test-গুলো পাস করে, সেখান থেকে AI-র বলা "এই fix-এ বদলাতেই পারে" test-গুলো বাদ দিলে আমাদের regression test set পাওয়া যায়।
+
 - $s(t, X)$ = codebase $X$-এ test $t$-এর status (Paper 01-এর notation)।
 - $\mathcal{T}_{\text{LLM-excluded}}$ = যেগুলো LLM বলেছে fix-এর কারণে বদলাতে পারে।
 - পার্থক্য লক্ষ করো: SWE-bench-এর P2P (Paper 01, Section ৬.২) gold patch $\delta$ দেখে বানানো; Agentless-এর $\mathcal{T}_{\text{reg}}$ বানানো হয় $\delta$ না দেখে — এটাই বাস্তবসম্মত।
@@ -473,6 +562,9 @@ $$
 $$
 \nu(p) = \text{diff}\left( \text{unparse}(\text{parse}(C)),\; \text{unparse}(\text{parse}(C \oplus p)) \right) \quad \text{(docstring বাদ)}
 $$
+
+**সূত্রের মানে (কথায়):** প্রথমে গোনা হয় প্রতিটা patch কয়টা পুরনো test ভেঙেছে। দ্বিতীয় ধাপে যাদের ভাঙা সবচেয়ে কম তারা থাকে। তৃতীয় ধাপে তাদের মধ্যে যারা bug-test পাস করে তারা থাকে (কেউ না পারলে আগের দলই থাকে)। চতুর্থ ধাপে যে patch সবচেয়ে বেশিবার এসেছে সেটাই চূড়ান্ত।
+
 | Symbol | মানে |
 |---|---|
 | $C \oplus p$ | Codebase-এ patch $p$ apply করা |
@@ -483,6 +575,8 @@ $$
 | $\hat{\delta}$ | Final submitted patch |
 
 **নোট:** Majority voting-এ tie হলে কোনটা নেওয়া হয়, এবং $r^{*}$ না থাকলে (reproduction test তৈরিই না হলে) ধাপ ২ কীভাবে চলে — এটা paper-এ স্পষ্ট নয়; যুক্তিসঙ্গত ধারণা হলো তখন সরাসরি fallback হয়। Implementation-এ যাচাই করতে হবে।
+
+**সহজ কথায়:** এই ধাপে একটা fix-ও বাছাইয়ের জন্য যথেষ্ট নয়। আগে পুরনো কিছু ভাঙে কিনা দেখা হয়, তারপর নতুন test, তারপর ভোট। কেউ ভুল test-এর জন্য একা জিততে পারে না।
 
 **Worked example (প্রক্রিয়া বোঝানোর জন্য — সংখ্যাগুলো কাল্পনিক, শুধু 40 সংখ্যাটা paper-এর):**
 1. 40টা patch। Regression চালিয়ে দেখা গেল: 25টার $f(p) = 0$, বাকিগুলোর $f(p) \geq 1$ → $\mathcal{P}_1$ = 25টা।
@@ -495,6 +589,9 @@ Paper 01-এর $\text{Resolved}(\hat{\delta})$ সংজ্ঞা (F2P ও P2P 
 $$
 \%\,\text{Resolved} = \frac{1}{N} \sum_{i=1}^{N} \text{Resolved}(\hat{\delta}_i) \times 100
 $$
+
+**সূত্রের মানে (কথায়):** মোট problem-এর মধ্যে কয়টা সম্পূর্ণ ঠিক হয়েছে, তার শতকরা হার। যেমন 300-এর 96 মানে ১০০-তে ৩২।
+
 **Worked example:**
 - SWE-bench Lite: $N = 300$, resolved = 96 → $96 / 300 = 32.00\%$
 - SWE-bench Lite-S: $N = 249$, resolved = 84 → $84 / 249 \approx 33.73\%$
@@ -505,6 +602,9 @@ $$
 $$
 \bar{\text{Cost}} = \frac{1}{N} \sum_{i=1}^{N} \text{Cost}_i, \qquad \text{Cost}_i = \sum_{\text{call}} \left( n_{\text{in}} \cdot c_{\text{in}} + n_{\text{out}} \cdot c_{\text{out}} \right)
 $$
+
+**সূত্রের মানে (কথায়):** প্রতি call-এ কত লেখা পাঠানো হলো ও কত ফেরত এলো, তার দাম যোগ করলে একটা issue-র খরচ। তারপর সব issue-র গড় নিলে গড় খরচ।
+
 - $n_{\text{in}}, n_{\text{out}}$ = input ও output token সংখ্যা; $c_{\text{in}}, c_{\text{out}}$ = প্রতি token-এর API দাম।
 - Paper শুধু $\bar{\text{Cost}}$ report করে (USD 0.70); per-token দাম লেখা নেই।
 
@@ -513,6 +613,8 @@ $$
 \text{CPR} = \frac{\bar{\text{Cost}} \times N}{\text{resolved}}
 $$
 Agentless: $0.70 \times 300 / 96 = 2.1875$ → প্রতি সফল fix-এ প্রায় **USD 2.19**। পুরো Lite-এ মোট খরচ $0.70 \times 300 = 210$ USD। (অন্য tool-এর তুলনা Section ৮.২-এ।)
+
+**সহজ কথায় (CPR):** প্রতি সফল fix-এ গড়ে কত টাকা যায়। সব খরচ যোগ করে সফল সংখ্যা দিয়ে ভাগ করলেই হয়।
 
 **Cost decomposition (আমার reconstruction — Table 2, 3, 4-এর default row যোগ করে):**
 
@@ -535,6 +637,9 @@ Paper দুই ধরনের localization metric ব্যবহার কর
 $$
 \text{ContainsGT}_{\text{step}} = \frac{1}{N} \sum_{i=1}^{N} \mathbb{1}\left[ G_i \subseteq L_i^{\text{step}} \right] \times 100
 $$
+
+**সূত্রের মানে (কথায়):** Localization-এর ফল সত্যিকারের (gold) জায়গাকে ধরে রেখেছে কিনা, তা সব problem-এর উপর গুনে শতকরা হার।
+
 - $G_i$ = gold patch যে location গুলো edit করেছে; $L_i^{\text{step}}$ = ঐ localization step যে location set দিয়েছে।
 - **LoC** = location set-এর গড় line সংখ্যা (কত context যাচ্ছে)।
 
@@ -542,6 +647,9 @@ $$
 $$
 \text{CorrLoc}_g = \frac{1}{N} \sum_{i=1}^{N} \mathbb{1}\left[ G_i^{g} \subseteq \text{Edit}^{g}(\hat{\delta}_i) \right] \times 100
 $$
+
+**সূত্রের মানে (কথায়):** চূড়ান্ত patch আসল সমাধানের সব জায়গা ছুঁয়েছে কিনা, তা শতকরা হারে।
+
 - Patch যদি gold patch-এর **সব** location-এর superset edit করে, তবেই "correct location"।
 - Paper নিজেই বলে এটা **approximate** — অন্য জায়গায় edit করেও bug ঠিক করা সম্ভব।
 
@@ -555,20 +663,31 @@ Figure 6: 40টা patch-এর **যেকোনো একটা** সঠিক
 $$
 \text{UpperBound} = \frac{1}{N} \sum_{i=1}^{N} \max_{p \in \mathcal{P}_i} \text{Resolved}(p) = \frac{126}{300} = 42.0\%
 $$
+
+**সূত্রের মানে (কথায়):** ৪০টার যেকোনো একটা ঠিক হলেই গোনা হলে কতগুলো issue পাওয়া যেত (126), সেটাই সম্ভাব্য সর্বোচ্চ সীমা (upper bound)।
+
 **Selection efficiency (আমার derived metric):**
 $$
 \eta = \frac{\text{Resolved by selection}}{\text{UpperBound count}} = \frac{96}{126} \approx 76.2\%
 $$
+
+**সূত্রের মানে (কথায়):** Selection efficiency মানে: যেখানে সঠিক patch ছিল, তার কত ভাগে সেটা বাছতে পেরেছে। এখানে 96 ÷ 126 ≈ 76%।
+
 অর্থাৎ যেসব issue-তে অন্তত একটা সঠিক patch তৈরি হয়েছিল, তার প্রায় এক-চতুর্থাংশে (30টা issue) selection ভুল patch বেছেছে। **এটাই patch validation research-এর সুযোগ** (Section ১৩)।
 
 ### ৬.১৪ Reproduction Test Quality Funnel
 $$
 300 \;\to\; 213 \;(\text{"Issue reproduced" দেয়}) \;\to\; 94 \;(\text{gold patch-এর পরে "Issue resolved" দেয়})
 $$
+
+**সহজ কথায়:** 300-টা issue থেকে 213-টায় test বানানো গেল। কিন্তু সেই test-গুলোর মধ্যে মাত্র 94-টা সঠিক patch পাওয়ার পর সত্যিই "resolved" বলল। অর্থাৎ বেশিরভাগ বানানো test নিখুঁত নয়।
+
 - Selected rate = $213 / 300 = 71.0\%$
 - Plausible rate (সব problem-এর উপর) = $94 / 300 \approx 31.3\%$
 - Precision of selected tests = $94 / 213 \approx 44.1\%$ (**আমার derived**) — অর্থাৎ selected test-এর অর্ধেকের বেশি gold patch-কেও "resolved" বলে না।
 - তবুও reproduction filter যোগ করায় resolved 81 → 96 (+15)। কারণ: regression-first conservative design + fallback।
+
+**সহজ কথায়:** এই funnel-এ প্রতিটা ধাপে সংখ্যা কমে: 300 থেকে 213, তারপর 94। প্রতিটা ধাপে কিছু test বাদ পড়ে।
 
 ### ৬.১৫ Benchmark Quality-র হিসাব
 Figure 8-এর % গুলো 300-এর উপর:
@@ -578,6 +697,9 @@ $$
 $$
 13 + 15 + 30 = 58, \qquad 300 - 249 = 51 \;\Rightarrow\; \text{কমপক্ষে } 58 - 51 = 7 \text{টা problem একাধিক category-তে}
 $$
+
+**সূত্রের মানে (কথায়):** তিন ধরনের সমস্যাযুক্ত problem যোগ করলে 58 হয়। কিন্তু আসলে বাদ গেছে 51টা। তাই কিছু problem নিশ্চয়ই একসাথে একাধিক সমস্যায় পড়েছে।
+
 (**আমার inference** — ধরে নিচ্ছি শুধু এই তিন category-ই বাদের কারণ; paper overlap সংখ্যা সরাসরি বলেনি।)
 
 ### ৬.১৬ সম্পর্কিত সূত্র: SBFL — Ochiai (তুলনার জন্য, paper ব্যবহার করেনি)
@@ -585,10 +707,15 @@ Paper-এর related work-এ SBFL উল্লেখ আছে। Statement $s$
 $$
 \text{Ochiai}(s) = \frac{e_f(s)}{\sqrt{F \cdot \left( e_f(s) + e_p(s) \right)}}
 $$
+
+**সূত্রের মানে (কথায়):** যে line বেশি fail-করা test-এ চলে এবং কম pass-করা test-এ চলে, তার সন্দেহের স্কোর বেশি।
+
 - $e_f(s)$ = কতগুলো failing test $s$ execute করে; $e_p(s)$ = কতগুলো passing test; $F$ = মোট failing test।
 - **কেন Agentless এটা ব্যবহার করতে পারে না:** শুরুতে কোনো failing (bug-triggering) test নেই, তাই $F = 0$। (তবে আমার মতে generated reproduction test দিয়ে $F > 0$ বানানো যায় → future idea, Section ১৪।)
 
 ---
+
+**সহজ কথায়:** মাপার জন্য এই সংখ্যাগুলো বুঝলেই চলে: 300টা problem, GPT-4o, প্রতি issue-তে 40টা fix ও 40টা test, আর ফল তুলনা করা হয়েছে প্রায় ২৬টা agent-এর সাথে।
 
 ## ৭. Experimental Setup
 
@@ -664,6 +791,8 @@ Paper-এর Table 1-এর row order অনুযায়ী। Paper closed-s
 | RAG | GPT-3.5 | 1 (0.33%) | - | - | 6.3% | 11.3% | 27.3% |
 | **AGENTLESS** | **GPT-4o** | **96 (32.00%)** | **0.70** | **78,166** | **35.3%** | **52.0%** | **69.7%** |
 
+**সহজ কথায়:** Table 1-এ উপরে বন্ধ-source (commercial) tool, নিচে open-source। Agentless open-source-দের মধ্যে সবার উপরে (96টা)। কিছু commercial tool আরও বেশি করেছে (সর্বোচ্চ 129), কিন্তু তাদের code দেখা যায় না, তাই যাচাই করা যায় না। "-" মানে তথ্য প্রকাশ করা হয়নি।
+
 **Authors-এর মূল দাবি:**
 - Agentless সব open-source approach-এর মধ্যে সর্বোচ্চ: **96/300 = 32.00%**। পরের open-source AutoCodeRover-v2 = 92।
 - সামগ্রিকভাবে সর্বোচ্চ নয় — CodeStory Aide 43.00% সহ কয়েকটা commercial tool উপরে, কিন্তু তাদের source code বা trajectory প্রকাশিত নয়, তাই যাচাই করা যায় না।
@@ -686,10 +815,12 @@ Paper-এর Table 1-এর row order অনুযায়ী। Paper closed-s
 | Moatless (GPT-4o) | 74 | 0.14 | - | 0.57 |
 | RAG (GPT-4) | 8 | 0.13 | - | 4.88 |
 
+**সহজ কথায়:** একই GPT-4o ব্যবহার করলে Agentless SWE-agent-এর চেয়ে প্রায় ৩.৬ গুণ সস্তা, প্রায় ৬.৪ গুণ কম token খরচ করে, অথচ প্রায় ১.৭৫ গুণ বেশি issue ঠিক করে। কিন্তু সবচেয়ে সস্তা নয়: Moatless আরও সস্তা।
+
 **পর্যবেক্ষণ:**
 - একই LLM (GPT-4o)-তে Agentless বনাম SWE-agent: **$2.53 / 0.70 \approx 3.6$ গুণ সস্তা**, **$498{,}346 / 78{,}166 \approx 6.4$ গুণ কম token**, আর $96 / 55 \approx 1.75$ গুণ বেশি resolve।
 - **আমার সৎ নোট:** Agentless সবচেয়ে সস্তা নয় — Moatless প্রতি issue ও প্রতি fix দুই হিসাবেই সস্তা; AutoCodeRover (GPT-4) প্রতি issue-তে সস্তা (0.45) ও কম token ব্যবহার করে। Paper-এর দাবিও সেটাই: "less than most prior agent-based approaches" — "সবার চেয়ে কম" নয়।
-- Cost শুধু LLM API-র। Test execution (Docker, CPU time) এর খরচ কোনো tool-এর ক্ষেত্রেই গণনা হয়নি (Section ১২)।
+- Cost শুধু LLM API-র। Test execution (Docker মানে আলাদা বাক্সে test চালানোর ব্যবস্থা; CPU time মানে processor-এর সময়) এর খরচ কোনো tool-এর ক্ষেত্রেই গণনা হয়নি (Section ১২)।
 
 ### ৮.৩ Unique Issues Fixed (Figure 5 — Venn diagram)
 - Open-source tool-গুলোর (AutoCodeRover-v2, RepoGraph, Moatless-Claude 3.5, Others) সাথে তুলনায় Agentless **2টা issue** fix করেছে যা অন্য কোনো open-source tool পারেনি।
@@ -707,6 +838,8 @@ Paper-এর Table 1-এর row order অনুযায়ী। Paper closed-s
 |---|---|
 | Original repo-তে "Issue reproduced" দেয় এমন test পাওয়া গেছে | **213** |
 | Gold patch apply করার পর "Issue resolved" দেয় (সত্যিকারের ভালো test) | **94** |
+
+**সহজ কথায়:** 300-এর মধ্যে 213-টায় bug-test বানানো গেছে। কিন্তু সেগুলোর মধ্যে মাত্র 94-টা সত্যিকারের সঠিক patch-এ "resolved" বলে। কারণ অনেক issue-র description-এ যাচাই করার মতো তথ্যই নেই।
 
 - এই বড় পতনের কারণ (authors): অনেক issue description-এ সমাধান যাচাই করার মতো সম্পূর্ণ তথ্য থাকে না।
 - Gold patch এখানে **শুধু test-এর মান মাপতে** ব্যবহার হয়েছে, Agentless-এর selection process-এ নয় (footnote 2)।
@@ -728,6 +861,8 @@ Bold/default setting = তারকা (*) দিয়ে চিহ্নিত
 | Edit location | Multi-samples merged | 56.33% | 342 | 0.07 |
 | Edit location | **Multi-samples*** (4টা set আলাদা) | 49.67% / 49.33% / 49.33% / 48.33% | 165 / 180 / 168 / 213 | 0.07 |
 
+**সহজ কথায়:** এই table-এ দেখা যায়, bug খোঁজার ধাপ-ধাপ পদ্ধতি কাজ করে। প্রতি ধাপে code-এর পরিমাণ বহু কমে যায়, তবু সঠিক জায়গা ধরা পড়ার হার ভালোই থাকে। আর file-এর skeleton দেখানো পুরো file দেখানোর চেয়ে সস্তা ও বেশি নির্ভুল।
+
 **Findings:**
 1. **Irrelevant folder filtering জরুরি:** filter ছাড়া embedding retrieval-এ accuracy কম (67.67% বনাম 70.33%) আর খরচ বেশি (0.05 বনাম 0.04)।
 2. **Prompting ও embedding পরস্পরের পরিপূরক:** আলাদাভাবে 78.67% ও 67.67–70.33%, একসাথে **81.67%**। (Text-এ embedding alone "67.7%" বলা — এটা w/o filtering row-এর সংখ্যা; default with-filtering row 70.33%। ছোট inconsistency।)
@@ -747,10 +882,12 @@ Bold/default setting = তারকা (*) দিয়ে চিহ্নিত
 - একটা greedy location set থেকেই 40টা patch নিয়ে 88টা fix — ইতিমধ্যে খুব ভালো।
 - 4টা location set আলাদাভাবে ব্যবহার করলে **96** — কারণ ভিন্ন location set ভিন্ন ground-truth location ও ভিন্ন context দেয়।
 
+**সহজ কথায়:** একই জায়গা থেকে 40টা fix নিলেও ভালো ফল আসে (88)। কিন্তু ৪টা আলাদা জায়গার সেট থেকে আলাদা আলাদা fix নিলে আরও ভালো (96)। কারণ ভিন্ন জায়গার সেট ভিন্ন সম্ভাবনা খুলে দেয়।
+
 **Figure 6 (sample সংখ্যা বাড়ালে):**
 - X-axis 4-এর ধাপে বাড়ে (4টা location set)। প্রতি set-এ শুধু 1টা greedy (মোট 4টা patch) দিয়েই **80টা fix**।
-- Sample বাড়ালে performance বাড়ে, কিন্তু **~40 sample-এ plateau** — কারণ test filtering-এর পর majority voting; পরের sample-গুলো ইতিমধ্যে জেতা patch-কে ছাপিয়ে যেতে পারে না।
-- **সব sample বিবেচনা করলে (কোনো একটা সঠিক হলেই) 126টা issue (42.0%)** solve সম্ভব — অর্থাৎ ভালো re-ranking দিয়ে উন্নতির বড় সুযোগ।
+- Sample বাড়ালে performance বাড়ে, কিন্তু **~40 sample-এ plateau** (মানে আর বাড়ে না, সমতল হয়ে যায়) — কারণ test filtering-এর পর majority voting; পরের sample-গুলো ইতিমধ্যে জেতা patch-কে ছাপিয়ে যেতে পারে না।
+- **সব sample বিবেচনা করলে (কোনো একটা সঠিক হলেই) 126টা issue (42.0%)** solve সম্ভব — অর্থাৎ ভালো re-ranking (candidate-গুলোকে নতুন করে সাজিয়ে ভালোটাকে উপরে আনা) দিয়ে উন্নতির বড় সুযোগ।
 
 ### ৮.৮ Patch Validation Ablation (Table 4 ও Figure 7)
 
@@ -762,6 +899,8 @@ Bold/default setting = তারকা (*) দিয়ে চিহ্নিত
 
 - Majority voting একাই 77; regression যোগে +4; **reproduction test যোগে +15 — সবচেয়ে বড় উন্নতি**।
 - তবে reproduction test-ই সবচেয়ে ব্যয়বহুল অংশ (+0.25)।
+
+**সহজ কথায়:** শুধু ভোটে 77টা। পুরনো test যোগ করলে 81। বানানো bug-test যোগ করলে একলাফে 96। তাই এই test-ই সবচেয়ে বড় সুবিধা দিয়েছে, যদিও এটাই সবচেয়ে দামি অংশ।
 
 **Figure 7 (reproduction test sample সংখ্যা বাড়ালে):**
 | Reproduction test samples/issue | Selected tests (300-এর মধ্যে) | Plausible tests | Issues fixed |
@@ -807,6 +946,8 @@ Bold/default setting = তারকা (*) দিয়ে চিহ্নিত
 
 (**নোট:** "None" সংখ্যাগুলো paper-এর text-এর সাথে মেলে — <10% issue exact line দেয়, ~অর্ধেক issue file দেয়। বাকি segment-গুলো কোন category, তা আমি figure-এর legend order থেকে পড়েছি — supervisor-কে দেখানোর আগে PDF-এর Figure 8c একবার চোখে দেখে নিও।)
 
+**সহজ কথায়:** Lite-এর প্রায় ১০% problem-এ তথ্য কম, প্রায় ১৪% problem-এ উত্তর হুবহু বা সম্পূর্ণ ধাপে দেওয়া, আর ৫% problem ভুল পথ দেখায়। বেশিরভাগ problem-এ bug-এর সঠিক line-এর কোনো ইঙ্গিত নেই।
+
 **Authors-এর উপসংহার:** SWE-bench Lite-এ **অসমাধানযোগ্য প্রশ্ন, বিভ্রান্তিকর সমাধান, ও problem difficulty-তে বড় বৈষম্য** আছে — যা benchmark তৈরির সময় বা আগের approach-গুলোতে বিবেচনা করা হয়নি।
 
 ### ৮.১০ SWE-bench Lite-S Results (Table 5)
@@ -847,6 +988,8 @@ Bold/default setting = তারকা (*) দিয়ে চিহ্নিত
 | RAG | GPT-4 | 8 (2.67%) | 32 | 5 (2.01%) | 32 |
 | RAG | GPT-3.5 | 1 (0.33%) | 33 | 0 (0.00%) | 33 |
 
+**সহজ কথায়:** সমস্যাযুক্ত problem বাদ দিলেও tool-দের মোটামুটি একই ক্রম থাকে। শীর্ষ tool-দের score বাড়ে, কারণ বাদ পড়া problem-গুলো কঠিন ছিল। কয়েকটার score কমে, কারণ তারা বাদ পড়া সহজ problem থেকে বেশি নম্বর পাচ্ছিল (আমার অনুমান)।
+
 (* = tie। Table 1-এর SpecRover Table 5-এ নেই।)
 
 **Findings:**
@@ -880,6 +1023,8 @@ Figure-এ selected tool: AutoCodeRover-v2, RepoGraph, Moatless (Claude 3.5) [op
 | Alibaba Lingma Agent | Lingma SWE-GPT 72b | 144 (28.80%) |
 | AppMap Navie | GPT-4o | 131 (26.20%) |
 | **AGENTLESS** | **GPT-4o** | **194 (38.80%)** |
+
+**সহজ কথায়:** মানুষ-যাচাই করা আরও পরিষ্কার সেটেও Agentless ভালো ফল করেছে: ১০০টার মধ্যে প্রায় ৩৯টা।
 
 - Verified-এ Agentless **194/500 = 38.80%** — open-source-এর মধ্যে **দ্বিতীয়** (Composio SWEkit 40.60%-এর পরে), অনেক commercial tool-এর চেয়ে ভালো।
 - **GPT-4o ব্যবহারকারী সব technique-এর মধ্যে সেরা** (AutoCodeRover-v2 GPT-4o = 38.40%, SWE-agent GPT-4o = 23.20%)।
@@ -922,6 +1067,8 @@ SWE-bench-এর PASS_TO_PASS list সরাসরি regression test হিস�
 | Interpretability | উচ্চ | কম (30–40 turn) | মাঝারি | **উচ্চ — প্রতিটা phase আলাদা মাপা যায়** |
 | Reproducibility | উচ্চ | কম-মাঝারি | মাঝারি | **উচ্চ** |
 
+**সহজ কথায়:** নতুনত্ব হলো Agentless সরল, সস্তা, বোঝা যায় এমন ও আবার চালানো যায়। একই সাথে এর ফলও ভালো। তবে নিচের শর্ত আছে।
+
 (SWE-agent ও AutoCodeRover-এর design বিবরণ এই paper-এর related work থেকে; বিস্তারিত Paper 02 ও 03 দেখো। "—" মানে এই paper-এ সেই তথ্য দেওয়া নেই।)
 
 **মূল শক্তি:**
@@ -950,7 +1097,7 @@ SWE-bench-এর PASS_TO_PASS list সরাসরি regression test হিস�
 - **Interactive exploration** দরকার (যেমন environment debug, dependency install, runtime state দেখা)।
 - নতুন **feature development** বা long-horizon task — pipeline bug-fix-কেন্দ্রিক।
 - অন্য language — embedding অংশ চলবে, কিন্তু normalization ও test harness আবার বানাতে হবে।
-- Test suite দুর্বল বা অনেক flaky — regression filter ভুল signal দেয়।
+- Test suite দুর্বল বা অনেক flaky (মানে কখনো pass, কখনো fail করা অস্থির test) — regression filter ভুল signal দেয়।
 
 ---
 
@@ -970,7 +1117,7 @@ SWE-bench-এর PASS_TO_PASS list সরাসরি regression test হিস�
 3. **"Agentless" কিন্তু "execution-less" নয়:** প্রতিটা issue-তে সব existing test চালানো, 40টা reproduction test চালানো, 40টা patch-এ regression ও reproduction test চালানো — এর **compute cost ও wall-clock time report করা হয়নি**। USD 0.70 শুধু LLM API খরচ। বড় repository-তে পুরো test suite বারবার চালানো ব্যয়বহুল।
 4. **মানুষই planner:** Agent-এর "planning" সমস্যা এড়ানো হয়েছে মানুষের ডিজাইন করা pipeline দিয়ে — যা SWE-bench-ধরনের (Python, issue → patch, test আছে) task-এর জন্য tune করা। অন্য task type-এ এই pipeline আবার design করতে হবে; agent-এর সাধারণীকরণের প্রতিশ্রুতি এখানে নেই।
 5. **Hyperparameter sensitivity অজানা:** N = 3 file, x = 10 line, 4টা location sample, 40টা patch — কেন এই মান? Patch ও reproduction test সংখ্যা ছাড়া (Figure 6, 7) N বা x-এর ablation নেই। আর এগুলো SWE-bench Lite-এই tune হলে Lite-এ evaluate করা একধরনের test-set tuning হতে পারে (paper-এ আলাদা dev set-এর উল্লেখ নেই)।
-6. **Lite-S-এর manual classification-এর reliability:** কতজন annotator, কীভাবে মতভেদ মেটানো হয়েছে, inter-rater agreement (যেমন Cohen's kappa) — কিছুই report করা নেই। Benchmark-এর বিশ্বাসযোগ্যতা নিয়ে কাজ করা paper-এর নিজের label-এর reliability অজানা — এটা একটা irony।
+6. **Lite-S-এর manual classification-এর reliability:** কতজন annotator, কীভাবে মতভেদ মেটানো হয়েছে, inter-rater agreement (যেমন Cohen's kappa, মানে দুজন মানুষ কতটা একমত তার মাপ) — কিছুই report করা নেই। Benchmark-এর বিশ্বাসযোগ্যতা নিয়ে কাজ করা paper-এর নিজের label-এর reliability অজানা — এটা একটা irony।
 7. **Lite-S test adequacy সমস্যা সমাধান করে না:** Problem description-এর সমস্যা বাদ দেওয়া হয়েছে, কিন্তু **দুর্বল F2P test-এর কারণে plausible-but-wrong patch "resolved" হওয়ার** (Paper 01, Section ১২ critique #1) সমস্যা থেকেই গেছে। Agentless-এর 96টা "resolved"-এর কতগুলো আসলে overfitted, তা যাচাই করা হয়নি।
 8. **Majority voting-এর অনুমান:** "সবচেয়ে frequent = সঠিক" — কিন্তু LLM একটা systematic ভুল বারবার করলে ভুল patch-ই জিতবে। আর AST normalization শুধু surface পার্থক্য মুছে; অর্থে এক কিন্তু গঠনে ভিন্ন (যেমন `if not x` বনাম `if x is False`-ধরনের) patch-এর vote ভাগ হয়ে যায়।
 9. **Reproduction test-এর oracle problem:** LLM-এর লেখা test-এর assertion LLM-এর নিজের বোঝার উপর নির্ভর — ভুল বুঝলে ভুল patch-কে "resolved" বলবে। 213-এর মধ্যে 119টা (213 − 94, আমার হিসাব) test gold patch-কেও resolved বলেনি — এই test-গুলো সঠিক patch-কে **বাদ** দিয়ে দিতে পারে (false rejection), শুধু fallback তখনই কাজ করে যখন **কোনো** patch pass করে না।
@@ -994,6 +1141,8 @@ SWE-bench-এর PASS_TO_PASS list সরাসরি regression test হিস�
 | G8 | **Interpretable/assured pipeline-এর formal guarantee** | কোন ধাপে কতটা বিশ্বাস করা যায় তার মাপ নেই | Trustworthy AI for SE (Trustworthy AI Software Engineers, Proof-Carrying Code Completions, AI Assurance testing strategy) |
 | G9 | **Test execution-এর compute cost reporting** | আসল খরচ লুকানো | Coding-Agent Evaluation & Reliability; LLM Test Generation (ExecutionAgent — test চালানোর infrastructure) |
 | G10 | **Issue underspecification-এর automatic detection** | 10% problem অসম্ভব; manual classification scalable নয় | — (খোলা; Paper 01-এর G7-এর সাথে একই) |
+
+**সহজ কথায়:** সবচেয়ে পরিষ্কার সুযোগ আছে সঠিক fix বাছাইয়ে (G1)। তারপর test-এর মান (G2), overfitting (G3), আর একই কাজ বারবার চালালে ফল একই আসে কিনা (G4)।
 
 ---
 
@@ -1025,6 +1174,8 @@ SWE-bench-এর PASS_TO_PASS list সরাসরি regression test হিস�
 | **G7: Security-aware patch selection** | ✅ হ্যাঁ — static analyzer + selection | উচ্চ | ⭐⭐⭐⭐ |
 | G6: No-clue localization | ⚠️ মাঝারি — বেশি engineering | মাঝারি | ⭐⭐⭐ |
 | G5: নতুন contamination-free benchmark | ⚠️ কঠিন | মাঝারি (SWE-rebench আছে) | ⭐⭐ |
+
+**সহজ কথায়:** SPL3-র জন্য সবচেয়ে সহজ ও সম্ভাবনাময় হলো G1: Agentless-এর সংরক্ষিত 40টা patch নিয়ে নতুন বাছাইকারী বানানো। এতে নতুন করে LLM চালাতে প্রায় কিছুই লাগে না।
 
 **সম্ভাব্য venue (general guidance, Paper 01-এর মতো):**
 - **Conference:** ICSE, FSE, ASE, ISSTA; workshop (যেমন LLM4Code, ICSE/FSE-এর AI-SE workshop) — student-এর জন্য শুরু করা সহজ।
@@ -1176,6 +1327,8 @@ A: Agentless pipeline একটা ছোট subset-এ reproduce করবো, 
 | Grader-এর মান | Generated reproduction test-এর মাত্র 94/213 plausible | DeepSWE: LLM-judge বনাম SWE-Bench Pro-র inherited test-এ disagreement 32.4%, DeepSWE-এর নিজের verifier-এ 1.4% (independent) | arXiv 2607.07946 |
 | প্রতি issue খরচ | GPT-4o-তে USD 0.70 (শুধু LLM API) | Verified-এ USD 0.10–2.05 per test; Terminal-Bench 4.0-এ USD 1.72–17.64 per test (দুটোই independent) | Vals.ai |
 
+**সহজ কথায়:** 2024-এর Agentless ও 2026-এর model দুই ক্ষেত্রেই দেখা যায়: সঠিক উত্তর তৈরি করার ক্ষমতা আছে, কিন্তু বাছাই ঠিকমতো হয় না।
+
 **আমার পর্যবেক্ষণ:** Agentless-এর selection efficiency ছিল $\frac{96}{126} \approx 0.76$; SWE-rebench-এ GLM-5.2-এর $\frac{62.9}{81.1} \approx 0.78$ আর Fable 5-এর $\frac{64.5}{78.4} \approx 0.82$। এগুলো একই জিনিস নয় (Agentless-এ এক run-এর 40টা candidate; SWE-rebench-এ 5টা স্বাধীন run), তবু দুটোই বলে: **"কোনো একটা চেষ্টায় সঠিক" আর "যেটা জমা দিলাম সেটা সঠিক"-এর মধ্যে এখনো 15–20%-এর মতো ফাঁক।**
 
 ### ২১.২ কোন Finding এখনো সত্য, কোনটা পুরনো হয়ে গেছে
@@ -1202,6 +1355,8 @@ A: Agentless pipeline একটা ছোট subset-এ reproduce করবো, 
 | G9 / CG8: Test execution-এর compute cost | **আংশিক** | Vals এখন cost ও duration per test দেয় (Opus 5.5: USD 13.20, 1h04m, Terminal-Bench 4.0) — কিন্তু সেটা API ও run মিলিয়ে কিনা, আলাদা compute cost কিনা, fact sheet-এ স্পষ্ট নয় |
 | G10: Underspecification-এর automatic detection | **খোলা** | OpenAI "underspecified prompts" ও "misleading prompts" কে failure category বলেছে; SWE-Bench Pro Verified ঠিক করেছে হাতে; অসম্ভব task-এ Opus 5.5-এর reward-hacking চেষ্টা 3–6 গুণ (vendor) — তাই অস্পষ্ট task এখন শুধু score নয়, **integrity-র ঝুঁকিও** |
 | CG10: Assurance tool-এর নিজের validity (Lite-S-এর label reliability-র মতো) | **খোলা** | OpenAI audit-এ automated screen (27.4%) ও মানুষ (34.1%) মাত্র 74% ক্ষেত্রে একমত (secondary report) — task-quality label নিজেই noisy |
+
+**সহজ কথায়:** এই paper-এর অনেক সমস্যা 2026-এও খোলা। Benchmark ভুল, patch বাছাই, বানানো test-এর মান, বারবার চালালে ফলের পার্থক্য।
 
 ### ২১.৪ বর্তমান Model দিয়ে আবার পরীক্ষা করলে — SPL3 Idea
 

@@ -20,6 +20,60 @@
 | License | Creative Commons Attribution 4.0 International |
 | আমাদের lens | LLM-এর কোড যদি machine-checkable proof সহ আসে, তাহলে assurance report-এর সবচেয়ে শক্ত signal কী হতে পারে |
 
+## ★ সহজ ভাষায় পুরো Paper (প্রথমবার পড়ার জন্য)
+
+### ক. Paper-টা কী নিয়ে?
+
+- এটা একটি **vision paper**। মানে এতে একটি নতুন দিকনির্দেশনা (idea) প্রস্তাব করা হয়েছে, বড় পরীক্ষা নয়।
+- সঙ্গে আছে একটি ছোট prototype (কাজ-চালানো নমুনা) আর একটি মাত্র ছোট case study।
+- লিখেছেন UC Davis-এর তিনজন গবেষক: Parnian Kamran, Premkumar Devanbu, Caleb Stanford। ছাপা হয়েছে ASE 2024-এর workshop-এ।
+- Idea-টার নাম PC³ (Proof-Carrying Code Completions)। মানে AI কোড দেবে, আর সাথে সেই কোড যে নিরাপদ তার "প্রমাণ" দেবে।
+- Paper-টা কোনো benchmark বা survey নয়। এটা একটি নতুন architecture-এর স্বপ্ন দেখায়।
+
+### খ. সমস্যাটা কী ছিল?
+
+- AI (যেমন Copilot) কোড লিখে দেয়, কিন্তু সেই কোড নিরাপদ কিনা তার কোনো গ্যারান্টি নেই।
+- আমরা সাধারণত test চালিয়ে দেখি। কিন্তু test মাত্র কয়েকটা input দেখে, সব input নয়।
+- উদাহরণ: Paper-এর Figure 1-এ Copilot একবার public key-র জায়গায় private key return করে দিয়েছিল। কোড চলছিল, কিন্তু ভয়ংকর ভুল ছিল।
+- আরেকটি উদাহরণ: filename জোড়া দিয়ে full path বানানোর কোড। কেউ `../../etc/passwd` দিলে কোড নির্দিষ্ট folder-এর বাইরের গোপন file পড়ে ফেলে (একে path traversal বলে)।
+- তাছাড়া LLM চলে cloud-এ। Provider-কেও পুরো বিশ্বাস করা যায় না।
+- মানুষ ক্লান্ত হয়ে সন্দেহজনক suggestion-ও accept করে ফেলে।
+
+### গ. Paper কী solve করেছে?
+
+- একটি নতুন পথ দেখিয়েছে: LLM কোডের সাথে safety proof দেবে, আর user একটি ছোট, বিশ্বাসযোগ্য checker (verifier) দিয়ে সেটা যাচাই করবে।
+- User-কে নিজে কোনো spec লিখতে হয় না। শুধু একটি সাধারণ safety property বেছে নিলেই চলে (যেমন "path-এ `..` থাকবে না")।
+- Dafny ভাষায় একটি prototype বানিয়ে দেখিয়েছে যে idea-টা চলতে পারে।
+- একটি task-এ GPT-4 প্রথম চেষ্টাতেই (k = 1) verify-হওয়া কোড দিয়েছে। অর্থাৎ ৫ বারের সুযোগের প্রথমবারেই সফল।
+- প্রায় 3,350 token লেগেছে। মানে prompt আর উত্তর মিলিয়ে প্রায় সাড়ে তিন হাজার "শব্দ-টুকরো"।
+- খরচ গড়ে 0.109 USD per query। মানে একবার চালাতে প্রায় ১০ সেন্টের একটু বেশি।
+- সতর্কতা: এসব সংখ্যা মাত্র **একটি** task থেকে। মানে ১টার মধ্যে ১টা সফল; এটা প্রমাণ নয়, শুধু ইঙ্গিত।
+
+### ঘ. কীভাবে solve করেছে?
+
+1. User একটি task দেয়, যেমন "এই folder-এ filename জুড়ে path বানাও"।
+2. User (বা team) তালিকা থেকে একটি safety property বাছে, যেমন "path traversal চলবে না"।
+3. VCGen নামের একটি অংশ সেই property-কে ছোট নিয়মে (precondition) বদলে ফেলে। নিয়মগুলো বসে file খোলা/পড়া/লেখার মতো বিপজ্জনক function-গুলোতে।
+4. Prompt বানানো হয়: task-এর বর্ণনা, বিপজ্জনক function-এর তালিকা ও নিয়ম, আর ৫টি উদাহরণ।
+5. LLM Dafny কোড লেখে এবং প্রমাণ করে যে প্রতিটি বিপজ্জনক call নিয়ম মানছে।
+6. Dafny verifier কোড যাচাই করে। পাস করলে "Success"।
+7. ব্যর্থ হলে error message LLM-কে ফেরত দেওয়া হয়, সে আবার চেষ্টা করে। সর্বোচ্চ ৫ বার (T = 5)।
+8. ৫ বারেও না পারলে "Fail"। এই ধাপে কোডকে বিশ্বাস করা হয় না, শুধু verifier-কে।
+
+### ঙ. এরপর কী করা যায়?
+
+- লেখকদের পরিকল্পনা: VCGen স্বয়ংক্রিয় করা, কারণ এখন হাতে লিখতে হয়।
+- লেখকরা file ছাড়াও network, database, memory-র interface যোগ করতে চান।
+- Dafny কঠিন, তাই Python/C/Rust-এর মতো সাধারণ ভাষায় একই idea আনা বা LLM fine-tune করা বাকি।
+- এখনও খোলা প্রশ্ন: property আর VCGen ঠিক কিনা কে যাচাই করবে? একাধিক task ও একাধিক run-এ সফলতার হার কত?
+- আমরা SPL3-তে একটি ছোট "proof-or-abstain" lane বানাতে পারি। অর্থাৎ agent patch-এর কত শতাংশে সরল property-র যান্ত্রিক যাচাই সম্ভব তা মাপা।
+- সাথে নতুন নিরাপদ-প্রমাণ signal-কে assurance report-এ আলাদা কলামে রাখা।
+
+> **মনে রাখো:**
+> AI কোড দেয়, সাথে প্রমাণও দেয়; একটি ছোট checker প্রমাণটা যাচাই করে, AI-কে বিশ্বাস না করেই।
+> ফলাফল মাত্র ১টি task-এর, তাই এটা ইঙ্গিত, প্রমাণ নয়। আর প্রমাণ শুধু বেছে নেওয়া safety property-র জন্য।
+> আমাদের কাজে এটা "সবচেয়ে শক্ত signal"-এর উদাহরণ, কিন্তু patch পুরোপুরি সঠিক তা বলে না।
+
 ## ১. TL;DR
 
 - মূল idea: LLM (শক্তিশালী server, "high-resourced entity") কোড দেবে **এবং** সেই কোডের safety proof দেবে। user (দুর্বল machine, "low-resourced entity") শুধু একটি ছোট, trusted verifier চালিয়ে proof যাচাই করবে। এটাই "proof-carrying code completion" (PC³)।
@@ -27,6 +81,8 @@
 - Prototype Dafny-তে; interface-এ ৭টি method (Open, Join, Read, Write, Copy, Flush, Seek); Dafny verifier-এর ব্যর্থতা LLM-এ feedback দেয়; সর্বোচ্চ T = 5 attempt।
 - Case study মাত্র **একটি task** (predetermined directory-তে filename জুড়ে full path বানানো), CWE-35 (path traversal) -এর বিপরীতে। GPT-4 Python baseline (os.path.join) নিরাপত্তা-guard ছাড়া; PC³ Dafny কোড **প্রথম attempt-এ (k = 1)**, প্রায় 3,350 token ও গড়ে 0.109 USD per query-তে verify হয়েছে।
 - সীমা: n = 1 task, correctness হাতে দেখা, VCGen manual, Dafny LLM-এর কাছে out-of-distribution, কোনো কোড-বিশাল benchmark নেই।
+
+**সহজ কথায়:** AI কোড লিখবে আর প্রমাণ দেবে। User একটি ছোট checker চালিয়ে দেখবে প্রমাণ ঠিক কিনা। ঠিক হলে কোড নির্দিষ্ট বিপদ থেকে নিরাপদ। কিন্তু পরীক্ষা হয়েছে মাত্র একটি ছোট task-এ।
 
 **Supervisor-কে ৩০ সেকেন্ডে:**
 
@@ -40,6 +96,7 @@
 ### ২.১ Specification, precondition, postcondition
 
 Specification মানে "কোড কী করবে" তার যান্ত্রিকভাবে-পড়া যায় এমন বিবরণ। দুটি অংশ:
+(Machine-readable মানে কম্পিউটার নিজে পড়ে বুঝতে পারে।)
 
 - **Precondition** (`requires`): function ডাকার আগে কী সত্য থাকতে হবে। ডাকার দায়িত্ব caller-এর।
 - **Postcondition** (`ensures`): function শেষে কী সত্য থাকবে। দায়িত্ব function-এর।
@@ -55,9 +112,13 @@ method Divide(a: int, b: int) returns (q: int)
 
 এখানে `requires b != 0` মানে "শূন্য দিয়ে ভাগ কোরো না"। caller `Divide(5, 0)` লিখলে verifier **কোড চালানোর আগেই** লাল flag দেখায়। এটি test-এর মতো "একটি input-এ চালিয়ে দেখা" নয়; এটি "সব সম্ভাব্য input-এর জন্য" যুক্তি।
 
+**সহজ কথায়:** Test বলে "এই কয়েকটা input-এ ঠিক আছে"। Verifier বলে "কোনো input-এই এই বিপদ ঘটবে না"। প্রথমটা কয়েকটা প্রশ্নের উত্তর দেখা, দ্বিতীয়টা পুরো পাঠ্যবই বোঝা।
+
 ### ২.২ Hoare triple
 
-একটি Hoare triple লেখা হয় $\{P\}\ C\ \{Q\}$: "P সত্য অবস্থায় C চালালে শেষে Q সত্য"। Dafny verifier প্রতিটি method-কে এই ধরনের verification condition (VC)-এ ভেঙে SMT solver (Z3)-কে দেয়। solver "সব input-এ সত্য" প্রমাণ করতে পারলে verified; না পারলে error।
+একটি Hoare triple লেখা হয় $\{P\}\ C\ \{Q\}$: "P সত্য অবস্থায় C চালালে শেষে Q সত্য"। Dafny verifier প্রতিটি method-কে এই ধরনের verification condition (VC)-এ ভেঙে SMT solver (Z3) (যুক্তির সূত্র সমাধানকারী প্রোগ্রাম)-কে দেয়। solver "সব input-এ সত্য" প্রমাণ করতে পারলে verified; না পারলে error।
+
+**সহজ কথায়:** এটা একটি চুক্তি: "শুরুতে এই শর্ত থাকলে, কোড চলার পর ঐ শর্ত সত্য থাকবে।" Verifier এই চুক্তি সব input-এর জন্য পরীক্ষা করে।
 
 ### ২.৩ Proof-Carrying Code (PCC)
 
@@ -67,6 +128,8 @@ Necula (1997)-এর classic idea: কোড-producer কোডের সাথ�
 - Consumer = user machine (trusted checker, দুর্বল)।
 - সুবিধা: LLM provider কোড বদলালে proof-ও বদলাতে হবে; না বদলালে validation-এ ধরা পড়বে।
 
+**সহজ কথায়:** দরজার তালা বানানো কঠিন, কিন্তু চাবি লাগে কিনা দেখা সহজ। তাই দুর্বল machine-ও যাচাই করতে পারে।
+
 ### ২.৪ Safety property বনাম functional correctness
 
 - **Safety property** (Lamport): "কোনো খারাপ কিছু কখনো ঘটবে না" (যেমন path traversal হবে না)। এটি সব প্রোগ্রামের জন্য একই রকম, task-নির্ভর নয়, তাই একবার লিখে বারবার ব্যবহার করা যায়।
@@ -74,17 +137,24 @@ Necula (1997)-এর classic idea: কোড-producer কোডের সাথ�
 
 Paper ইচ্ছাকৃতভাবে প্রথমটি বেছেছে, কারণ user proof-expert নয়।
 
+**সহজ কথায়:** "কখনো খারাপ কিছু হবে না" বলা সহজ ও সব কোডে এক রকম। "ঠিক কাজটাই করে" বলতে প্রতিবার আলাদা করে নিয়ম লিখতে হয়, যা কঠিন।
+
 ### ২.৫ Effectful interface
 
 প্রোগ্রামের সব side effect (file খোলা, লেখা, network, raw memory) যদি একটি নির্দিষ্ট API-র মধ্য দিয়েই যেতে বাধ্য হয়, তাহলে শুধু সেই API-র কলগুলোয় precondition বসিয়ে পুরো প্রোগ্রামের safety নিশ্চিত করা যায়। এটি একটি "চোকপয়েন্ট" মডেল। Dafny-তে এই বাধ্যবাধকতা বলবৎ করা সহজ।
+
+**সহজ কথায়:** বাড়ির সব বাইরে যাওয়ার পথ যদি একটি মাত্র গেট দিয়ে হয়, তাহলে শুধু সেই গেটে পাহারা বসালেই চলে।
 
 ### ২.৬ Verifier feedback loop এবং verify@K
 
 LLM কোড দেয় → Dafny compile + verify → ব্যর্থ হলে error message prompt-এ ফিরিয়ে আবার চেষ্টা। **verify@K** (Misu et al.-এর metric) = K-তম attempt-এর মধ্যে verify হওয়া। এটি আমাদের Sub-domain 2-এর VRpilot-এর compiler-feedback loop-এর সমগোত্রীয়, কিন্তু oracle এখানে test নয়, verifier।
 
+**সহজ কথায়:** শিক্ষক খাতা দেখে ভুল দেখালেন, ছাত্র আবার লিখল। সর্বোচ্চ K বার এভাবে চলে।
+
 ### ২.৭ CWE-35 কী
 
 CWE-35: "Path Traversal: `.../...//`"। CWE-22-এর একটি variant। আক্রমণ: input-এ `../../etc/passwd` দিয়ে নির্দিষ্ট directory (`/home/user/documents/`) থেকে বেরিয়ে সংবেদনশীল file পড়া।
+(CWE হলো পরিচিত নিরাপত্তা-দুর্বলতার সরকারি তালিকা, প্রতিটির একটি নম্বর আছে।)
 
 ## ৩. Problem
 
@@ -97,11 +167,15 @@ Paper যে সমস্যাগুলো বলছে:
 
 এই সমস্যাকে paper abstract স্তরে বলে: শক্তিশালী entity $S$ (provider) কোড $c$ বানায়; দুর্বল entity $U$ (user) চায় $c$ একটি safety property $\varphi$ মানুক। $U$ কীভাবে নিজে $c$-এর সব behavior পরীক্ষা না করেই আত্মবিশ্বাস পাবে?
 
+**সহজ কথায়:** শক্তিশালী পক্ষ (provider) কোড বানায়, দুর্বল পক্ষ (user) সব কোড নিজে না পড়েই নিশ্চিত হতে চায়।
+
 তিনটি challenge (paper-এ):
 
 1. user proof-বিশেষজ্ঞ নয়, তাই proof পর্দার আড়ালে হতে হবে।
 2. LLM-ও Dafny-র মতো proof language-এ অভ্যস্ত নয় (Dafny syntax training corpus-এ বিরল)।
 3. code completion আংশিক (incomplete) program; প্রতিটি completion আলাদাভাবে verifiable হতে হবে।
+
+**সহজ কথায়:** তিনটি বাধা: user প্রমাণ বোঝে না, LLM Dafny-তে দুর্বল, আর কোড অসম্পূর্ণ অবস্থাতেও যাচাই করতে হবে।
 
 ## ৪. Goal & RQ
 
@@ -115,6 +189,8 @@ Case study-র তিনটি RQ (paper-এর শব্দে সারাং�
 
 Paper-এর উত্তর: RQ1 হ্যাঁ; RQ2 "modest সংখ্যক token ও একটি মাত্র verification attempt"; RQ3 হ্যাঁ, **manual inspection** দ্বারা।
 
+**সহজ কথায়:** তিন প্রশ্নের তিনটিই "হ্যাঁ", কিন্তু একটি মাত্র task-এর ভিত্তিতে, আর শেষটা হাতে দেখে।
+
 ## ৫. Methodology (ধাপে ধাপে)
 
 ### ৫.১ Overall workflow (Figure 2)
@@ -127,6 +203,8 @@ Paper-এর উত্তর: RQ1 হ্যাঁ; RQ2 "modest সংখ্য�
 6. Compile + Dafny verify। সফল হলে "Success"; ব্যর্থ হলে error + chat history prompt-এ যুক্ত করে আবার, যতক্ষণ $K \le T$।
 7. $K > T$ হলে "Fail"।
 
+**সহজ কথায়:** User task দেয় → property বাছে → LLM কোড ও প্রমাণ লেখে → verifier দেখে → ব্যর্থ হলে আবার, সর্বোচ্চ ৫ বার।
+
 Figure 2-এ trusted অংশ (low-resourced entity): compilation, validation, verifier। Untrusted অংশ (high-resourced): LLM, prompt সংযোজন ও retrieval।
 
 ### ৫.২ Prompt design
@@ -135,6 +213,8 @@ Figure 2-এ trusted অংশ (low-resourced entity): compilation, validation, 
 - Step 1: প্রয়োজনীয় API ও তাদের precondition বাছাই। Step 2: Dafny কোড লেখা।
 - Template-এ **৫টি** few-shot উদাহরণ (প্রতি ধাপে expected response সহ)।
 - বিকল্প: RAG-ভিত্তিক উদাহরণ নির্বাচন (user query + method signature + safety property spec দিয়ে semantic search)।
+
+**সহজ কথায়:** Prompt-এ LLM-কে ভালো উদাহরণ দেখানো হয় ও পদ্ধতি ধাপে ধাপে বলা হয়। RAG মানে প্রশ্নের সাথে মিল আছে এমন উদাহরণ খুঁজে এনে দেওয়া।
 
 ### ৫.৩ Effectful interface
 
@@ -148,11 +228,15 @@ Figure 2-এ trusted অংশ (low-resourced entity): compilation, validation, 
 - VCGen-এর দায়িত্ব (soundness): property $\varphi$ হলে, interface-এর যেকোনো function $f$ ও input $x$-এর জন্য, $x$ VCGen-এর precondition মানলে $f$-এর যেকোনো execution-এর যেকোনো বিন্দুতে program state $\varphi$ মানবে। অর্থাৎ **VCGen-এর ভুল হলে পুরো গ্যারান্টি ভেঙে যায়**; এটি trusted computing base-এর অংশ।
 - **বর্তমান implementation-এ VCGen manual**: property থেকে precondition হাতে লেখা।
 
+**সহজ কথায়:** VCGen হলো অনুবাদক: "path traversal চলবে না" বাক্যকে সে কোডের নিয়মে বদলায়। সে ভুল করলে সব গ্যারান্টি নষ্ট, তাই তাকে বিশ্বাস করতে হয়।
+
 ### ৫.৫ Validation
 
 - Verifier (Dafny; Coq/Idris/Agda/Lean-ও সম্ভাব্য) compile ও verify করে।
 - Compiler error (যেমন অজানা function/method name) feedback-এ ফিরে যায়; অতিরিক্ত diagnostic (ভুল API ব্যবহার, method signature hint, error-কে নির্দিষ্ট line-এর সাথে link) যুক্ত হতে পারে।
 - সর্বোচ্চ attempt: **T = 5** (verify@K ধারণা)।
+
+**সহজ কথায়:** Verifier-ই আসল বিচারক; ব্যর্থ হলে কারণ জানিয়ে আবার সুযোগ দেওয়া হয়।
 
 ### ৫.৬ Case study প্রণালী
 
@@ -161,6 +245,8 @@ Figure 2-এ trusted অংশ (low-resourced entity): compilation, validation, 
 - PC³: Dafny, নির্বাচিত safety property তিনটি: path traversal প্রতিরোধ, empty string নিষেধ, invalid character নিষেধ। `Join` method-এ manual precondition (Figure 4 নিচের অংশ)।
 - Sanity check (লেখকদের): precondition-গুলো পরস্পর-বিরোধী নয় তা নিশ্চিত করতে method body-তে `assert false` দিয়ে দেখা যে body unreachable কিনা। (অর্থাৎ vacuous proof এড়ানো।)
 - Correctness: লেখকরা output হাতে দেখেছেন।
+
+**সহজ কথায়:** একটি task, GPT-4, Dafny আর একটি সতর্কতা-পরীক্ষা (`assert false` মানে precondition-গুলো নিজেদের মধ্যে ঝগড়া করছে কিনা দেখা)। সঠিকতা লেখকরা চোখে দেখেছেন।
 
 ## ৬. Math
 
@@ -172,6 +258,8 @@ $$
 \{P\}\ C\ \{Q\}
 $$
 
+এই formula একটি চুক্তি বলে: শুরুতে $P$ সত্য থাকলে $C$ চালানোর পর $Q$ সত্য হবে।
+
 - $P$ = precondition, $C$ = কোড, $Q$ = postcondition। অর্থ: যেকোনো state $s \text{ satisfies } P$ থেকে $C$ চালালে শেষ state $s' \text{ satisfies } Q$।
 
 ### ৬.২ VCGen soundness (paper §২.৪-এর বাক্যের আনুষ্ঠানিক রূপ)
@@ -179,6 +267,8 @@ $$
 $$
 \forall f \in \mathcal{I},\ \forall x:\ \big(x \text{ satisfies } \mathrm{Pre}_{\varphi}(f)\big) \Rightarrow \forall \text{ execution } e \text{ of } f(x),\ \forall t:\ \mathrm{state}_e(t) \text{ satisfies } \varphi
 $$
+
+এই formula বলে: precondition মানলে interface-এর যেকোনো function-এর পুরো চলার সময় property সবসময় সত্য থাকে।
 
 - $\mathcal{I}$ = effectful interface-এর method-সমষ্টি; $\varphi$ = নির্বাচিত safety property; $\mathrm{Pre}_{\varphi}(f)$ = VCGen-এর বানানো precondition; $t$ = execution-এর যেকোনো বিন্দু।
 - অর্থ: precondition মানলে পুরো execution জুড়ে property সত্য।
@@ -189,6 +279,8 @@ $$
 \Big(\forall\, \text{call } f(x) \text{ in } c:\ \text{verifier proves } \mathrm{Pre}_{\varphi}(f)(x)\Big) \land \Big(\text{effects only via } \mathcal{I}\Big) \Rightarrow c \text{ satisfies } \varphi
 $$
 
+এই formula বলে: প্রতিটি বিপজ্জনক call প্রমাণিত হলে এবং side effect শুধু interface দিয়ে গেলে পুরো কোড property মানে।
+
 - $c$ = LLM-এর কোড। দুটি শর্ত: (১) প্রতিটি interface call-এর VC প্রমাণিত, (২) side effect **শুধু** $\mathcal{I}$ দিয়ে। দ্বিতীয় শর্ত ভাঙলে (interface এড়িয়ে গেলে) গ্যারান্টি নেই; "weird machines" (Vanegue) এই ধরনের লুকানো ফাঁক।
 
 ### ৬.৪ verify@K
@@ -197,8 +289,12 @@ $$
 \text{Success} \iff \exists K \le T:\ \mathrm{Verify}(c_K) = \text{true}
 $$
 
+এই formula বলে: ৫ বারের মধ্যে অন্তত একবার verify হলেই সফল।
+
 - $c_K$ = $K$-তম attempt-এর কোড, $T$ = সর্বোচ্চ attempt (paper-এ $T = 5$)। Figure 2-এ শর্তগুলো: "$K \le T$ ও verified" → Success; "$K > T$" → Fail।
 - Paper-এ aggregate metric (যেমন task-এর উপর গড়) নেই, কারণ মাত্র একটি task।
+
+**সহজ কথায়:** গড় বা শতকরা হার বের করার মতো যথেষ্ট task নেই।
 
 ### ৬.৫ Worked example: Figure 6-এর verification obligation
 
@@ -208,13 +304,21 @@ $$
 \mathrm{non\_empty}(f) \land \neg\,\mathrm{dangerous}(f) \land \mathrm{valid\_name}(f) \land \mathrm{valid\_len}(f)
 $$
 
+এই formula বলে: filename খালি নয়, বিপজ্জনক নয়, নাম ও দৈর্ঘ্য ঠিক: এই চারটি শর্তই লাগবে।
+
 GPT-4-র Figure 6 কোড নিজের `requires`-এ এই চারটি শর্তই (non_empty_string, is_valid_file_name, !has_dangerous_pattern, has_valid_file_length) তুলে ধরে এবং directory constant `/home/user/documents/` দিয়ে Join ডাকে। ফলে Join-এর precondition caller-precondition থেকে অনুসরণ করে; verifier সম্ভুষ্ট। **মূল কৌশল:** "বিপজ্জনক input প্রতিরোধ" দায়িত্বটা caller-এর precondition-এ ঠেলে দেওয়া হয়েছে; অর্থাৎ প্রোগ্রাম নিরাপদ **ঐ চুক্তির অধীনে** (যে কেউ `CreateFullPath` ডাকবে তাকে filename ভালো রাখতে হবে)।
+
+**সহজ কথায়:** Method নিজে filename পরিষ্কার করে না; সে caller-কে বলে "ভালো নাম দাও"। দায়িত্বটা caller-এর ঘাড়ে ঠেলে দেওয়া হয়েছে।
 
 ### ৬.৬ আমার হিসাব: token cost
 
 - Paper: প্রায় 3,350 token, গড়ে 0.109 USD per query।
 - আমার হিসাব: $0.109 / 3{,}350 \approx 0.0000325$ USD per token $\approx 32.5$ USD per million token (blended)।
-- আমার হিসাব (অনুমান; paper-এ মূল্যতালিকা নেই): gpt-4-0613 (8k)-এর তৎকালীন list মূল্য ধরলে input 0.03 USD ও output 0.06 USD per 1,000 token। $x$ = input token, $y$ = output token হলে $x + y = 3350$ এবং $0.00003x + 0.00006y = 0.109$। প্রথম সমীকরণ থেকে $0.00003 	imes 3350 = 0.1005$, তাই $0.00003y = 0.0085$, অর্থাৎ $y \approx 283$ token ও $x \approx 3067$ token। মানে খরচের বেশিরভাগ prompt (few-shot ও API list), output ছোট। এই মূল্য আমি paper-এর বাইরে থেকে ধরেছি, তাই নিশ্চিত নয়।
+
+**সহজ কথায়:** প্রতি token-এ প্রায় 0.0000325 USD। অর্থাৎ প্রায় ৩০,০০০ token-এ এক ডলার।
+- আমার হিসাব (অনুমান; paper-এ মূল্যতালিকা নেই): gpt-4-0613 (8k)-এর তৎকালীন list মূল্য ধরলে input 0.03 USD ও output 0.06 USD per 1,000 token। $x$ = input token, $y$ = output token হলে $x + y = 3350$ এবং $0.00003x + 0.00006y = 0.109$। প্রথম সমীকরণ থেকে $0.00003 \times 3350 = 0.1005$, তাই $0.00003y = 0.0085$, অর্থাৎ $y \approx 283$ token ও $x \approx 3067$ token। মানে খরচের বেশিরভাগ prompt (few-shot ও API list), output ছোট। এই মূল্য আমি paper-এর বাইরে থেকে ধরেছি, তাই নিশ্চিত নয়।
+
+**সহজ কথায়:** খরচের প্রায় সবটাই prompt-এ (উদাহরণ ও API তালিকা), উত্তর ছোট। দাম অনুমান করা, নিশ্চিত নয়।
 
 ## ৭. Setup (table)
 
@@ -234,6 +338,8 @@ GPT-4-র Figure 6 কোড নিজের `requires`-এ এই চারট�
 | Correctness যাচাই | লেখকদের manual inspection |
 | Consistency যাচাই | `assert false` দিয়ে body unreachable দেখা |
 
+**সহজ কথায়:** পুরো setup ছোট: একটি task, একটি model, এক চেষ্টা। তাই সংখ্যাগুলো সাধারণ সিদ্ধান্তের জন্য যথেষ্ট নয়।
+
 ## ৮. Results
 
 কোনো মূল result table নেই; সব তথ্য §৩ (Case study) ও Figure 4–6 থেকে।
@@ -248,6 +354,8 @@ GPT-4-র Figure 6 কোড নিজের `requires`-এ এই চারট�
 | RQ1 (safe?) | হ্যাঁ | §৩ Conclusions |
 | RQ2 (efficient?) | হ্যাঁ, modest token, এক attempt | §৩ Conclusions |
 | RQ3 (correct?) | হ্যাঁ, manual inspection; precondition সামঞ্জস্যপূর্ণ | §৩ Conclusions |
+
+**সহজ কথায়:** Baseline Python কোড চলে কিন্তু নিরাপদ নয়। PC³ কোডে property-র শর্ত verifier দিয়ে বাঁধা। তবে এটি ১টি task-এর ফল।
 
 Figure 6-এর কোডের গঠন: `CreateFullPath(filename: seq<char>)` method; `requires` চারটি (non_empty_string, is_valid_file_name, !has_dangerous_pattern, has_valid_file_length); body-তে `directory := "/home/user/documents/"` ও `fullPath := Join(directory, filename)`।
 
@@ -272,6 +380,8 @@ Figure 6-এর কোডের গঠন: `CreateFullPath(filename: seq<char>)`
 | LLM-as-judge (Sub-domain 5) | ভুল দিক ও persuasion-এ দুর্বল | judge নয়, যান্ত্রিক checker; persuade করা যায় না |
 | মানুষ review | ক্লান্তি, অসঙ্গতি | স্বয়ংক্রিয়, user-কে proof পড়তে হয় না |
 | Full functional verification (Misu et al.) | user-কে spec/test লিখতে হয় | property একবার বাছলেই চলে |
+
+**সহজ কথায়:** অন্য পদ্ধতিগুলো কিছু না কিছু জিনিস মানুষের উপর ছেড়ে দেয়। PC³ নির্দিষ্ট property-র জন্য যন্ত্রকে দিয়ে করায়।
 
 কিন্তু "better" কেবল সংকীর্ণ অর্থে: paper কোনো সংখ্যাগত তুলনা করেনি।
 
@@ -328,14 +438,16 @@ Figure 6-এর কোডের গঠন: `CreateFullPath(filename: seq<char>)`
 | G8 | Safe property বনাম বাস্তব vulnerability: precondition-এর recall কত (কত CWE ধরে) | §৩: ছয় ধরনের property তালিকাভুক্ত, মাপা নয় | CG21 / 06 |
 | G9 | "প্রমাণ ব্যর্থ" হলে কী: abstain নাকি বিকল্প signal | Figure 2: শুধু "Fail" | CG7 / 03 |
 
+**সহজ কথায়:** সবচেয়ে বড় ফাঁক হলো: প্রমাণ আরও বেশি task-এ পরীক্ষা করা হয়নি, আর spec ও VCGen কে লিখবে ও যাচাই করবে সেটা অমীমাংসিত।
+
 ## ১৪. Improvement ideas
 
 1. **Spec-lite agent patch check**: agent patch-এর diff-এ নতুন dangerous call (file, network, eval, subprocess) যান্ত্রিকভাবে খুঁজে প্রতিটির জন্য precondition-অবশ্যই-মানা property (যেমন "path বাইরে যাবে না") ছোট Dafny/Verus/Lean-এ নয় বরং Python runtime-contract (icontract/deal)-এ রেখে একটি **hybrid signal** বানানো; proof নয়, "contract-checked" লেবেল।
 2. **VCGen স্বয়ংক্রিয়করণ**: CWE → precondition catalog (property library) তৈরি; প্রতিটির সঙ্গে test-suite যা precondition-কে adversarial input দিয়ে পরীক্ষা করে (VCGen soundness-এর যান্ত্রিক sanity check)।
-3. **Vacuity ও spec-strength audit**: `assert false`-ছাড়াও mutation testing: precondition দুর্বল করলে কোড কি আর verify হয়? প্রতিটি `requires` দরকারি কিনা (CG13-এর proof-জগতের সংস্করণ)।
+3. **Vacuity ও spec-strength audit**: `assert false`-ছাড়াও mutation testing (ইচ্ছে করে কোডে ছোট ভুল ঢুকিয়ে দেখা ধরা পড়ে কিনা): precondition দুর্বল করলে কোড কি আর verify হয়? প্রতিটি `requires` দরকারি কিনা (CG13-এর proof-জগতের সংস্করণ)।
 4. **Tri-state verdict**: Verified / Counterexample or Failed / Unverifiable (spec নেই বা ভাষা সমর্থিত নয়)। CG22-এর সমাধানের সঙ্গে মেলে।
 5. **Proof repair loop-এ distinct feedback**: error-কে line-এর সাথে link করার আইডিয়া RePaCA/VRpilot-এর feedback loop-এর সঙ্গে তুলনীয়; ablation চালানো (compiler error only vs counterexample vs assertion hint)।
-6. **Fair baseline**: একই safety instruction সহ Python/Dafny/Verus, একই model, একাধিক run, McNemar paired test।
+6. **Fair baseline**: একই safety instruction সহ Python/Dafny/Verus, একই model, একাধিক run, McNemar paired test (একই task-এ দুই পদ্ধতির তুলনার পরিসংখ্যান-পরীক্ষা)।
 
 ## ১৫. Publication potential (SPL3-feasible)
 
@@ -349,7 +461,7 @@ Figure 6-এর কোডের গঠন: `CreateFullPath(filename: seq<char>)`
 ছোট, নিয়ন্ত্রিত পরিকল্পনা (assurance report-এর একটি optional "formal lane"):
 
 1. **Property catalog (সপ্তাহ ১)**: ৪-৫টি সরল, task-নিরপেক্ষ property: path traversal নিষেধ; array index bound; null/None dereference নেই; subprocess-এ shell injection নেই; hard-coded secret নেই।
-2. **Applicability scanner (সপ্তাহ ২)**: SWE-rebench বা SWE-Bench Pro Verified subset-এর gold/agent patch-এ diff পড়ে (AST) বের করা: কতটা patch-এ ঐ dangerous call আছে? আমার ধারণা অধিকাংশ patch-এ থাকে না; তাই coverage-ই প্রথম ফলাফল।
+2. **Applicability scanner (সপ্তাহ ২)**: SWE-rebench বা SWE-Bench Pro Verified subset-এর gold/agent patch-এ diff পড়ে (AST, মানে কোডের গঠন-গাছ) বের করা: কতটা patch-এ ঐ dangerous call আছে? আমার ধারণা অধিকাংশ patch-এ থাকে না; তাই coverage-ই প্রথম ফলাফল।
 3. **Checker (সপ্তাহ ৩-৪)**: Python-এর জন্য verifier নেই বলে দুটি সম্ভাবনা: (ক) CrossHair/Nagini ধরনের Python verifier (আমি নির্দিষ্ট করে যাচাই করিনি), (খ) PC³-এর মূল ছোট C/Rust/Dafny উদাহরণ নিয়ে pilot। বাস্তবসম্মত: ছোট function-স্কেল (HumanEval-ধরনের) task-এ Dafny/Verus-এ GPT/Claude দিয়ে verify@K মাপা।
 4. **Metrics**: verify@K (K = 1, 3, 5), vacuity-fail হার (`assert false`/mutation), cost per verified completion (USD), run-to-run variance (≥ ৫ run)।
 5. **Report format**: প্রতিটি patch-এ তিনমুখী "Proof: verified / failed / not-applicable", আলাদা signal হিসেবে, weighted score-এ মেশানো নয়।
@@ -358,7 +470,7 @@ Figure 6-এর কোডের গঠন: `CreateFullPath(filename: seq<char>)`
 ## ১৭. Influence / link to our earlier sub-domains
 
 - **Sub-domain 1 (Agents)**: Agentless/SWE-agent-এর patch যাচাই test-ভিত্তিক; PC³ বিকল্প oracle দেয়, কিন্তু function-scale।
-- **Sub-domain 2 (APR)**: VRpilot-এর compiler/sanitizer feedback loop-এর সঙ্গে PC³-এর verifier feedback loop কাঠামোগতভাবে সমান; পার্থক্য: oracle এখানে sound (নির্দিষ্ট property-র জন্য)। RePaCA-র overfitting detection-এর low specificity সমস্যা এখানে নেই (verifier মিথ্যা "verified" দেয় না, ধরে নিলে VCGen ঠিক), কিন্তু "failed" মানে "ভুল" নয় (LLM প্রমাণ খুঁজে পায়নি)।
+- **Sub-domain 2 (APR)**: VRpilot-এর compiler/sanitizer feedback loop-এর সঙ্গে PC³-এর verifier feedback loop কাঠামোগতভাবে সমান; পার্থক্য: oracle এখানে sound (নির্দিষ্ট property-র জন্য)। RePaCA-র overfitting detection (patch শুধু test-কে খুশি করছে কিনা ধরা)-এর low specificity সমস্যা এখানে নেই (verifier মিথ্যা "verified" দেয় না, ধরে নিলে VCGen ঠিক), কিন্তু "failed" মানে "ভুল" নয় (LLM প্রমাণ খুঁজে পায়নি)।
 - **Sub-domain 3 (Evaluation)**: SWE-rebench/SWE-Bench Pro-তে task-সংখ্যা ও variance; PC³ case study-তে ঠিক উল্টো (n = 1), তাই CG4/CG8 এখানে সরাসরি প্রযোজ্য।
 - **Sub-domain 4 (Test generation)**: test-এর oracle strength (CG13) vs spec-এর strength: পরেরটি একই সমস্যা, শুধু বেশি যান্ত্রিক।
 - **Sub-domain 5 (Patch validation)**: LLM judge-এর ভুল দিক ও persuasion (CG17, CG18)। Proof-checker persuade করা যায় না; সেটা প্রধান সুবিধা।
@@ -374,6 +486,8 @@ Figure 6-এর কোডের গঠন: `CreateFullPath(filename: seq<char>)`
 | CG19 (author oracle নেই) | user লেখে না; property catalog + VCGen oracle-এর কাজ করে | catalog কে লিখল? trusted base |
 | CG22 (reference-anchored oracle valid বিকল্প বাতিল করে) | spec-ভিত্তিক oracle gold patch-এর উপর নির্ভর করে না; যেকোনো সঠিক বাস্তবায়ন মানা হয় | spec অতিরিক্ত সংকীর্ণ হলে বৈধ কোডও ব্যর্থ |
 | CG12 (gaming) | যান্ত্রিক checker persuasion-প্রতিরোধী, কিন্তু vacuity/`assume` দিয়ে ঠকানো সম্ভব | `assert false` ছাড়া আর কিছু নেই |
+
+**সহজ কথায়:** PC³ আমাদের CG-গুলোর কিছু অংশ সরু পরিসরে মেটায়, কিন্তু spec-এর দুর্বলতা বা ঠকানোর ঝুঁকি পুরোপুরি যায় না।
 
 ## ১৮. Supervisor Q&A
 
@@ -448,6 +562,8 @@ Figure 6-এর কোডের গঠন: `CreateFullPath(filename: seq<char>)`
 | Gaming | উল্লেখ নেই | METR: সফল long-task run-এর ≥ 16% cheat (I, আগের প্রজন্ম); Opus 5.5 card-এ "hidden tests" reasoning ও git concealment কিছু environment-এ (V) |
 | Cost per task | 0.109 USD per query (এক মুহূর্তের) | Vals Terminal-Bench 4.0 (I): Opus 5.5 13.20 USD, Kimi K3.1 Pro 4.57, GPT-6.1 Sol 1.72 (কাজের ধরন ভিন্ন, তুলনীয় নয়) |
 
+**সহজ কথায়:** 2026-এ model অনেক নতুন, কিন্তু proof-ক্ষমতার নতুন তথ্য নেই। তাই test-এর দুর্বলতা আরও স্পষ্ট, কিন্তু proof কাজ করে কিনা আমাদের নিজেদের মাপতে হবে।
+
 ### ২১.২ এখনও সত্য / পুরনো
 
 **এখনও সত্য (context-এর আলোকে):**
@@ -471,6 +587,8 @@ Figure 6-এর কোডের গঠন: `CreateFullPath(filename: seq<char>)`
 | Oracle শক্তি | 80.2% দুর্বল oracle (I); proof-oracle-এর spec শক্তি মাপা হয়নি | CG13, CG23 |
 | Verifier/checker gaming | METR ≥ 16% cheat (I); verifier-লক্ষ্যিত gaming-এর তথ্য নেই | CG12 |
 | Version-bound verdict | verifier/solver version নথিভুক্ত করার প্রমাণ নেই | CG11 |
+
+**সহজ কথায়:** Oracle শক্তি, gaming ও version-তথ্য এখনও অমীমাংসিত; আমাদের pilot এখানে কাজে লাগবে।
 
 ### ২১.৪ SPL3 idea (বর্তমান model, cost-aware)
 

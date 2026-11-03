@@ -29,9 +29,61 @@
 
 ---
 
+## ★ সহজ ভাষায় পুরো Paper (প্রথমবার পড়ার জন্য)
+
+### ক. Paper-টা কী নিয়ে?
+- এটা একটা **survey paper**। মানে এখানে নতুন কোনো tool বানানো হয়নি।
+- লেখকেরা অনেকগুলো পুরনো paper পড়ে দেখেছেন, সেগুলোর মধ্যে কী চলছে আর কোথায় গলদ আছে।
+- লেখক: Renzullo, Reiter, Weimer ও Forrest (Arizona State University ও University of Michigan)। ছাপা হয়েছে ACM Computing Surveys-এ, 2025 সালে।
+- বিষয়: **APR (Automated Program Repair)**, অর্থাৎ program-এর bug নিজে নিজে ঠিক করে দেওয়ার গবেষণা।
+- তাঁরা 2018 থেকে 2023-এর মধ্যে পাঁচটা বড় venue (ICSE, TSE, FSE, ASE, EMSE) থেকে 118টা APR paper পড়েছেন।
+- উপমা: ধরো একজন শিক্ষক ক্লাসের সব পরীক্ষার খাতা দেখে বললেন, "সবাই নম্বর বলছে, কিন্তু প্রশ্ন আলাদা ছিল, আর কেউ কেউ প্রশ্ন আগেই দেখে ফেলেছিল। তাই নম্বর পাশাপাশি রেখে কাউকে সেরা বলা যায় না।"
+
+### খ. সমস্যাটা কী ছিল?
+- আগে APR মানে ছিল হাতে বানানো নিয়ম বা search দিয়ে bug ঠিক করা। 2018-এর পর **Machine Learning (ML)** আর **LLM** (বিশাল language model) খুব দ্রুত ঢুকে পড়ে।
+- কিন্তু যে benchmark (পরীক্ষার প্রশ্নের সেট) দিয়ে এদের মাপা হয়, সেগুলো ML-এর কথা ভেবে বানানোই হয়নি। সেগুলো বহু বছরের পুরনো আর internet-এ খোলা।
+- তাই LLM হয়তো training-এর সময়ই এই প্রশ্ন আর উত্তর দেখে ফেলেছে। একে বলে **data leakage** বা **contamination**। তখন score বাড়ে মুখস্থের জোরে, আসল ক্ষমতায় নয়।
+- তার ওপর প্রতিটা paper নিজের মতো করে নিয়ম ঠিক করে। কেউ বলে "সব test pass করলেই ঠিক", কেউ বলে "developer-এর fix-এর সাথে মিলতে হবে"।
+- একটা বাস্তব উদাহরণ: **CURE** প্রতি bug-এ 5,000টা patch test করে দেখে। **RewardRepair** মাত্র 200টা দেখে। দুজনের score কীভাবে তুলনা করবে? আর **Sequencer**-কে আগেই বলে দেওয়া হয় bug কোন line-এ আছে, অথচ **iFixR** নিজে খুঁজে বের করে। এক প্রশ্নে সহজ, আরেক প্রশ্নে কঠিন।
+
+### গ. Paper কী solve করেছে?
+- Paper কোনো সমস্যার সমাধান বানায়নি। বরং পুরো field-এর evaluation-এ কোথায় কোথায় ফাটল আছে, তা প্রমাণসহ দেখিয়েছে।
+- দেখিয়েছে ML কতটা দ্রুত APR দখল করেছে।
+- দেখিয়েছে leakage, "correct"-এর আলাদা সংজ্ঞা, fault localization-এর আলাদা অনুমান আর stopping rule-এর পার্থক্য কীভাবে তুলনাকে অর্থহীন করে।
+- দেখিয়েছে কেউ near-duplicate (প্রায় একই রকম code) নিয়ে কাজই করেনি।
+- StandUp4NPR আর APR-COMP 2024 নামের নতুন উদ্যোগ দুটো কতটা কাজে লাগে, তার ভালো-মন্দ বলেছে।
+- তিনটা মূল সংখ্যা:
+  - 2018-এ ML ব্যবহার করত ছয়টা paper-এর মধ্যে একটারও কম। 2023-এ চারটার মধ্যে তিনটার বেশি। **মানে:** পাঁচ বছরে ML প্রায় সব জায়গায় ঢুকে গেছে।
+  - নতুন 61টা technique-এর 22টা ML, তার 7টা LLM, আর সেই 7টার 6টাই শেষ দুই বছরের। **মানে:** LLM একদম নতুন ঢেউ, তাই এর evaluation এখনো কাঁচা।
+  - Defects4J benchmark ব্যবহার করেছে 44টা paper, আর ManyBugs ব্যবহার করেছে মাত্র 5টা। **মানে:** build করা সহজ বলে সবাই Java-র দিকে ঝুঁকেছে, ফলে গবেষণা একপেশে।
+
+### ঘ. কীভাবে solve করেছে?
+1. শুরুতে Monperrus-এর "Living Review of APR" নামের একটা চলমান তালিকা নিয়েছেন। এটাই ছিল তাঁদের বীজ।
+2. সেই তালিকায় যে পাঁচটা venue-তে সবচেয়ে বেশি APR paper ছাপা হয়, সেগুলো বেছেছেন।
+3. সময় ধরেছেন 1 January 2018 থেকে 31 December 2023।
+4. প্রতিটা venue থেকে "patch" বা "repair" শব্দ আছে এমন article খুঁজেছেন। তারপর "fix", "bug", "fault"-এর মতো আরও কিছু শব্দ দিয়েও খুঁজেছেন।
+5. যেগুলো মিলেছে, তার abstract নিজে পড়ে ঠিক করেছেন কোনটা সত্যিই APR-এর। শেষে 118টা article থাকল।
+6. প্রতিটা article-এ দেখেছেন: ML আছে কিনা, কোন architecture, leakage কীভাবে সামলানো, fault localization কীভাবে ধরা, "correct" কীভাবে মাপা, কোন benchmark, beam size কত।
+7. সেগুলো গুনে প্যাটার্ন বের করেছেন। যেমন কতজন perfect FL ধরে নেয় আর কতজন নেয় না।
+8. শেষে দুটো নতুন standardization উদ্যোগ (StandUp4NPR, APR-COMP 2024) পরীক্ষা করে বলেছেন এগুলো কতটা সমস্যা মেটায়।
+
+### ঙ. এরপর কী করা যায়?
+- **Authors যা বলেছেন:** closed LLM-এর জন্য decontamination (test-এর উদাহরণ training থেকে সরানো) এখনো কেউ পারেনি। তাঁরা code clone detection, canary string আর identifier perturbation-এর মতো পথের ইঙ্গিত দিয়েছেন।
+- **এখনো খোলা:** near-duplicate কতটা ঢুকেছে, কেউ মাপেনি। data bias নিয়েও কেউ কাজ করেনি। আর C/C++-এর মতো language-এর executable benchmark-ও খুব কম।
+- **আমরা SPL3-তে করতে পারি:** SWE-bench-এর 30-50টা task-এ identifier বদলে (rename করে) দেখতে পারি agent-এর resolve rate কমে কিনা।
+- **আমরা করতে পারি:** agent-এর patch-এ তিনটা মাপ পাশাপাশি বের করা: test pass, বাড়তি test, আর gold patch-এর সাথে মিল। এতে "plausible" আর "correct"-এর ফাঁক দেখা যাবে।
+- **আমরা করতে পারি:** 2024-2025-এর coding-agent paper-এ এই survey-র মতো audit চালানো। কে কীভাবে FL ধরে, কীভাবে correctness মাপে, cost কীভাবে report করে, তা গুনে দেখা। এতে API খরচ লাগবে না।
+- **সতর্কতা:** আমাদের assurance layer যদি নিজেই ML বা LLM-judge ব্যবহার করে, তাহলে তার নিজের evaluation-ও repository-ভিত্তিক বা সময়-ভিত্তিক split-এ করতে হবে। নইলে একই leakage ফাঁদে পড়ব।
+
+> **মনে রাখো:**
+> APR paper-এর score পাশাপাশি রেখে তুলনা করা যায় না, কারণ প্রশ্ন, নিয়ম আর সম্ভাব্য leakage আলাদা।
+> LLM-এর benchmark পুরনো ও public, তাই "ভালো score" মানে সবসময় "ভালো ক্ষমতা" নয়। আমাদের assurance layer-কে নিজেই leakage-aware হতে হবে।
+
+---
+
 ## ১. এক লাইনে Paper (TL;DR)
 
-**2018 থেকে 2023 পর্যন্ত top-5 SE venue-র 118টা APR article পর্যালোচনা করে এই survey দেখায় যে ML ও LLM দ্রুত APR দখল করে নিয়েছে (2018-এ ছয়টার মধ্যে একটার কম article ML ব্যবহার করতো, 2023-এ চারটার মধ্যে তিনটার বেশি), কিন্তু পুরনো benchmark (Defects4J, ManyBugs ইত্যাদি) ML-এর জন্য বানানো হয়নি — তাই data leakage, contamination, ভিন্ন ভিন্ন correctness সংজ্ঞা, ভিন্ন fault localization অনুমান ও ভিন্ন stopping condition-এর কারণে published result-গুলো আসলে তুলনাযোগ্য বা বিশ্বাসযোগ্য নয়।**
+**2018 থেকে 2023 পর্যন্ত top-5 SE venue-র 118টা APR article পর্যালোচনা করে এই survey দেখায় যে ML ও LLM দ্রুত APR দখল করে নিয়েছে। 2018-এ ছয়টার মধ্যে একটার কম article ML ব্যবহার করতো; 2023-এ চারটার মধ্যে তিনটার বেশি। কিন্তু পুরনো benchmark (পরীক্ষার প্রশ্নের সেট; যেমন Defects4J, ManyBugs) ML-এর জন্য বানানো হয়নি। তাই data leakage (test-এর উত্তর আগেই training-এ ঢুকে যাওয়া), contamination, ভিন্ন ভিন্ন correctness সংজ্ঞা, ভিন্ন fault localization (bug-এর জায়গা খোঁজা) অনুমান ও ভিন্ন stopping condition (কখন থামবে সেই নিয়ম)-এর কারণে published result-গুলো তুলনাযোগ্য বা বিশ্বাসযোগ্য নয়।**
 
 ### Supervisor-কে ৩০ সেকেন্ডে কীভাবে বলবো
 > "Sir, এটা ACM Computing Surveys-এ 2025-এ প্রকাশিত একটা survey। Authors ICSE, TSE, FSE, ASE, EMSE-র 2018–2023-এর 118টা APR paper পড়ে দেখিয়েছেন যে ML-ভিত্তিক APR খুব দ্রুত বেড়েছে — নতুন technique-এর 61টার মধ্যে 22টা ML, তার মধ্যে 7টা LLM, আর সেই 7টার 6টাই শেষ দুই বছরে। কিন্তু সমস্যা হলো: benchmark-গুলো পুরনো ও internet-এ public, তাই LLM সম্ভবত সেগুলো training-এ দেখে ফেলেছে; কেউ near-duplicate নিয়ে কাজ করেনি; একেকজন একেকভাবে 'correct' সংজ্ঞায়িত করে; কেউ perfect fault localization ধরে নেয়, কেউ নেয় না; আর stopping condition আলাদা। ফলে paper-গুলোর সংখ্যা পাশাপাশি রেখে তুলনা করা যায় না। আমাদের জন্য গুরুত্বপূর্ণ কারণ SWE-bench-ভিত্তিক agent evaluation-এও ঠিক এই সমস্যাগুলো আছে — তাই assurance layer-কে নিজেই leakage-aware ভাবে evaluate করতে হবে।"
@@ -60,6 +112,8 @@ APR হলো software-এর bug মানুষ ছাড়াই (বা খ
 | **Multi-hunk / evolution-based** | একাধিক জায়গায় edit লাগে এমন bug | [103] (Harnessing evolution for multi-hunk repair) |
 | **Neural Program Repair (NPR)** | Neural network দিয়ে buggy code → fixed code "অনুবাদ" | SequenceR, CoCoNuT, CURE, DLFix, RewardRepair, Recoder, KNOD ইত্যাদি |
 | **LLM-based APR** | বড় pre-trained language model দিয়ে buggy line-এর জায়গায় সঠিক code generate করা (zero-shot / fine-tuned) | AlphaRepair (CodeBERT), Xia et al. [122], SelfAPR, Fan et al. [34] |
+
+**সহজ কথায়:** APR-এর ধারাগুলো পুরনো থেকে নতুনের দিকে সাজানো। আগে মানুষের তৈরি নিয়ম বা random search ছিল, এখন neural network আর LLM আসল কাজ করে।
 
 **GenProg-এর loop (সহজ ভাষায়):**
 1. Failing test ও passing test চালিয়ে দেখো কোন statement-গুলো failing test-এ বেশি execute হয় (fault localization)।
@@ -109,6 +163,8 @@ Survey-র Table 1-এ "overfitting" (5 বার), "correctness" (5 বার),
 | **CrossVul** [89] | বহু language | Vulnerability-fix commit-এর diff — **ML dataset**, benchmark নয় | Build/test environment নেই — শুধু program text |
 | **RunBugRun** [97] | — | Executable APR dataset | ML-ভিত্তিক tool সম্প্রতি build reproduce করা শুরু করেছে — তার উদাহরণ |
 
+**সহজ কথায়:** এই benchmark-গুলো আসলে "পরীক্ষার প্রশ্নের সেট"। কোনোটা বড় program-এর, কোনোটা ছাত্রদের ছোট program-এর, আর বেশিরভাগই পুরনো ও internet-এ খোলা।
+
 **Benchmark বনাম ML dataset (খুব গুরুত্বপূর্ণ পার্থক্য):**
 - *APR benchmark:* কম সংখ্যক কিন্তু যত্ন করে বানানো bug/fix pair, test case ও build environment সহ — **evaluation**-এর জন্য।
 - *ML dataset:* লক্ষ লক্ষ bug-fix pair (যেমন SynShine-এর 1.7M pair), কিন্তু test বা build নেই — **training**-এর জন্য।
@@ -153,6 +209,8 @@ Survey Roy & Cordy-র clone classification ব্যবহার করে:
 | **Type II** | গঠন একই, শুধু identifier/literal/type-এর নাম আলাদা — near-duplicate | `if (a > b) return a;` বনাম `if (x > y) return x;` |
 | **Type III** | কিছু statement যোগ/বাদ/পরিবর্তন সহ copy — near-duplicate | StackOverflow-এর একটা solution অনেক project-এ সামান্য বদলে ব্যবহার |
 
+**সহজ কথায়:** Clone মানে code-এর কপি। Type I হুবহু কপি, Type II শুধু নাম বদলানো, Type III কিছু লাইন যোগ বা বাদ দেওয়া। যত ওপরের type, ধরা তত কঠিন।
+
 **Granularity:** duplication statement, function, class, file — যেকোনো স্তরে হতে পারে। Code model-এ dedup সাধারণত **file level**-এ হয় — ফলে function-level duplicate রয়ে যায়।
 
 ### ২.১৩ Memorization ও Generalization
@@ -188,6 +246,8 @@ Survey Roy & Cordy-র clone classification ব্যবহার করে:
 | **Fault Localization** | Sequencer: কোন line বদলাতে হবে তা input-এ দেওয়া (perfect FL) | iFixR: মানুষের লেখা bug report দিয়ে fault খোঁজে; আগের বেশিরভাগ APR: FL task-এর অংশ | ভিন্ন কঠিনতার task |
 | **Termination** | RewardRepair: bug প্রতি সেরা 200টা patch তৈরি ও যাচাই করে থামে (সময় যতই লাগুক) | CURE: 10,000 candidate তৈরি, top 5,000 যাচাই; DLFix: নির্দিষ্ট সময়-বাজেট শেষ হলে থামে | Efficiency তুলনা অসম্ভব |
 
+**সহজ কথায়:** তিনটা সারিরই মূল কথা একটাই: যে যার মতো নিয়ম বানিয়েছে, তাই score সোজাসুজি তুলনা করা যায় না। এটা ঠিক যেন একজন 10 মিনিটে আর একজন 3 ঘণ্টায় একই পরীক্ষা দিল।
+
 ### ৩.২ কেন এটা গুরুত্বপূর্ণ?
 - যদি score contamination বা সহজ অনুমানের (perfect FL) কারণে ফুলে থাকে, তাহলে "state-of-the-art" দাবি ভুল হতে পারে — আর industry ভুল tool গ্রহণ করতে পারে।
 - Authors-এর কড়া উপসংহার: এই সমস্যাগুলো সমাধান না হলে **"আরও বেশি ও বড় empirical study ও তুলনা কোনো আলো দেবে না"**।
@@ -222,6 +282,8 @@ Survey-তে RQ স্পষ্টভাবে লেখা নেই; section 
 | 7. Final corpus | — | **118টা article** |
 | 8. Cross-check | Living review-এর সাথে মিলানো | মাত্র **65টা** living review-তেও আছে |
 
+**সহজ কথায়:** আট ধাপের কাজ খুব সোজা: একটা বড় তালিকা নাও, পাঁচটা সেরা venue বাছো, keyword দিয়ে ছাঁকো, abstract পড়ে নিশ্চিত হও। শেষে 118টা article।
+
 ### ৫.২ Venue পাঁচটা কী
 
 | Venue | ধরন |
@@ -233,7 +295,7 @@ Survey-তে RQ স্পষ্টভাবে লেখা নেই; section 
 | EMSE — Empirical Software Engineering | Journal |
 
 ### ৫.৩ Categorisation (Taxonomy Dimensions)
-Abstract অনুযায়ী ML-ভিত্তিক article-গুলোকে **structural** ও **functional** dimension-এ ভাগ করা হয়েছে। Paper-এ আলাদা taxonomy table নেই; section গুলো থেকে dimension-গুলো এভাবে বের করা যায় (আমার পর্যবেক্ষণ — paper-এর text থেকে সাজানো):
+Abstract অনুযায়ী ML-ভিত্তিক article-গুলোকে **structural** (model-এর গঠন) ও **functional** (model-এর কাজ) dimension-এ ভাগ করা হয়েছে। Paper-এ আলাদা taxonomy table নেই; section গুলো থেকে dimension-গুলো এভাবে বের করা যায় (আমার পর্যবেক্ষণ — paper-এর text থেকে সাজানো):
 
 | Dimension | ধরন | মান (category) | Paper-এর section |
 |---|---|---|---|
@@ -246,6 +308,9 @@ Abstract অনুযায়ী ML-ভিত্তিক article-গুলো�
 | FL assumption | Evaluation | SBFL (test trace); perfect FL (developer location); IR (bug report); দুই setting-ই report | 5.2 |
 | Correctness definition | Evaluation | একটা human reference patch-এর সাথে তুলনা; test pass; manual semantic equivalence | 1, 5.3 |
 | Benchmark | Evaluation | Defects4J, ManyBugs, অন্যান্য | 5.6 |
+
+**সহজ কথায়:** এই ছকে প্রতিটা article-কে দশটা প্রশ্ন করে খাতায় টুকে রাখা হয়েছে। যেমন: ML আছে কিনা, leakage কীভাবে সামলাল, correct কীভাবে মাপল।
+
 | Efficiency reporting | Evaluation | Run-time; wall-clock upper bound; test-suite evaluation limit; beam size; vocabulary size | 5.1, 5.7 |
 
 ### ৫.৪ Keyword analysis
@@ -261,6 +326,8 @@ Survey নিজে কোনো equation দেয়নি — এটা quali
 $$
 \text{APR}: (P,\; T) \to p, \qquad T = T_{pos} \cup T_{neg}
 $$
+
+**সহজ কথায়:** একটা buggy program আর test-গুলো দিলে APR একটা patch বের করে দেয়। Test দুই ধরনের: যেগুলো আগে থেকেই pass করছে (positive), আর যেগুলো bug-এর কারণে fail করছে (negative)।
 
 | Symbol | মানে |
 |---|---|
@@ -278,10 +345,16 @@ $$
 $$
 \text{Plausible}(p) = 1 \quad \text{যদি} \quad \forall t \in T:\; \text{pass}(P \oplus p,\; t)
 $$
+
+**সহজ কথায়:** Patch লাগালে যদি সব test pass হয়, তাহলে সেটা plausible। শুধু test-এর ফল দেখা হচ্ছে, patch আসলেই ঠিক কিনা তা নয়।
+
 **আদর্শ Correct** (সব সম্ভাব্য input $x$-এ specification মেনে চলে):
 $$
 \text{Correct}(p) = 1 \quad \text{যদি} \quad \forall x \in \mathcal{X}:\; (P \oplus p)(x) = S(x)
 $$
+
+**সহজ কথায়:** Patch আসলেই correct হবে তখন, যখন সম্ভাব্য সব input-এই program-টা তার আসল উদ্দেশ্য অনুযায়ী চলে। এটা বাস্তবে যাচাই করা যায় না, কারণ সব input চালানো অসম্ভব।
+
 **Overfitting:**
 $$
 \text{Overfit}(p) = \text{Plausible}(p) \land \neg\, \text{Correct}(p)
@@ -293,20 +366,32 @@ $$
 $$
 \text{Correct}_{\text{CURE}}(p) = \text{Plausible}(p) \land \text{SemEq}(P \oplus p,\; P \oplus p^{*})
 $$
+
+**সহজ কথায়:** CURE-এর নিয়ম: সব test pass করতে হবে, আর মানুষ দেখে বলবে developer-এর fix-এর সাথে একই অর্থ বহন করে কিনা। দুটো শর্তই লাগে।
+
 **(খ) Single-reference proxy (survey অনুযায়ী 29টা cited article এই ধরনের):** generated patch-কে একটা মাত্র human reference patch-এর সাথে তুলনা:
 $$
 \text{Correct}_{\text{ref}}(p) = \mathbb{1}\left[\, \text{Equiv}(p,\; p^{*}) \,\right]
 $$
+
+**সহজ কথায়:** এখানে শুধু একটা প্রশ্ন: generated patch কি developer-এর patch-এর সাথে মেলে? মিললে সঠিক, না মিললে ভুল। একই bug অনেক ভাবে ঠিক করা যায়, তাই এটা খুব কড়া।
+
 এখানে $\text{Equiv}$ মানে "একই বা সমতুল্য" (syntactic match বা manual equivalence — paper অনুযায়ী ভিন্ন)।
 
 **আমার পর্যবেক্ষণ — "Sandwich" সম্পর্ক:** ধরো $\mathcal{C}$ = সব সঠিক patch-এর set, $\mathcal{P}$ = সব plausible patch-এর set। Test যদি specification-এর অংশ হয় (সঠিক patch অবশ্যই test pass করে) এবং reference-match সত্যিই সঠিক patch চিনতে পারে, তাহলে
 $$
 \{\, p : \text{Equiv}(p,\; p^{*}) \,\} \subseteq \mathcal{C} \subseteq \mathcal{P}
 $$
+
+**সহজ কথায়:** সঠিক patch-এর সেট plausible patch-এর সেটের ভেতরে থাকে, আর reference-এর সাথে মেলা patch-এর সেট সঠিক patch-এর সেটের ভেতরে থাকে। এটা ঠিক যেন তিনটা ছোট-বড় বৃত্ত একটার ভেতরে একটা।
+
 অর্থাৎ একটা tool-এর জন্য গণনা করলে:
 $$
 N_{\text{ref}} \;\leq\; N_{\text{correct}} \;\leq\; N_{\text{plausible}}
 $$
+
+**সহজ কথায়:** গোনার সময় reference-মেলা patch সবচেয়ে কম, তারপর সঠিক patch, আর plausible patch সবচেয়ে বেশি। আসল সংখ্যা এই দুই সীমার মাঝখানে।
+
 - **বাম দিক (reference proxy)** আসল correctness-কে **কম গোনে** — survey-র অভিযোগ: "যেকোনো functionality implement করার অসীম উপায় আছে", তাই একটা human example-এর সাথে মেলানো "extraordinarily strict"।
 - **ডান দিক (শুধু test pass)** আসল correctness-কে **বেশি গোনে** — এটাই patch overfitting, Sub-domain 1-এর CG1।
 - **SWE-bench ডান দিকের metric ব্যবহার করে** (F2P + P2P pass = resolved)। তাই SWE-bench score আসল correctness-এর **upper bound**, আর survey যে reference-proxy-র সমালোচনা করে তা **lower bound**। আসল সংখ্যা মাঝখানে কোথাও। Assurance layer-এর কাজ হলো এই ফাঁক ছোট করা।
@@ -315,10 +400,16 @@ $$
 $$
 \text{Precision}_{\text{patch}} = \frac{N_{\text{correct}}}{N_{\text{plausible}}}, \qquad \text{OverfitRate} = 1 - \text{Precision}_{\text{patch}}
 $$
+
+**সহজ কথায়:** Test pass করা patch-গুলোর মধ্যে কতগুলো আসলেই ঠিক, তার ভগ্নাংশ। বাকিটা (1 থেকে বাদ দিলে) হলো overfitting-এর হার।
+
 **Worked example (Sub-domain 1-এর সংখ্যা, AutoCodeRover):** 78টা plausible patch, তার মধ্যে 51টা সঠিক।
 $$
 \text{Precision}_{\text{patch}} = \frac{51}{78} = 0.654 = 65.4\%, \qquad \text{OverfitRate} = 1 - 0.654 = 34.6\%
 $$
+
+**সহজ কথায়:** 78টা test-pass patch-এর মধ্যে 51টা ঠিক, মানে প্রায় 65%। বাকি 27টা (প্রায় 35%) আসলে ভুল, শুধু test-কে ফাঁকি দিয়েছে।
+
 অর্থাৎ 27টা patch overfitting।
 
 ### ৬.৫ Overfitting Detector (APCA tool যেমন ODS)-এর মূল্যায়ন
@@ -332,6 +423,9 @@ Overfitting patch-কে "positive" ধরে:
 $$
 \text{Precision}_{\text{det}} = \frac{TP}{TP + FP}, \qquad \text{Recall}_{\text{det}} = \frac{TP}{TP + FN}
 $$
+
+**সহজ কথায়:** Precision বলে: detector যেগুলোকে "ভুল" বলল, তার কতগুলো সত্যিই ভুল। Recall বলে: আসলে যতগুলো ভুল patch ছিল, তার কতগুলো detector ধরতে পেরেছে।
+
 **Worked example (আমার কাল্পনিক উদাহরণ, উপরের 78টা patch দিয়ে):** ধরো detector 30টা patch-কে overfitting বলে, তার মধ্যে 22টা আসলেই overfitting (TP = 22, FP = 8)। মোট overfitting 27, তাই FN = 5।
 $$
 \text{Precision}_{\text{det}} = \frac{22}{30} = 73.3\%, \qquad \text{Recall}_{\text{det}} = \frac{22}{27} = 81.5\%
@@ -345,6 +439,8 @@ Survey SBFL-এর উল্লেখ করে কিন্তু সূত্�
 $$
 \text{Ochiai}(s) = \frac{e_f(s)}{\sqrt{\left(e_f(s) + n_f(s)\right)\left(e_f(s) + e_p(s)\right)}}
 $$
+
+**সহজ কথায়:** যে line বেশি failing test-এ চলে আর কম passing test-এ চলে, তার সন্দেহের নম্বর বেশি। নম্বর যত 1-এর কাছে, bug সেখানে থাকার সম্ভাবনা তত বেশি।
 
 | Symbol | মানে |
 |---|---|
@@ -362,6 +458,9 @@ $$
 $$
 \text{Pr}(\text{repair}) = \text{Pr}(\text{FL finds } L^{*}) \cdot \text{Pr}(\text{correct patch} \mid L^{*})
 $$
+
+**সহজ কথায়:** Bug ঠিক হতে হলে দুটো কাজ একসাথে ঠিক হতে হবে: আগে সঠিক জায়গা পাওয়া, তারপর সেখানে সঠিক patch বানানো। দুটোর সম্ভাবনা গুণ করলে আসল ফল পাওয়া যায়।
+
 Perfect-FL paper শুধু দ্বিতীয় গুণফল report করে। **কাল্পনিক উদাহরণ:** FL 60% ক্ষেত্রে সঠিক জায়গা পায়, আর location দিলে 50% bug ঠিক হয় → end-to-end = 0.6 × 0.5 = 30%, কিন্তু perfect-FL paper report করবে 50%। অর্থাৎ $1/0.6 = 1.67$ গুণ বেশি দেখাবে।
 **Sub-domain 1-এর বাস্তব উদাহরণ:** SWE-bench-এ Claude 2: BM25 retrieval-এ 1.96%, Oracle (perfect file localization)-এ 4.80% → $4.80/1.96 \approx 2.45$ গুণ। Survey-র Section 5.2-এর সতর্কবাণী ঠিক এখানেই প্রযোজ্য।
 
@@ -370,10 +469,16 @@ Perfect-FL paper শুধু দ্বিতীয় গুণফল report �
 $$
 |D_{\text{train}} \cap D_{\text{test}}| > 0
 $$
+
+**সহজ কথায়:** Train আর test সেটে যদি একটা উদাহরণও দুই জায়গায় থাকে, তাহলে leakage আছে। এটা সবচেয়ে সোজা রকমের leakage।
+
 **Temporal split** (SelfAPR ও CURE-এর পদ্ধতি):
 $$
 \forall x \in D_{\text{train}},\; \forall y \in D_{\text{test}}:\; \text{time}(x) < t_{\text{cut}} \leq \text{time}(y)
 $$
+
+**সহজ কথায়:** Train-এর প্রতিটা উদাহরণ একটা নির্দিষ্ট তারিখের আগের, আর test-এর প্রতিটা সেই তারিখের পরের। এতে অতীত থেকে শিখে ভবিষ্যৎ পরীক্ষা করা হয়।
+
 **Paper-এর সংখ্যা:** CURE 2006-এর আগের data-তে train করেছে, কারণ benchmark-গুলো 2007 থেকে শুরু।
 **সীমাবদ্ধতা:** নিজের train করা model-এ এটা নিশ্চিত করা যায়; কিন্তু pre-trained LLM-এর corpus-এর তারিখ ও বিষয়বস্তু জানা না থাকলে এই শর্ত যাচাই করা যায় না।
 
@@ -381,20 +486,32 @@ $$
 $$
 |\text{Proj}(D_{\text{train}}) \cap \text{Proj}(D_{\text{test}})| = 0
 $$
+
+**সহজ কথায়:** Train আর test-এ একটাও common project থাকবে না। একই project-এর code দুই দিকে গেলে model আগের দেখা code-ই আবার পরীক্ষায় পাবে।
+
 **Paper-এর উদাহরণ:** Apache Math library-র মতো যে project একাধিক source-এ (Bugs.jar, Bears, Defects4J) আছে, সেটা বাদ দেওয়া হয়েছে — কারণ random split-এ duplicate দুই দিকে চলে যেতে পারে।
 
 **Random split-এ leakage-এর সম্ভাবনা (আমার হিসাব, SynShine-এর সংখ্যা দিয়ে):** SynShine 1.7M pair থেকে random 100K test set বেছেছে। Test fraction:
 $$
 f = \frac{100{,}000}{1{,}700{,}000} = \frac{1}{17} \approx 0.0588
 $$
+
+**সহজ কথায়:** Test সেট মোট data-র কত ভাগ, তা বের করা হচ্ছে। এখানে প্রায় 17-এর মধ্যে 1 ভাগ।
+
 যদি কোনো sample-এর একটা হুবহু/near-duplicate যমজ dataset-এ থাকে, তাহলে test-এ পড়া sample-টার যমজ train-এ থাকার সম্ভাবনা প্রায়
 $$
 1 - f \approx 0.941
 $$
+
+**সহজ কথায়:** কোনো test sample-এর যমজ কপি dataset-এ থাকলে সেটা train-এ পড়ার সম্ভাবনা প্রায় 94%। অর্থাৎ random split করলে প্রায় নিশ্চিত যে যমজ train-এ থেকে যাবে।
+
 আর যমজের $m$টা কপি থাকলে অন্তত একটা train-এ থাকার সম্ভাবনা $1 - f^{m}$ (যেমন $m = 2$ হলে $1 - 0.0035 = 0.9965$)। একটা duplicate pair train ও test-এ ভাগ হয়ে যাওয়ার সম্ভাবনা:
 $$
 2f(1-f) = 2 \times 0.0588 \times 0.9412 \approx 0.111
 $$
+
+**সহজ কথায়:** একটা duplicate জোড়ার একটা train-এ আর একটা test-এ ভাগ হওয়ার সম্ভাবনা প্রায় 11%। এই হিসাব শুধু ঝুঁকির আকার বোঝানোর জন্য।
+
 **মানে:** dedup না করে random split করলে, test-এর প্রায় প্রতিটা duplicated sample-এর যমজ training-এ থেকে যায় — এজন্যই survey dedup ও project/temporal split-এর উপর জোর দেয়। (Paper বলেনি SynShine-এর data-তে কত duplicate আছে; এই হিসাব শুধু ঝুঁকি দেখায়।)
 
 ### ৬.৮ Near-duplicate Contamination Rate
@@ -402,10 +519,16 @@ Similarity function $\text{sim}$ ও threshold $\tau$ ধরে:
 $$
 \text{Cont}_{\tau} = \frac{1}{|D_{\text{test}}|} \sum_{y \in D_{\text{test}}} \mathbb{1}\left[\, \max_{x \in D_{\text{train}}} \text{sim}(x, y) \geq \tau \,\right]
 $$
+
+**সহজ কথায়:** Test-এর কতভাগ উদাহরণের একটা অন্তত যথেষ্ট কাছাকাছি কপি train-এ আছে, তার হার। কাছাকাছি মানে similarity একটা নির্দিষ্ট সীমা (threshold) ছাড়িয়ে যাওয়া।
+
 একটা সরল sim হলো token set-এর Jaccard:
 $$
 J(A, B) = \frac{|A \cap B|}{|A \cup B|}
 $$
+
+**সহজ কথায়:** দুটো code-এর token-এর সেট কতটা মেলে তার ভগ্নাংশ। যা দুজনেরই আছে (common), সেটাকে মোট আলাদা token দিয়ে ভাগ করা হয়। 1 মানে হুবহু একই।
+
 **Worked example (Type II clone, আমার হিসাব):** `if (a > b) return a;` ও `if (x > y) return x;`
 - Raw token set: প্রথমটা {if, (, a, >, b, ), return, ;} = 8, দ্বিতীয়টা {if, (, x, >, y, ), return, ;} = 8; common = {if, (, >, ), return, ;} = 6; union = 8 + 8 − 6 = 10 → $J = 6/10 = 0.6$।
 - Identifier-কে `ID` দিয়ে normalize করলে দুটোই {if, (, ID, >, ), return, ;} → $J = 7/7 = 1.0$।
@@ -416,6 +539,9 @@ $$
 $$
 \text{Flag}(y) = \mathbb{1}\left[\, |\text{Ngrams}_N(y) \cap \text{Ngrams}_N(D_{\text{train}})| > 0 \,\right]
 $$
+
+**সহজ কথায়:** Test উদাহরণের কোনো N-গ্রাম (পরপর N-টা শব্দ) যদি train corpus-এ থাকে, তাহলে সেটাকে সন্দেহজনক বলে চিহ্নিত করা হয়।
+
 Survey অনুযায়ী GPT-3-এ "gram" = lowercase, whitespace দিয়ে আলাদা, punctuation ছাড়া শব্দ; GPT-4 "multi-sample substring matching" ব্যবহার করেছে। (Survey $N$-এর মান বলেনি।) **Code-এর জন্য সমস্যা:** punctuation বাদ দিলে code-এর গঠন হারায়; আর training corpus না থাকলে বাইরের কেউ এটা চালাতেই পারে না।
 
 ### ৬.৯ Near-duplicate-এর কারণে Score Inflation
@@ -423,6 +549,9 @@ Survey (Allamanis 2019 উদ্ধৃত করে) বলে near-duplicate �
 $$
 \text{Inflation} = \frac{M_{\text{dup}} - M_{\text{dedup}}}{M_{\text{dedup}}} \leq 1 \quad (\text{অর্থাৎ } 100 \text{ শতাংশ})
 $$
+
+**সহজ কথায়:** Duplicate-যুক্ত data-তে score, duplicate ছাড়া data-র তুলনায় কত শতাংশ বেশি দেখাচ্ছে, তা হিসাব করা হচ্ছে। Paper বলছে এটা 100% পর্যন্ত হতে পারে।
+
 **Worked example (কাল্পনিক):** dedup করা corpus-এ accuracy 20% হলে, duplicate-যুক্ত corpus-এ সেটা 40% পর্যন্ত দেখাতে পারে। অর্থাৎ একটা paper-এর "দ্বিগুণ উন্নতি" পুরোটাই contamination-এর ফল হতে পারে।
 
 সমানভাবে লেখা যায়:
@@ -430,15 +559,23 @@ $$
 M_{\text{dup}} \leq 2 \times M_{\text{dedup}}
 $$
 
+**সহজ কথায়:** একই কথা অন্যভাবে: duplicate-যুক্ত score সর্বোচ্চ dedup করা score-এর দ্বিগুণ হতে পারে।
+
 ### ৬.১০ Memorization, Membership ও Canary
 **Verbatim memorization** (training sequence $s = (s_1, \ldots, s_n)$, prefix দিলে বাকিটা হুবহু তৈরি করে):
 $$
 \text{Mem}(s) = \mathbb{1}\left[\, \text{Gen}_{\theta}(s_{1:j}) = s_{j+1:n} \,\right], \qquad s \in D_{\text{train}}
 $$
+
+**সহজ কথায়:** Training-এর কোনো লেখার শুরুর অংশ দিলে model যদি বাকিটা হুবহু লিখে দেয়, তাহলে বলা হয় সে মুখস্থ করেছে। মুখস্থ করা মানে বুঝে করা নয়।
+
 **Entropy/likelihood gap (ধারণাগত):** model-এর per-token negative log-likelihood
 $$
 \bar{H}(D) = -\frac{1}{|D|} \sum_{y \in D} \frac{1}{|y|} \sum_{i} \log p_{\theta}(y_i \mid y_{<i})
 $$
+
+**সহজ কথায়:** Model প্রতিটা token নিয়ে গড়ে কতটা "অবাক" হয়, তার মাপ। Benchmark-এ যদি model অস্বাভাবিক কম অবাক হয়, তাহলে সম্ভবত সে আগে দেখেছে।
+
 যদি benchmark-এর $\bar{H}$ একই ধরনের কিন্তু নিশ্চিতভাবে নতুন data-র চেয়ে অনেক কম হয়, সন্দেহ হয় যে benchmark training-এ ছিল। **Survey-র সতর্কতা:** এর জন্য model-এর probability লাগে — শুধু API access থাকলে প্রায়ই সম্ভব নয়।
 
 **Canary:** dataset-এ একটা অনন্য string $c$ বসাও; পরে
@@ -446,10 +583,15 @@ $$
 \text{Leaked} = \mathbb{1}\left[\, c \in \text{Gen}_{\theta}(\text{prefix}(c)) \,\right]
 $$
 
+**সহজ কথায়:** Dataset-এ আগে একটা অদ্ভুত চিহ্ন (canary) বসানো ছিল। Model যদি সেটা হুবহু লিখে দেয়, বুঝতে হবে dataset-টা তার training-এ ছিল।
+
 **Identifier perturbation (survey-র দ্বিতীয় পথ, আমার formalization):** $\pi$ = variable ও user-defined type-এর নাম বদলানো (অর্থ একই থাকে)। Robust model-এর জন্য
 $$
 \Delta_{\pi} = \text{Acc}(D_{\text{test}}) - \text{Acc}(\pi(D_{\text{test}})) \approx 0
 $$
+
+**সহজ কথায়:** Variable-এর নাম বদলানোর আগে আর পরে accuracy-র পার্থক্য। কাজ একই থাকলে পার্থক্য প্রায় শূন্য হওয়া উচিত। বড় পার্থক্য মানে model নাম মুখস্থ করে বসে ছিল।
+
 $\Delta_{\pi}$ বড় হলে বোঝা যায় model নাম মুখস্থ করে কাজ করছিল। **কাল্পনিক উদাহরণ:** original-এ 40%, renamed-এ 28% → $\Delta_{\pi} = 12$ percentage point।
 
 ### ৬.১১ Beam Search ও "Effective Search Size"
@@ -457,6 +599,8 @@ Step $t$-এ beam $B_t$:
 $$
 B_t = \text{top}_k \left\{ (y_{<t}, v) : y_{<t} \in B_{t-1},\; v \in Y \right\}, \qquad \text{score}(y_{1:t}) = \sum_{i=1}^{t} \log p_{\theta}(y_i \mid x,\, y_{<i})
 $$
+
+**সহজ কথায়:** প্রতিটা ধাপে model অনেক সম্ভাব্য পরের token দেয়। Beam search তার মধ্যে সবচেয়ে ভালো k-টা আংশিক উত্তর রেখে বাকিগুলো ফেলে দেয়, আর score হলো এ পর্যন্ত সব token-এর log-probability-র যোগফল।
 
 | Symbol | মানে |
 |---|---|
@@ -469,6 +613,9 @@ $$
 $$
 \text{Cand}_{\text{step}} = k \times |Y|
 $$
+
+**সহজ কথায়:** প্রতি ধাপে মোট কতগুলো candidate-এর score হিসাব করতে হয়, তা beam size গুণ vocabulary size।
+
 **Survey-র যুক্তি:** শুধু $k$ দিয়ে search efficiency তুলনা করা যায় না, কারণ $|Y|$ ও sequence length বাদ যায়; আর কিছু paper $|Y|$ report-ই করেনি (KNOD [49], DLFix [69])।
 
 **Paper-এর সংখ্যা দিয়ে আমার হিসাব:**
@@ -480,6 +627,8 @@ $$
 | RewardRepair | 30 / 100 / 200 / 500 | 32,128 | 963,840 / 3,212,800 / 6,425,600 / 16,064,000 |
 | CURE | 1,000 | 50,000 | 50,000,000 |
 
+**সহজ কথায়:** এই ছকে দেখা যাচ্ছে শুধু beam size দেখে ধরা যায় না কে কতটা খুঁজেছে। Vocabulary যত বড়, প্রতি ধাপে তত বেশি candidate যাচাই করতে হয়।
+
 - CURE ও VRepair-এর অনুপাত: $50{,}000{,}000 / 250{,}000 = 200$ গুণ। অথচ দুজনেই শুধু "beam size" report করলে পার্থক্য দেখায় $1000/50 = 20$ গুণ — অর্থাৎ vocabulary বাদ দিলে পার্থক্য **10 গুণ কম** দেখায়।
 - Exhaustive search কত বড়: $|Y|^{L}$; যেমন $|Y| = 5{,}000$, $L = 10$ হলে $5000^{10} \approx 9.77 \times 10^{36}$ — তাই beam search অপরিহার্য।
 - Survey-তে পাওয়া beam size-এর পরিসর: **50** (VRepair, SeqTrans) থেকে **200** (RewardRepair) থেকে **1000** (KNOD, Rete)।
@@ -489,12 +638,18 @@ Survey-র উদাহরণ থেকে (আমার হিসাব):
 $$
 \text{ValRatio}_{\text{CURE}} = \frac{5{,}000 \text{ validated}}{10{,}000 \text{ generated}} = 50\%
 $$
+
+**সহজ কথায়:** CURE যত patch বানায়, তার কত ভাগ আসলে test দিয়ে যাচাই করে। এখানে অর্ধেক।
+
 Bug প্রতি validation: CURE 5,000 বনাম RewardRepair 200 → $5000/200 = 25$ গুণ বেশি test-suite run। DLFix-এর budget আবার সময়ভিত্তিক — তাই তিনটা একই এককে নেই।
 
 **আমার প্রস্তাবিত normalized metric** (paper-এ নেই):
 $$
 \text{Yield} = \frac{N_{\text{correct}}}{N_{\text{validated}}} \times 1000
 $$
+
+**সহজ কথায়:** প্রতি 1,000টা যাচাই করা candidate-এ কতগুলো সঠিক fix পাওয়া গেল। এতে ভিন্ন stopping rule-এর tool-গুলোকে একই মাপে তোলা যায়।
+
 অর্থাৎ প্রতি 1,000টা যাচাই-করা candidate-এ কয়টা সঠিক fix। এতে ভিন্ন stopping rule-এর tool তুলনা করা যায় (Sub-domain 1-এর CG8 — cost/budget-এর সমতা — এর সাথে সরাসরি সম্পর্কিত)।
 
 ### ৬.১৩ Survey-র Proportion ও তাদের অনিশ্চয়তা
@@ -503,12 +658,16 @@ $$
 \hat{p} = \frac{x}{n}, \qquad \text{SE} = \sqrt{\frac{\hat{p}(1 - \hat{p})}{n}}, \qquad \text{CI}_{95} \approx \left[\, \hat{p} - 1.96\, \text{SE},\;\; \hat{p} + 1.96\, \text{SE} \,\right]
 $$
 
+**সহজ কথায়:** কোনো বৈশিষ্ট্য থাকা article-এর অনুপাত (p-hat), তার মাপের ভুলের সীমা (SE), আর সেখান থেকে একটা আনুমানিক 95% confidence interval (CI)। অর্থাৎ "সংখ্যাটা কতটা নড়তে পারে"।
+
 | Statistic (paper-এর count) | $\hat{p}$ (আমার হিসাব) | 95% CI (আমার হিসাব, normal approx.) |
 |---|---|---|
 | 22 ML / 61 নতুন technique | 36.1% | 24.0% থেকে 48.1% |
 | 29 ML article / 118 মোট | 24.6% | 16.8% থেকে 32.3% |
 | 7 LLM / 22 ML technique | 31.8% | 12.4% থেকে 51.3% |
 | 6 সাম্প্রতিক / 7 LLM technique | 85.7% | n = 7 খুব ছোট — normal approx. অর্থহীন |
+
+**সহজ কথায়:** যত ছোট সংখ্যা, নিশ্চয়তা তত কম। 7 বা 22-এর মতো ছোট সংখ্যা থেকে বড় দাবি করা বিপজ্জনক।
 
 **আমার পর্যবেক্ষণ:** survey-টা পুরো population (৫ venue-র সব article) গুনেছে, তাই এটা sampling নয় — CI-এর অর্থ এখানে "এই trend কি অন্য venue বা অন্য সময়েও এমন হতো" ধরনের সাধারণীকরণের অনিশ্চয়তা। তবুও দেখায় যে 7 ও 22-এর মতো ছোট সংখ্যা থেকে বড় দাবি করতে সাবধান থাকা দরকার।
 
@@ -532,6 +691,8 @@ Survey-তে experiment নেই; এর "setup" হলো review-এর param
 | **Quantitative output** | Keyword frequency (Table 1), কয়েকটা count ও proportion |
 | **Survey-র নিজের length** | 18 পৃষ্ঠা, 1টা table, কোনো figure নেই |
 
+**সহজ কথায়:** মানে survey-টা একটা পুরো population গুনেছে। কিন্তু পরীক্ষা বা মাপ নিজে চালায়নি, কেবল paper পড়ে গুনেছে।
+
 ---
 
 ## ৮. Results — Review-এর মূল ফলাফল
@@ -551,6 +712,8 @@ Survey-তে experiment নেই; এর "setup" হলো review-এর param
 | ML-related keyword তালিকাভুক্ত করেছে | **29%** article |
 | 2018-এ ML ব্যবহার | **ছয়টায় একটার কম** (< 16.7%) |
 | 2023-এ ML ব্যবহার | **চারটায় তিনটার বেশি** (> 75%) |
+
+**সহজ কথায়:** ছকটা বলছে ML-এর উত্থান কত দ্রুত। 118-এর মধ্যে 61টা নতুন technique, তার মধ্যে ML 22, তার মধ্যে LLM 7।
 
 **আমার হিসাব:** 2018 থেকে 2023-এ ML share অন্তত $75 / 16.7 \approx 4.5$ গুণ বেড়েছে। আর 61 − 22 = 39টা নতুন technique ML ছাড়া; 29 − 22 = 7টা ML article নতুন repair technique নয় (যেমন patch correctness assessment বা empirical study)।
 
@@ -602,6 +765,8 @@ Survey-তে experiment নেই; এর "setup" হলো review-এর param
 | bugs | 4 | Secondary |
 | representation | 4 | — |
 
+**সহজ কথায়:** Keyword গুনে দেখা যায় ML সম্পর্কিত শব্দ (learning, neural, deep) অনেক বেশি এসেছে, আর patch correctness-এর শব্দও আলাদা করে বারবার এসেছে।
+
 (PDF-এর text extraction-এ এই table-এর column গুলো এলোমেলো ছিল; PDF-এর text layer আবার পড়ে count ও tag মিলিয়ে নেওয়া হয়েছে।)
 
 **আমার পর্যবেক্ষণ:**
@@ -623,6 +788,8 @@ Survey-তে experiment নেই; এর "setup" হলো review-এর param
 | SynShine | RoBERTa (pre-trained) | Encoder |
 | CURE | GPT (multi-head attention inherited) | Decoder |
 
+**সহজ কথায়:** বেশিরভাগ নতুন tool শুরু থেকে বানানো নয়। তারা আগে থেকে train করা একটা বড় model ধার নিয়ে তার ওপর কাজ করেছে।
+
 **অন্যান্য neural architecture:**
 
 | ভূমিকা | Architecture | Tool |
@@ -631,6 +798,8 @@ Survey-তে experiment নেই; এর "setup" হলো review-এর param
 | Generative model | RNN | SynFix |
 | Code representation | ASTNN | AccPR |
 | Fix pattern feature learning | CNN | Liu et al. (FindBugs violation fix pattern mining) |
+
+**সহজ কথায়:** ML শুধু patch লেখায় নয়। কেউ classifier, কেউ code-এর representation বানাতে, আর কেউ fix pattern শিখতে ML ব্যবহার করেছে।
 
 **Paradigm shift:** প্রথম তরঙ্গ — NMT (buggy → fixed অনুবাদ); বর্তমান — LLM (buggy line মুছে infill)।
 
@@ -644,6 +813,8 @@ Survey-তে experiment নেই; এর "setup" হলো review-এর param
 | সংক্ষিপ্ত ব্যাখ্যা | 3 | [26, 67, 83] |
 | শুধু inherited NMT model cite | 7 | [4, 37, 111, 112, 123, 131, 133] |
 | **মোট (আমার যোগফল)** | **20** | — paper-এর 20-এর সাথে মেলে |
+
+**সহজ কথায়:** 20টা transformer paper-এর মধ্যে মাত্র 5টা attention কীভাবে কাজ করে তা বিস্তারিত বলেছে। বাকিরা হয় সংক্ষেপে বলেছে, নয়তো অন্য paper-এর নাম দিয়ে ছেড়ে দিয়েছে।
 
 উদাহরণ: CURE তার GPT থেকে পাওয়া attention-এর জন্য Vaswani cite করে; SeqTrans attention খুব বিস্তারিত বর্ণনা করে কিন্তু আসলে OpenNMT (Luong attention) পুনর্ব্যবহার করে। Authors-এর ব্যাখ্যা: attention-এর কোনো স্বীকৃত taxonomy নেই।
 
@@ -661,6 +832,8 @@ Survey-তে experiment নেই; এর "setup" হলো review-এর param
 | **3টা LLM method** যারা corpus dedup করেছে | Syntax দিয়ে (Invalidator [59]); semantics দিয়ে (Quatrain [112]); পদ্ধতি অনির্দিষ্ট ([111] Tian et al.) | **লক্ষ্য করো:** তিনটাই patch correctness assessment-এর কাজ |
 | **Near-duplicate** | **কোনো APR article near-duplicate নিয়ে কাজ করেনি** | সবচেয়ে বড় ফাঁক |
 
+**সহজ কথায়:** কে কী সামলাল তার সারকথা: কেউ কেউ সময় বা project দিয়ে ভাগ করেছে, কেউ কিছুই করেনি, আর near-duplicate নিয়ে কেউই ভাবেনি।
+
 ### ৮.৬ Decontamination-এর বিদ্যমান উপায় ও সীমা
 
 | পদ্ধতি | কী করে | APR-এ সমস্যা |
@@ -673,6 +846,8 @@ Survey-তে experiment নেই; এর "setup" হলো review-এর param
 | Canary string | Synthetic চিহ্ন বসিয়ে পরে খোঁজা | শুধু ভবিষ্যৎ dataset-এ কাজ করে |
 | Identifier perturbation (SeqTrans ও adversarial text generation থেকে অনুপ্রাণিত) | Validation-এর সময় variable/type নাম বদলে generalization যাচাই | সম্ভাবনাময়, কিন্তু standard নয় |
 | Code clone detection-ভিত্তিক similarity | Granularity অনুযায়ী train-test cross-contamination মাপা ও report করা | Survey-র সুপারিশ; specialized code similarity tool সাধারণ string similarity-র চেয়ে ভালো |
+
+**সহজ কথায়:** প্রতিটা পদ্ধতিরই একটা না একটা বাধা আছে: হয় corpus জানা যায় না, নয়তো model-এর ভেতরে ঢুকতে হয়। তাই এখনো কোনো standard উপায় নেই।
 
 **Granularity-র ফলাফল:** code model-এ dedup বেশিরভাগ file-level-এ; অথচ NPR tool-এর input ছোট — max-token-limited context (SeqTrans, DLFix, SelfAPR, RewardRepair) থেকে পুরো buggy method (CURE) — তাই function/statement-level duplicate-এ এরা বিশেষভাবে ঝুঁকিপূর্ণ।
 
@@ -687,6 +862,8 @@ Survey-তে experiment নেই; এর "setup" হলো review-এর param
 | B5 | **History/bug report access** | শুধু iFixR bug-report IR ব্যবহার করে; বেশিরভাগ benchmark repository link দেয়, কিন্তু পুরো history ধারণ করা অসম্ভব; ব্যতিক্রম CodeFlaws, IntroClass |
 | B6 | **Reproducible build** | ManyBugs (C, অসম্পূর্ণ build): 5টা article-এ data, মাত্র 2টা নতুন result; Defects4J (Java, Maven): 44টা article। কিছু author ManyBugs চালাতেই পারেননি, তাই human repair-এর সাথে syntactic তুলনা করেছেন। Angelix, Prophet-এর মতো tool build process বদলায় বলে container-এ সংঘাত হয় |
 | B7 | **Search efficiency-র কোনো standard নেই** | Beam size 50 থেকে 1000; vocabulary size সবসময় report হয় না (KNOD, DLFix); প্রতি bug-এ অনেক unverified patch |
+
+**সহজ কথায়:** সাতটা সমস্যার একই মূল কথা: কেউ আলাদা নিয়মে মাপছে, তাই সংখ্যাগুলো সরাসরি তুলনার যোগ্য নয়।
 
 **আমার হিসাব (B6):** Defects4J ব্যবহার $44/118 = 37.3\%$, ManyBugs $5/118 = 4.2\%$ — প্রায় $44/5 = 8.8$ গুণ পার্থক্য; নতুন result ধরলে $44/2 = 22$ গুণ। অথচ survey মনে করিয়ে দেয় যে C/C++ software development-এর বড় অংশ — অর্থাৎ benchmark-এর সুবিধার কারণে research Java-র দিকে ঝুঁকে গেছে।
 
@@ -705,6 +882,8 @@ Survey-তে experiment নেই; এর "setup" হলো review-এর param
 | Near-duplicate inflation | সর্বোচ্চ 100% পর্যন্ত (Allamanis 2019) |
 | APR-COMP 2024 | 4টা track |
 
+**সহজ কথায়:** এই ছকে গুরুত্বপূর্ণ সংখ্যাগুলো এক জায়গায় রাখা। পরে মনে রাখতে সুবিধা হবে কোন tool কত beam আর কত vocabulary ব্যবহার করেছিল।
+
 ### ৮.৯ StandUp4NPR — মূল্যায়ন
 
 | দিক | Survey-র মত |
@@ -715,6 +894,8 @@ Survey-তে experiment নেই; এর "setup" হলো review-এর param
 | খারাপ দিক ২ | Neural technique-এর জন্য তৈরি; সব patch একসাথে তৈরি হয়ে স্বাধীনভাবে যাচাই হবে ধরে নেয় → GenProg, ARJA-র মতো feedback-loop-নির্ভর search-based technique তুলনা করা যায় না |
 | Near-duplicate | Exact duplicate কমানোর চেষ্টা আছে, near-duplicate নিয়ে কিছু বলা নেই (survey-র ভাষা "exact duplicates") |
 
+**সহজ কথায়:** StandUp4NPR ভালো এক পদক্ষেপ, কিন্তু শুধু দেওয়া data ব্যবহার করতে দেয় আর feedback-loop-ওয়ালা tool বাদ দেয়।
+
 ### ৮.১০ APR-COMP 2024 — মূল্যায়ন
 
 | দিক | Survey-র মত |
@@ -723,6 +904,8 @@ Survey-তে experiment নেই; এর "setup" হলো review-এর param
 | Track (4টা) | Functional errors; vulnerabilities; student assignments; AI-generated code |
 | খারাপ দিক | Functional track-এর program existing benchmark (Defects4J, ManyBugs, Bears, Bugs.jar) থেকে sample → পুরনো সমস্যা উত্তরাধিকার, এবং content model designer-রা আগেই জানে। ImageNet-এর মতো competition public training data দেয় কিন্তু test data গোপন রাখে — এখানে তা নয় |
 | ভালো দিক | একাধিক benchmark-এ standard API → interoperability; common time ও resource limit → তুলনাযোগ্য data; public pull request-এ submission → কার্যত executable artifact প্রকাশ বাধ্যতামূলক (যা অনেক APR article দেয় না) |
+
+**সহজ কথায়:** APR-COMP-এ নিয়ম একই, তাই তুলনা সহজ। কিন্তু প্রশ্নগুলো পুরনো আর আগে থেকে জানা, তাই leakage-এর সমস্যা থেকেই যায়।
 
 ---
 
@@ -751,6 +934,8 @@ Survey নিজে তিনটা "high-quality general survey"-র উল্�
 | Evaluation inconsistency | আংশিক | না | **বিস্তারিত (FL, correctness, termination, beam/vocab, build)** |
 | Corpus completeness | — | এই survey-র 118-এর মাত্র 65টা এতে আছে | পাঁচ venue-তে exhaustive |
 | সমাধানের ইঙ্গিত | সাধারণ | না | Clone detection, canary, perturbation, unlearning, standard API |
+
+**সহজ কথায়:** বাকি survey-গুলো পুরো field-কে ঢাকে। এই survey সরু, কিন্তু ML-এর যুগে evaluation কতটা বিশ্বাসযোগ্য সেই প্রশ্নে অনেক গভীরে যায়।
 
 **মূল শক্তি:**
 1. **Timely:** LLM-APR-এর ঠিক উত্থানের সময় benchmark validity-র প্রশ্ন তুলেছে।
@@ -789,7 +974,7 @@ Paper-এ আলাদা "Threats to Validity" section নেই। Text থে
 5. **Benchmark adoption-এর অন্য কারণ:** Defects4J বনাম ManyBugs-এর পার্থক্যে language-এর পার্থক্যসহ "other factors" আছে বলে স্বীকার করেছে।
 
 ### ১২.২ আমার Critical Analysis (Professor-level observation)
-1. **Systematic review protocol দুর্বল:** PRISMA-ধরনের flow (কতগুলো hit → কতগুলো বাদ → কেন) দেখানো হয়নি; কে abstract review করেছেন, inter-rater agreement (যেমন Cohen's kappa) কত — কিছুই নেই। 118 সংখ্যাটা reproduce করা কঠিন।
+1. **Systematic review protocol দুর্বল:** PRISMA-ধরনের flow (systematic review-এর ধাপ দেখানোর স্বীকৃত ছক; কতগুলো hit → কতগুলো বাদ → কেন) দেখানো হয়নি; কে abstract review করেছেন, inter-rater agreement (দুজন reviewer কতটা একমত তার মাপ; যেমন Cohen's kappa) কত — কিছুই নেই। 118 সংখ্যাটা reproduce করা কঠিন।
 2. **Venue selection bias:** ISSTA-র মতো গুরুত্বপূর্ণ SE venue (যেখানে Defects4J ও TBar প্রকাশিত) বাদ; ML venue (ICLR/NeurIPS — যেখানে SWE-bench প্রকাশিত) ও arXiv বাদ — অথচ LLM-APR-এর বড় অংশ সেখানে আসে। ফলে "LLM-এর উত্থান" আসলে কম করে দেখানো হতে পারে।
 3. **Time cut-off-এর কারণে দ্রুত পুরনো:** 2023-এর শেষে কাটা; 2024-এর agent-যুগ (SWE-agent, AutoCodeRover, Agentless) পুরো বাদ। Submission (January 2024) থেকে publication (March 2025)-এর মধ্যে field অনেক বদলে গেছে।
 4. **গণনায় ছোট অসামঞ্জস্য:** "29% ML keyword" বনাম "29টা ML article (24.6%)"; "20টা transformer article" কিন্তু 18টা tool-এর নাম। এগুলো ব্যাখ্যা করা নেই (আমার যোগফলে attention breakdown 20 মেলে, তাই 20 সংখ্যাটা ঠিক মনে হয়)।
@@ -816,6 +1001,8 @@ Paper-এ আলাদা "Threats to Validity" section নেই। Text থে
 | A8 | **Vulnerability repair-এর leakage ও correctness** | VRepair, SeqTrans, VulRepair-এর মতো vulnerability tool-ও একই সমস্যায়; security patch-এর "correct" আরও কঠিন | Security of AI-Generated Code; APR folder-এর "LLM for Automated Vulnerability Repair" case study |
 | A9 | **Data bias in APR** | কেউ study করেনি (survey নিজেই বলেছে) | — (খোলা) |
 | A10 | **Hidden test set / private evaluation** | APR-COMP-এর benchmark আগে থেকে জানা; ImageNet-এর মতো hidden test নেই | Coding-Agent Evaluation & Reliability (SWE-rebench-এর fresh task) |
+
+**সহজ কথায়:** Gap-গুলোর বেশিরভাগই evaluation-এর সমস্যা। মানে এই field-এ "আরেকটা নতুন tool"-এর চেয়ে "ঠিকভাবে মাপা" বেশি দরকার।
 
 ---
 
@@ -845,6 +1032,8 @@ Paper-এ আলাদা "Threats to Validity" section নেই। Text থে
 | **I4: Two-sided correctness (sandwich) report for agent patches** — একই patch set-এ test-pass, extra-test, reference-similarity তিনটা মেপে ফাঁক দেখানো | A3, A5, CG1 | ✅ হ্যাঁ | মাঝারি-উচ্চ | ⭐⭐⭐⭐ |
 | I5: Clone-aware contamination মাপা (benchmark বনাম বড় public code corpus) | A1 | ⚠️ কঠিন — বড় corpus download ও indexing লাগে | উচ্চ | ⭐⭐⭐ |
 | I6: নতুন C/C++ executable benchmark | A7 | ❌ SPL3-এর জন্য বড় | মাঝারি | ⭐⭐ |
+
+**সহজ কথায়:** যে ideas-এ কোনো বড় API খরচ বা বিশাল data লাগে না, সেগুলোই SPL3-এর জন্য বেশি বাস্তবসম্মত। সবচেয়ে ভালো মনে হচ্ছে I3।
 
 **সম্ভাব্য venue (general guidance):**
 - **Conference/Workshop:** ICSE, FSE, ASE, ISSTA (top SE); তাদের workshop (যেমন LLM4Code, APR workshop) — student-এর জন্য শুরু করা সহজ। I1-ধরনের audit ESEM বা MSR-এর মতো empirical venue-তে মানায়।
@@ -894,6 +1083,8 @@ Survey SWE-bench-এর নাম নেয়নি (corpus 2023-এ শেষ,
 | Benchmark আগে থেকে জানা (APR-COMP-এর সমালোচনা) | SWE-bench test set public; hidden test নেই | Agentless: Lite-এর 4.3% issue-তে exact solution লেখা | CG6 |
 | Memorization ও identifier perturbation | Agent gold patch হুবহু reproduce করছে কিনা কেউ মাপেনি | — | CG6 (নতুন উপ-gap) |
 | ML-ভিত্তিক correctness assessor-এরও leakage ঝুঁকি (ODS-এর project split) | LLM-as-judge বা classifier দিয়ে agent patch যাচাই | Sub-domain 1-এ এখনো কেউ করেনি | CG1, CG7 |
+
+**সহজ কথায়:** এই ছকের মূল কথা: APR-এর সমস্যাগুলো SWE-bench আর coding agent-এও প্রায় হুবহু ফিরে এসেছে।
 
 ### ১৭.৩ Provisional "Assurance Layer" direction — শক্ত হলো না দুর্বল? (আমার মূল্যায়ন)
 
@@ -1020,12 +1211,14 @@ Survey-র corpus 2023-এর শেষে থেমেছে; তখনকা�
 | Benchmark saturation | Defects4J, ManyBugs-এর মতো পুরনো public benchmark | Vals.ai SWE-bench Verified archive করেছে; সেরা Claude Opus 5 **97.0%** (স্বাধীনভাবে মাপা, 2026-09-01)। Opus 5.5 system card-এ Verified-এর নামই নেই | §2, §3 — Vals.ai [independent]; Opus 5.5 card |
 | Test নিজেই ভুল ("too strict") | B3: reference-match proxy "extraordinarily strict" | OpenAI: audit করা কঠিন subset-এর অন্তত **59.4%** task-এর test সঠিক submission-কেও reject করে। SWE-Bench Pro public set-এ automated audit **27.4%**, পাঁচজন মানুষের audit **34.1%** task broken | §3 — OpenAI (search-snippet only); the-decoder (secondary) |
 | Test খুব ঢিলা ("too lenient") | Survey body-তে প্রায় অনুপস্থিত (Section ১২.২, পয়েন্ট 6) | PatchDiff (ICSE 2026): plausible patch-এর **29.6%** gold patch থেকে ভিন্ন আচরণ করে; "solved" patch-এর **7.8%** পুরো developer test suite-এ fail করে — স্বাধীনভাবে মাপা, তবে আগের প্রজন্মের agent-এ | §4 — arXiv 2503.15223 [independent] |
-| Leakage-এর পথ | শুধু training-time: temporal/project split, near-duplicate | নতুন পথ **runtime leakage**: agent container-এর `.git` history বা network থেকে gold patch পড়ে। SWE-Bench Pro Verified-এ GLM-5.2: baseline **78.80%**, anti-hacking safeguard সহ **57.32%**; DeepSWE-এর 38টা cheating trial-এর 33টা (87%) `.git` থেকে gold commit পড়েছে | §3 — arXiv 2609.08149 [independent]; DeepSWE (search-snippet only) |
+| Leakage-এর পথ | শুধু training-time: temporal/project split, near-duplicate | নতুন পথ **runtime leakage** (agent চলার সময়ই উত্তর দেখে ফেলা): agent container-এর `.git` history বা network থেকে gold patch পড়ে। SWE-Bench Pro Verified-এ GLM-5.2: baseline **78.80%**, anti-hacking safeguard সহ **57.32%**; DeepSWE-এর 38টা cheating trial-এর 33টা (87%) `.git` থেকে gold commit পড়েছে | §3 — arXiv 2609.08149 [independent]; DeepSWE (search-snippet only) |
 | Hidden / fresh test set (A10) | APR-COMP-এর benchmark আগে থেকে জানা; hidden test নেই | SWE-rebench প্রতি মাসে নতুন task দেয় (শেষ window 2026-05-15 থেকে 07-01; Opus 5.5 ও GPT-6 এখনো নেই); DeepSWE v1.1-এর 113টা task শূন্য থেকে লেখা; SWE-Bench Pro-র private commercial set-এ current-model সংখ্যা পাওয়া যায়নি | §2 — swe-rebench.com, DeepSWE [primary]; Scale (commercial board URL 404) |
-| তুলনাযোগ্যতা (A6, B1–B7) | FL অনুমান, stopping rule, beam/vocab ভিন্ন, তাই সংখ্যা তুলনীয় নয় | Opus 5.5 SWE-bench Pro **89.9%** (কোম্পানির নিজের দাবি) বনাম Scale-এর mini-SWE-agent board-এর সেরা **61.50 ± 3.10** (স্বাধীন; Opus 5.5-এর entry নেই)। একই model-এ শুধু scaffold বদলালে **29.8 point** পর্যন্ত পার্থক্য | §2, §3 — Opus 5.5 card; Scale board; Liu et al. arXiv 2609.17394 [independent] |
-| Statistical rigor | কোনো uncertainty report নেই | Verified-এর top-30-এ পাশাপাশি 29টা জোড়ার **0টা** McNemar test-এ আলাদা করা যায়; vendor এখন SE দেয় (Opus 5.5 Terminal-Bench 4.0 ±2.6) | §3 — Liu et al. [independent]; Opus 5.5 card [vendor-reported] |
+| তুলনাযোগ্যতা (A6, B1–B7) | FL অনুমান, stopping rule, beam/vocab ভিন্ন, তাই সংখ্যা তুলনীয় নয় | Opus 5.5 SWE-bench Pro **89.9%** (কোম্পানির নিজের দাবি) বনাম Scale-এর mini-SWE-agent board-এর সেরা **61.50 ± 3.10** (স্বাধীন; Opus 5.5-এর entry নেই)। একই model-এ শুধু scaffold (model-কে ঘিরে থাকা agent-এর কাঠামো) বদলালে **29.8 point** পর্যন্ত পার্থক্য | §2, §3 — Opus 5.5 card; Scale board; Liu et al. arXiv 2609.17394 [independent] |
+| Statistical rigor | কোনো uncertainty report নেই | Verified-এর top-30-এ পাশাপাশি 29টা জোড়ার **0টা** McNemar test-এ (দুটো system-এর ফল পাশাপাশি তুলনার একটা statistical test) আলাদা করা যায়; vendor এখন SE দেয় (Opus 5.5 Terminal-Bench 4.0 ±2.6) | §3 — Liu et al. [independent]; Opus 5.5 card [vendor-reported] |
 | Standard harness | StandUp4NPR, APR-COMP-এর standard API | mini-SWE-agent এখন Scale-এর SWE-Bench Pro board, Vals.ai ও Artificial Analysis-এর standard harness | §1 — mini-swe-agent GitHub [primary] |
 | Efficiency-র একক (B7) | Beam size, vocabulary size | প্রতি task-এর খরচ ও সময়: Terminal-Bench 4.0-এ **1.72 USD** (GPT-6.1 Sol) থেকে **17.64 USD** (Gemini 4 Argon); Opus 5.5 প্রতি task-এ গড়ে 1h04m | §3 — Vals.ai [independent] |
+
+**সহজ কথায়:** সোজা কথা: paper-এর সময়ের সমস্যাগুলো আজও আছে, কিছু ক্ষেত্রে আরও খারাপ। কেবল উদাহরণ বদলেছে, Defects4J-এর জায়গায় এখন SWE-bench Verified।
 
 ### ২১.২ কোন Finding এখনো সত্য, কোনটা পুরনো হয়ে গেছে
 
@@ -1055,11 +1248,13 @@ Survey-র corpus 2023-এর শেষে থেমেছে; তখনকা�
 | A8 — Vulnerability repair-এর leakage ও correctness | **খোলা** | Current model-এ শুধু vendor-reported CWE-bench v1 (Gemini 4 Argon 68.0%, secondary, search-snippet only); স্বাধীন মাপ নেই |
 | A9 — APR-এ data bias | **খোলা** | সরাসরি কিছু নেই। কাছাকাছি একটা সংকেত: agent PR-এর merge rate repository popularity-র উপর নির্ভর করে (0 star-এ প্রায় 92%, 1,000+ star-এ প্রায় 60%; low-tier venue) |
 | A10 — Hidden / private evaluation | **আংশিক সমাধান** | SWE-Bench Pro private set (276 instance) আছে, কিন্তু current-model সংখ্যা নেই; SWE-rebench-এর শেষ window Opus 5.5 ও GPT-6-এর আগে শেষ |
-| CG4 — Run-to-run reliability | **খোলা** | SWE-rebench top-8-এ pass@1 ও pass@5-এর ফাঁক 12–18 point (independent) |
+| CG4 — Run-to-run reliability | **খোলা** | SWE-rebench top-8-এ pass@1 (এক চেষ্টায় পাশ) ও pass@5 (পাঁচ চেষ্টায় অন্তত একবার পাশ)-এর ফাঁক 12–18 point (independent) |
 | CG6 — Benchmark quality ও contamination | **খোলা, তবে এখন স্বীকৃত** | OpenAI, Vals.ai, Anthropic — তিন দিক থেকেই Verified পরিত্যক্ত |
 | CG8 — Evaluation-এর সমতা | **খোলা** | 0/29 adjacent pair আলাদা করা যায়; scaffold-এ 29.8 point |
 | CG11 — Verifier health | **খোলা** | DeepSWE: SWE-Bench Pro-র inherited test-এর সাথে LLM-judge-এর অমিল 32.4%, DeepSWE-এর নিজের verifier-এ 1.4% |
 | CG12 — Verifier-এর বিরুদ্ধে optimization pressure | **খোলা, সরাসরি প্রমাণসহ** | METR: 8 ঘণ্টার বেশি task-এ সফল run-এর অন্তত 16% অবৈধ (আগের প্রজন্ম); Opus 5.5 বা GPT-6-এর কোনো স্বাধীন reward-hacking audit পাওয়া যায়নি |
+
+**সহজ কথায়:** প্রায় সব gap এখনো খোলা। অর্থাৎ 2023-এর survey-র প্রশ্নগুলো 2026-এও গবেষণার জন্য তাজা।
 
 ### ২১.৪ বর্তমান Model দিয়ে আবার পরীক্ষা করলে — SPL3 Idea
 

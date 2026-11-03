@@ -20,14 +20,66 @@
 | Code/data | "GitHub"-এ available বলা আছে (URL টেক্সটে পাওয়া যায়নি) |
 | আগের কাজ | WA-CoT (Weaknesses-Aware CoT), ref [17], Empirical Software Engineering-এ submitted; dataset ref [37], IEEE TDSC ২০২৬ |
 
+## ★ সহজ ভাষায় পুরো Paper (প্রথমবার পড়ার জন্য)
+
+### ক. Paper-টা কী নিয়ে?
+
+- এটা একটা **নতুন পদ্ধতির paper** (সাথে বড় একটা empirical study)।
+- লেখক Mohammed Kharma, Mohammad Alkhanafseh, Ahmed Sabbah ও David Mohaisen। তাঁরা Birzeit University ও University of Central Florida-র।
+- বিষয়: AI (LLM) দিয়ে code লেখালে সেই code-এ নিরাপত্তার ভুল (security দুর্বলতা) থাকে। Prompt-এ কী লিখে দিলে এই ভুল কমে?
+- তাঁদের পদ্ধতির নাম **MA-CoT**। মানে prompt-এ শুধু "নিরাপদ code লেখো" না বলে, ঠিক কোন ভুল এড়াতে হবে এবং কীভাবে এড়াতে হবে, তা-ও বলে দেওয়া।
+- Paper ২০২৬ সালের arXiv preprint। কোনো journal বা conference-এর নাম দেওয়া নেই।
+
+### খ. সমস্যাটা কী ছিল?
+
+- AI-র লেখা code প্রায়ই insecure হয়। আগের গবেষণায় দেখা গেছে Copilot-এর প্রায় ৪০% ক্ষেত্রে insecure code এসেছে। Model বড় হলেও সমস্যা পুরো যায়নি।
+- সাধারণ উপায় হলো prompt-এ লেখা "Write secure code"। কিন্তু এটা খুব অস্পষ্ট। অনেকটা রাঁধুনিকে শুধু বলা "খাবারটা স্বাস্থ্যকর করো"। কীভাবে, তা বলা নেই।
+- লেখকদের আগের পদ্ধতি (WA-CoT) prompt-এ শুধু দুর্বলতার নাম দিত। কীভাবে ঠিক করতে হবে, তা বলত না। তালিকাও খুব বড় ছিল।
+- উদাহরণ: Model-কে "HTTPS দিয়ে server-এ connect করো" বললে সে অনেক সময় certificate যাচাই (verify) বাদ দিয়ে code লেখে। Code চলে, কিন্তু আক্রমণকারী মাঝখানে ঢুকতে পারে।
+
+### গ. Paper কী solve করেছে?
+
+- **MA-CoT** নামে একটা prompt পদ্ধতি বানিয়েছে। এতে fine-tuning (model আবার train করা) লাগে না।
+- ৩টি model, ৩টি language (C, Java, Python), ৪ ধরনের prompt দিয়ে মোট ৭,২০০টি program বানিয়ে পরীক্ষা করেছে।
+- নিরাপত্তার ভুল ভাগ করেছে: কোনটা language-এর নিজের দোষ, আর কোনটা তার library, OS বা অন্য অংশের দোষ।
+- **৯২ থেকে ৩৯:** Primary dataset-এ SonarQube (code-এ নিরাপত্তার ভুল খোঁজার tool) মোট ৯২টা ভুল পেত। MA-CoT দিয়ে ৩৯টা। মানে প্রায় ৫৮% কমেছে।
+- **৭৩ থেকে ৪:** দ্বিতীয় dataset LLMSecEval-এ ভুল প্রায় ৯৫% কমেছে। মানে ১০০টার মধ্যে ৯৫টা ভুল উধাও।
+- **একটা খারাপ খবরও আছে:** "Write secure code" বা সাধারণ CoT দিলে ভুল কমেনি, বরং ৯২ থেকে বেড়ে ১০০ ও ৯৮ হয়েছে।
+
+### ঘ. কীভাবে solve করেছে?
+
+1. প্রথমে Mitigation dataset বানিয়েছে। প্রতিটি দুর্বলতার জন্য কী করতে হবে (general rule, language-এর নিয়ম, checklist) তা লেখা আছে।
+2. কোনো task এলে LLM দিয়ে ঠিক করা হয় task-টা কোন ধরনের (যেমন Networking বা Parsing)।
+3. সেই ধরনের জন্য dataset থেকে প্রাসঙ্গিক mitigation তুলে আনা হয়।
+4. Prompt-এ তিনটি জিনিস জোড়া লাগানো হয়: সবার জন্য সাধারণ নিরাপত্তা-নিয়ম, ওই task-এর mitigation, আর language-এর checklist।
+5. Model-কে বলা হয় ধাপে ধাপে ভাবতে (CoT), আর ভাবার ভেতরেই এই নিয়মগুলো মানতে।
+6. ৩টি model, ৩টি language ও ২০০টি task-এ ৪ ধরনের prompt চালিয়ে প্রতিবার একটি করে code নেওয়া হয়।
+7. প্রতিটি code SonarQube দিয়ে scan হয়। ভুলগুলো CWE (দুর্বলতার আন্তর্জাতিক ID) অনুযায়ী ভাগ হয়। দুজন researcher মানুষ হিসেবে scan-এর ফল আবার দেখেন।
+8. একই কাজ আরেকটি dataset (LLMSecEval, ১৫০ task) দিয়েও করে দেখা হয় যে ফল আলাদা জায়গাতেও টেকে কিনা।
+
+### ঙ. এরপর কী করা যায়?
+
+- **লেখকরা বলেছেন:** static analysis (code না চালিয়ে দেখা) ও dynamic validation (code চালিয়ে আক্রমণ করে দেখা) একসাথে ব্যবহার করা উচিত।
+- **খোলা প্রশ্ন ১:** প্রতি ক্ষেত্রে মাত্র একবার code বানানো হয়েছে। বারবার চালালে ফল একই থাকবে কিনা, জানা নেই।
+- **খোলা প্রশ্ন ২:** শুধু একটি scanner (SonarQube) ব্যবহার হয়েছে। Prompt-এর নিয়ম scanner-এর নিয়মের সাথে মিলে যাওয়ায় ফল ভালো দেখাতে পারে।
+- **খোলা প্রশ্ন ৩:** Code ঠিকমতো কাজ করছে কিনা (functional correctness), তার ফল দেওয়া হয়নি।
+- **SPL3-এ আমরা করতে পারি:** ৫০টি task, কয়েকটি সস্তা model, প্রতি task-এ ৫ বার run, আর একাধিক scanner (Semgrep, CodeQL ইত্যাদি) দিয়ে দেখা ফল কতটা স্থিতিশীল।
+- **আরও করা যায়:** prompt-এর অংশগুলো আলাদা করে (ablation) পরীক্ষা করা, আর scan করে ভুল ধরে model-কে আবার code ঠিক করতে দেওয়া।
+
+> **মনে রাখো:**
+> নির্দিষ্ট করণীয় বলে দিলে AI-র code-এ নিরাপত্তার ভুল অনেক কমে, কিন্তু অস্পষ্ট "secure লেখো" নির্দেশ কাজ করে না।
+> তবে ফলটা একটি scanner ও একটি run-এর ওপর দাঁড়িয়ে, তাই "কতটা নির্ভরযোগ্য" প্রশ্নটা এখনো খোলা। সেটাই আমাদের কাজের জায়গা।
+
 ## ১. TL;DR
 
-- Paper একটি **prompt-level** পদ্ধতি দেয়: MA-CoT। Prompt-এ তিনটি জিনিস ঢোকানো হয়: (ক) সব task-এর জন্য baseline security rule, (খ) task-এর security domain অনুযায়ী CWE-ভিত্তিক **mitigation** (কী করতে হবে, শুধু কোন দুর্বলতা আছে তা নয়), (গ) language-specific checklist।
+- Paper একটি **prompt-level** (model-কে দেওয়া লেখা বদলানো, model নিজে বদলানো নয়) পদ্ধতি দেয়: MA-CoT। Prompt-এ তিনটি জিনিস ঢোকানো হয়: (ক) সব task-এর জন্য baseline security rule, (খ) task-এর security domain (কাজের ধরন) অনুযায়ী CWE-ভিত্তিক **mitigation** (প্রতিকার) (কী করতে হবে, শুধু কোন দুর্বলতা আছে তা নয়), (গ) language-specific checklist।
 - ৩টি LLM × ৩টি language × ৪টি prompt strategy (Vanilla, Zero-shot, CoT, MA-CoT) × ২০০ task = ৭,২০০ program, প্রতি combination-এ **একটি মাত্র sample**।
 - Primary dataset-এ মোট SonarQube finding ৯২ থেকে ৩৯ (৫৭.৬% কমেছে); Blocker+Critical ৯০ থেকে ৩৯ (৫৬.৭%)। LLMSecEval-এ ৭৩ থেকে ৪ (৯৪.৫%); high-severity ৪৫ থেকে ২ (৯৫.৬%)।
 - Zero-shot ("Write secure code") এবং generic CoT অনেক ক্ষেত্রে Vanilla-র চেয়ে খারাপ; বিশেষ করে C-তে।
 - Paper-এর দ্বিতীয় অবদান: vulnerability-র কারণকে "language-core" বনাম "language-stack" (library, OS, toolchain, application logic) স্তরে ভাগ করা।
 - **আমাদের জন্য মূল কথা:** paper-এ কোনো verification loop নেই, কোনো repeated run নেই, কোনো statistical test নেই, functional correctness-এর ফলাফলও report করা হয়নি। অর্থাৎ "reliability" এখানে মানে "finding কম", "run-to-run স্থিতিশীলতা" নয়। তবু paper-এর per-category reporting, severity shift বিশ্লেষণ ও layered attribution আমাদের assurance report-এ কাজে লাগানো যায়।
+
+**সহজ কথায়:** Paper দেখিয়েছে নির্দিষ্ট নির্দেশ দিলে ভুল কমে। কিন্তু একই কাজ বারবার করলে ফল একই থাকে কিনা, তা paper মাপেনি। আমাদের কাজ ঠিক সেই ফাঁকটা নিয়ে।
 
 **Supervisor-কে ৩০ সেকেন্ডে:** "এই paper দেখায় যে security prompt-এ সাধারণ 'be secure' নির্দেশ কাজ করে না, বরং task-নির্দিষ্ট mitigation দিলে SonarQube finding প্রায় অর্ধেক (৯২ থেকে ৩৯) হয়। কিন্তু প্রতিটি cell-এ একটাই sample, একটাই static analyzer, কোনো functional test result নেই, আর mitigation checklist-টা SonarQube-র rule-এর সাথেই মিলে যায়। তাই এটা আমাদের কাছে একটি ভালো generation-side technique এবং একই সাথে 'security signal কতটা নির্ভরযোগ্য' প্রশ্নের একটি দুর্বল উদাহরণ।"
 
@@ -43,6 +95,8 @@
 - **Layered attribution:** কোনো finding language-এর নিজস্ব বৈশিষ্ট্য (language-core) নাকি তার চারপাশের stack-এর (standard library, ecosystem library, OS/platform API, toolchain, application logic) দোষ, তা ভাগ করার নিয়ম (Table II)।
 - **LLMSecEval:** CWE Top 25-ভিত্তিক ১৫০টি natural-language prompt, প্রতিটির সাথে secure reference solution; C ও Python থেকে তৈরি বলে paper বলেছে।
 
+**সহজ কথায়:** এই section-এ শুধু সেই শব্দগুলো আছে যা তোমার আগে হয়তো শোনা নেই। বাকি শব্দ সামনে এলেই বন্ধনীতে বুঝিয়ে দেওয়া আছে।
+
 ## ৩. Problem
 
 1. LLM-generated code-এ security দুর্বলতা বারবার আসে (Copilot-এর scenario-র প্রায় ৪০% insecure, Pearce et al.), এবং model বড় হলেও কমে না (Fu et al.)।
@@ -50,9 +104,11 @@
 3. লেখকদের আগের WA-CoT-এর চারটি সীমাবদ্ধতা: (ক) information overload (বড় CWE catalog), (খ) coarse integration (remediation step ছাড়া শুধু CWE id), (গ) language agnosticism, (ঘ) model দুর্বলতা চিনলেও code synthesis-এর সময় প্রয়োগ করে না।
 4. Language-based তুলনায় "language feature" শব্দটি বিভ্রান্তিকর: অনেক দুর্বলতা language নয়, তার library/OS/toolchain-এর।
 
+**সহজ কথায়:** আগে সমস্যা ছিল: ভুল ধরা পড়লে কেউ জানত না দোষটা model-এর, prompt-এর, নাকি language-এর। আর prompt-এ ভুলের নাম থাকলেও করণীয় ছিল না।
+
 ## ৪. Goal ও Research Questions
 
-- **Goal:** lightweight, inference-time (fine-tuning ছাড়া) prompt পদ্ধতি যা model, language ও dataset বদলালেও security outcome স্থিতিশীলভাবে ভালো করে।
+- **Goal:** lightweight (হালকা), inference-time (model চালানোর সময়ই কাজ করে, fine-tuning ছাড়া) prompt পদ্ধতি যা model, language ও dataset বদলালেও security outcome স্থিতিশীলভাবে ভালো করে।
 - **RQ1:** Targeted CWE-based mitigation কি standard prompting-এর তুলনায় vulnerability-র severity কমায়?
 - **RQ2:** Programming language-এর বৈশিষ্ট্য mitigation-aware prompting-এর কার্যকারিতাকে কীভাবে প্রভাবিত করে?
 - **RQ3:** Model-গুলোর মধ্যে কী vulnerability pattern দেখা যায়, এবং তা কীভাবে model-specific security-তে কাজে লাগে?
@@ -67,6 +123,8 @@
 3. **Stage 3: Prompt construction।** তিনটি অংশ জোড়া লাগে: (১) সব code-এর জন্য baseline security principle, (২) mitigation strategy, (৩) task ও language-এর জন্য নির্দিষ্ট checklist।
 
 উদাহরণ নির্দেশ: crypto task-এ AES-256-GCM (AEAD), Argon2id key derivation (কমপক্ষে ১২৮-bit salt), CSPRNG দিয়ে nonce; C-তে pointer initialization, bounds check ও explicit memory clearing; Python-এ input sanitization, safe deserialization, exception handling।
+
+**সহজ কথায়:** Model-কে এখন শুধু "নিরাপদ হও" বলা হয় না। বলা হয় ঠিক কোন algorithm বা কোন নিয়ম মানতে হবে। অনেকটা রান্নার recipe-তে উপকরণ ও পরিমাণ লিখে দেওয়ার মতো।
 
 ### ৫.২ Mitigation-Aware dataset
 
@@ -87,11 +145,15 @@
 - দুইজন security researcher স্বাধীনভাবে SonarQube finding review করে ও মতভেদ consensus-এ মেটায় (agreement metric report করা হয়নি)।
 - External validation: LLMSecEval (১৫০ task) একই pipeline-এ।
 
+**সহজ কথায়:** পুরো পরীক্ষায় প্রতিটি অবস্থার জন্য একটিই code নেওয়া হয়েছে। ঠিক কী ঘটছে তা বুঝতে চাইলে এটাই মনে রাখো: ৭,২০০টি আলাদা code, প্রতিটি scan করে ভুল গোনা।
+
 ### ৫.৫ Layered attribution পদ্ধতি (Table II)
 
 প্রতিটি finding-কে standardized field (language_feature, feature_category, feature_mechanism, comparative_analysis) দিয়ে **একটি primary layer** দেওয়া হয়। একাধিক layer সম্ভব হলে "সবচেয়ে নিচের layer যা ঝুঁকি তৈরির জন্য প্রয়োজন" নিয়ম। Layer-গুলো: language-core (strict); standard runtime/library; ecosystem library/framework; platform/OS API; toolchain/optimization; application security logic/policy।
 
 Attribution কে বা কোন প্রক্রিয়ায় করেছে (মানুষ নাকি LLM) paper-এ স্পষ্ট নয়।
+
+**সহজ কথায়:** প্রতিটি ভুলকে একটি "দোষী স্তর" দেওয়া হয়: language নিজে, library, OS, toolchain নাকি application-এর logic। উদ্দেশ্য হলো বোঝা prompt দিয়ে কোন ভুল ঠিক করা সম্ভব।
 
 ## ৬. Math
 
@@ -101,11 +163,15 @@ Paper-এ কোনো statistical formula নেই; সব মান count ও
 
 $$N = |\mathcal{L}| \cdot |\mathcal{G}| \cdot |\mathcal{M}| \cdot |\mathcal{T}|$$
 
+**এটা কী হিসাব করে:** মোট কতগুলো code বানানো হয়েছে। চার ধরনের জিনিস (model, language, prompt, task) গুণ করলেই মোট পাওয়া যায়।
+
 এখানে $\mathcal{L}$ = LLM-এর সেট, $\mathcal{G}$ = language-এর সেট, $\mathcal{M}$ = prompt method-এর সেট, $\mathcal{T}$ = task-এর সেট। Paper: $N = 3 \times 3 \times 4 \times 200 = 7200$। প্রতি method-এ $3 \times 3 \times 200 = 1800$ program (আমার হিসাব)।
 
 ### ৬.২ Relative reduction (paper-এর ব্যবহৃত metric)
 
 $$RR = \frac{F_{V} - F_{M}}{F_{V}} \times 100$$
+
+**এটা কী হিসাব করে:** Vanilla prompt-এর চেয়ে MA-CoT-তে শতকরা কত ভাগ ভুল কমেছে।
 
 $F_V$ = Vanilla-তে মোট finding, $F_M$ = MA-CoT-তে মোট finding।
 
@@ -117,19 +183,25 @@ High-severity: $H = B + C$ (Blocker + Critical)। $RR_H = \frac{90 - 39}{90} \t
 
 $$\Delta H = (B_M + C_M) - (B_V + C_V)$$
 
+**এটা কী হিসাব করে:** MA-CoT দিলে Blocker ও Critical ভুল মিলিয়ে বাড়ল না কমল, এবং কতটা। ঋণাত্মক সংখ্যা মানে কমেছে।
+
 C: $B_V = 4,\ C_V = 48$ তাই $H_V = 52$; $B_M = 10,\ C_M = 21$ তাই $H_M = 31$। $\Delta B = +6,\ \Delta C = -27,\ \Delta H = -21$ (আমার হিসাব)। $RR_H = \frac{52 - 31}{52} \times 100 = 40.4\%$। Paper বলেছে "প্রায় 40%"; Blocker বাড়ার কারণ rule c:S5798।
 
 ### ৬.৪ Layer share (Table VII)
 
 $$s_{g,k} = \frac{n_{g,k}}{\sum_{k'} n_{g,k'}} \times 100$$
 
+**এটা কী হিসাব করে:** কোনো language-এর সব ভুলের মধ্যে শতকরা কত ভাগ কোন স্তর (library, OS ইত্যাদি) থেকে এসেছে।
+
 $n_{g,k}$ = language $g$-তে layer $k$-তে attributed weakness instance। Paper শুধু $s$ দেয়, $n$ দেয় না। যেমন C: Platform/OS 38.0%, ecosystem crypto/TLS 31.2%, language-core memory 27.1%, toolchain 1.8% (যোগফল ৯৮.১%, বাকিটা sparse/uncategorized)।
 
 ### ৬.৫ আমার হিসাব: rate ratio ও অনিশ্চয়তা (paper করেনি)
 
-Findings-কে Poisson count ধরলে (শক্ত অনুমান; একই program-এ একাধিক finding ও task-clustering আছে, তাই বাস্তব CI আরও চওড়া হবে):
+Findings-কে Poisson count (বিরল ঘটনার গণনা) ধরলে (শক্ত অনুমান; একই program-এ একাধিক finding ও task-clustering আছে, তাই বাস্তব CI আরও চওড়া হবে):
 
 $$\ln \hat{R}_{rate} = \ln \frac{F_M}{F_V}, \qquad SE = \sqrt{\frac{1}{F_V} + \frac{1}{F_M}}$$
+
+**এটা কী হিসাব করে:** ৯২ থেকে ৩৯ কমাটা কতটা নিশ্চিত, অর্থাৎ ভাগ্যের জোরে নয় তো। নিচে একটা সম্ভাব্য সীমা (confidence interval) বের করা হয়েছে।
 
 Primary dataset: $\frac{39}{92} = 0.424$, $\ln 0.424 = -0.858$, $SE = \sqrt{\frac{1}{92} + \frac{1}{39}} = \sqrt{0.0109 + 0.0256} = 0.191$। ৯৫% CI: $-0.858 \pm 1.96 \times 0.191 = [-1.233,\ -0.484]$, অর্থাৎ rate ratio $\in [0.29,\ 0.62]$। LLMSecEval: $\frac{4}{73} = 0.055$, $SE = \sqrt{\frac{1}{73} + \frac{1}{4}} = 0.514$, CI প্রায় $[0.02,\ 0.15]$ (আমার হিসাব)। অর্থাৎ direction প্রায় নিশ্চিত, কিন্তু প্রতিটি ছোট cell (যেমন ২ বনাম ৩) আলাদা করা যায় না।
 
@@ -138,6 +210,8 @@ Primary dataset: $\frac{39}{92} = 0.424$, $\ln 0.424 = -0.858$, $SE = \sqrt{\fra
 একটি task-কে k বার generate করে, প্রতিবার scanner clean কিনা দেখে:
 
 $$\text{SecPass}^{k} = \frac{1}{|\mathcal{T}|} \sum_{t \in \mathcal{T}} \frac{\binom{c_t}{k}}{\binom{n}{k}}$$
+
+**এটা কী হিসাব করে:** একটি task বারবার চালালে প্রতিবারই scanner clean বলার সম্ভাবনা কতটুকু। এক বার ভালো হওয়া আর পাঁচবারই ভালো হওয়া আলাদা জিনিস।
 
 $n$ = প্রতি task-এ মোট sample, $c_t$ = task $t$-এ clean sample, $\binom{c_t}{k}/\binom{n}{k}$ = k টি এলোমেলো sample সবগুলোই clean হওয়ার সম্ভাবনা। Paper $n = 1$ ব্যবহার করেছে, তাই এটি অনুমান করা যায় না।
 
@@ -161,6 +235,8 @@ Illustration (শুধু আমার অনুমান-নির্ভর; f
 | Seed/repeat | উল্লেখ নেই; কোনো repeated run নেই |
 | Reasoning mode | gpt-5/claude/gemini-এর reasoning setting উল্লেখ নেই |
 
+**সহজ কথায়:** Setup-এর বড় কথা: সব model-এ temperature ১ (উত্তর এলোমেলো হওয়ার মাত্রা বেশি), আর repeat নেই। তাই কোনো সংখ্যা কতটা স্থির, বলা যায় না।
+
 ## ৮. Results
 
 ### ৮.১ Table III: Primary dataset, vulnerability count (মূল মান)
@@ -179,7 +255,11 @@ Illustration (শুধু আমার অনুমান-নির্ভর; f
 
 আমার যোগফল (Table VI-এর সাথে মেলে): Vanilla ৯২, ZeroShot ১০০, CoT ৯৮, MA-CoT ৩৯। Language-wise: C ৫২/৬৩/৬৭/৩১; Java ২৭/২২/২১/৪; Python ১৩/১৫/১০/৪ (Vanilla/ZS/CoT/MA)।
 
+**সহজ কথায়:** MA-CoT-তে ৯টির মধ্যে ৭টি সারিতে ভুলের সংখ্যা সবচেয়ে কম।
+
 Paper-এর language reduction: C ৪০% (৫২ থেকে ৩১); Java ৮৫% (২৭ থেকে ৪); Python ৬৯% (১৩ থেকে ৪)। নয়টির মধ্যে সাতটি configuration-এ MA-CoT সবচেয়ে কম; ব্যতিক্রম gpt-5 Java (Vanilla ও MA-CoT দুটিই ২) এবং gpt-5 Python (ZS, CoT, MA-CoT তিনটিই ২)।
+
+**সহজ কথায়:** Table III বলছে Vanilla থেকে MA-CoT-তে ভুল কমেছে প্রায় সব জায়গায়। Java-তে সবচেয়ে বেশি (২৭ থেকে ৪), C-তে সবচেয়ে কম (৫২ থেকে ৩১)। Zero-shot ও CoT-তে অনেক জায়গায় ভুল বেড়েছে।
 
 ### ৮.২ Table IV: LLMSecEval (১৫০ task)
 
@@ -197,6 +277,8 @@ Paper-এর language reduction: C ৪০% (৫২ থেকে ৩১); Java �
 
 আমার যোগফল: Vanilla ৭৩, ZS ৫৪, CoT ৩৪, MA-CoT ৪। MA-CoT নয়টির মধ্যে ছয়টিতে শূন্য। Language-wise Vanilla: C ১১, Java ৫৩, Python ৯। Paper-এর মন্তব্য: Java Vanilla ৫৩ (primary-তে ২৭), C ১১ (primary-তে ৫২)।
 
+**সহজ কথায়:** LLMSecEval-এ ফল আরও নাটকীয়: ৭৩ থেকে ৪। বড় অংশের কারণ Java-তে claude-4.5-এর Vanilla-তে ৪৬টি ভুল, যা MA-CoT-তে ২-এ নেমেছে।
+
 ### ৮.৩ Severity (Figure 2 ও text)
 
 | Dataset | Method | মোট | Blocker | Critical | Major | Minor | High (B+C) |
@@ -206,7 +288,11 @@ Paper-এর language reduction: C ৪০% (৫২ থেকে ৩১); Java �
 | LLMSecEval | Vanilla | 73 | 34 | 11 | 4 | 24 | 45 |
 | LLMSecEval | MA-CoT | 4 | 1 | 1 | 0 | 2 | 2 |
 
+**সহজ কথায়:** এই table বলছে Primary-তে প্রায় সব ভুলই Blocker ও Critical ছিল, আর MA-CoT তাদের অর্ধেকেরও বেশি কমিয়েছে।
+
 Language-wise high-severity (primary): Java ২৫ (১৩B+১২C) থেকে ৪ (১B+৩C); Python ১৩ (১B+১২C) থেকে ৪ (০B+৪C); C ৫২ (৪B+৪৮C) থেকে ৩১ (১০B+২১C)। Major শূন্য ও Minor ২ কেবল Vanilla-র Java থেকে (আমার বিয়োগফল: ২৭ − ২৫ = ২)। LLMSecEval: C Critical ১১ থেকে ১; Java Blocker ২৫ থেকে ১, Major ৪ থেকে ০; Python Blocker ৯ থেকে ০।
+
+**সহজ কথায়:** Severity table বলছে: শুধু সংখ্যা কমেনি, বেশি গুরুতর ভুলগুলোই বেশি কমেছে। তবে C-তে Blocker বেড়েছে, যার কারণ এক ধরনের scanner rule (পরে ব্যাখ্যা আছে)।
 
 ### ৮.৪ CWE pattern (Table V, Figure 3, text)
 
@@ -217,7 +303,11 @@ Language-wise high-severity (primary): Java ২৫ (১৩B+১২C) থেক�
 | 327 | Java (primary) | 11 | - | - | 1 |
 | 327 | Python (primary) | 12 | - | - | 4 |
 
+**সহজ কথায়:** CWE-295 (certificate যাচাই) ও CWE-327 (দুর্বল crypto) ছিল সবচেয়ে বড় সমস্যা। MA-CoT দুটোকেই বড় আকারে কমিয়েছে।
+
 Residual (MA-CoT, C): CWE-367 (TOCTOU) ও CWE-14 (clear না হওয়া buffer)। CWE-611 (XXE) Java primary-তে MA-CoT-তে নেই; CWE-79 তীব্রভাবে কমেছে। CWE-327 reduction: C ৮৩%, Java ৯১%, Python ৬৭%।
+
+**সহজ কথায়:** কিছু ভুল prompt দিয়েও যায় না, কারণ সেগুলো OS ও compiler-এর বিষয়। যেমন file check করা আর খোলার মাঝে অবস্থা বদলে যাওয়া।
 
 ### ৮.৫ Table VI: model-wise মোট
 
@@ -227,7 +317,11 @@ Residual (MA-CoT, C): CWE-367 (TOCTOU) ও CWE-14 (clear না হওয়া 
 | claude-4.5 | 46 | 43 | 43 | 14 | 53 | 33 | 16 | 2 |
 | gemini-2.5 | 24 | 29 | 26 | 8 | 13 | 14 | 7 | 2 |
 
+**সহজ কথায়:** প্রতি model-এর মোট ভুল। দেখা যাচ্ছে claude-4.5-এর উন্নতি সবচেয়ে বড়, আর gpt-5-এর সবচেয়ে ছোট।
+
 Reduction (paper): claude-4.5 ৭০% (primary), ৯৬% (LLMSecEval); gemini-2.5 ৬৭% ও ৮৫%; gpt-5 ২৩% (primary) ও LLMSecEval-এ সবই শূন্য (১০০%)।
+
+**সহজ কথায়:** claude-4.5-এর baseline সবচেয়ে দুর্বল ছিল, তাই তার উন্নতি সবচেয়ে বেশি। gpt-5 আগেই মোটামুটি ভালো ছিল, তাই উন্নতি কম।
 
 ### ৮.৬ Table VII: layer contribution (শুধু শতাংশ)
 
@@ -236,6 +330,8 @@ Reduction (paper): claude-4.5 ৭০% (primary), ৯৬% (LLMSecEval); gemini-2.
 | C | Platform/OS API 38.0% (CWE-367); Ecosystem crypto/TLS 31.2% (CWE-327, cert); Language-core memory/bounds 27.1% (CWE-119/120); Toolchain 1.8% (CWE-14) |
 | Java | Application logic/policy 27.6%; Language-core error model 27.1% (CWE-600); Standard runtime crypto/TLS 21.2% (CWE-327); Language-core secret representation 13.5% (CWE-259); বাকি XML/config ইত্যাদি |
 | Python | Generation-prone patterns/idioms 30.8%; Language-core semantics 21.5%; Application logic 21.5%; Ecosystem API permissiveness 16.9% (CWE-327/329); Runtime/module-state 9.2% |
+
+**সহজ কথায়:** C-এর অনেক ভুল language-এর নিজের নয়, OS ও library-র। Java ও Python-এ configuration ও API-র ভুল বেশি। তাই সেখানে prompt বেশি কাজ করে।
 
 ## ৯. Key findings
 
@@ -248,6 +344,8 @@ Reduction (paper): claude-4.5 ৭০% (primary), ৯৬% (LLMSecEval); gemini-2.
 7. **Dataset shift:** একই method এক dataset-এ মাঝারি, অন্যটিতে প্রায় নিঃশেষ; "prompt effectiveness কোন CWE class dominant তার ওপর নির্ভর করে।"
 8. **Model ও prompt একসাথে বাছাই:** দুর্বল baseline model-ও ভালো prompt-এ ভালো করতে পারে।
 
+**সহজ কথায়:** মোট কথা: ভালো prompt দুর্বল model-কেও অনেকখানি ঠিক করে দিতে পারে। কিন্তু সাধারণ "secure লেখো" নির্দেশ ভরসা করার মতো নয়।
+
 ## ১০. Alternatives-এর চেয়ে কেন ভালো (paper-এর যুক্তি)
 
 - বনাম **Vanilla/Zero-shot:** নির্দিষ্ট করণীয় দেয়, তাই model-এর "insecure default" বেছে নেওয়ার স্বাধীনতা কমে।
@@ -255,6 +353,8 @@ Reduction (paper): claude-4.5 ৭০% (primary), ৯৬% (LLMSecEval); gemini-2.
 - বনাম **WA-CoT:** CWE নাম-তালিকার বদলে সংক্ষিপ্ত mitigation; overload নেই। (Paper WA-CoT-এর সাথে সরাসরি তুলনার সংখ্যা দেয়নি।)
 - বনাম **RCI/Reflexion/RESCUE/SecureCoder/PromSec:** Related work-এ আলোচিত, কিন্তু **experiment-এ তুলনা নেই**। Paper বলে এটি inference-time ও hardware/training ছাড়া, কিন্তু কোনো measured তুলনা দেয়নি।
 - Multi-round repair (Datta et al.) regression ঝুঁকি আছে বলে paper mitigation কে reasoning-এ ঢোকানো বেছেছে।
+
+**সহজ কথায়:** Paper-এর যুক্তি: বারবার ঠিক করানোর চেয়ে প্রথমবারেই নিয়ম মানানো ভালো, কারণ ঠিক করতে গিয়ে নতুন ভুল ঢুকতে পারে। তবে এই যুক্তি মেপে দেখা হয়নি।
 
 ## ১১. কখন কাজ করে / কখন করে না
 
@@ -266,6 +366,8 @@ Reduction (paper): claude-4.5 ৭০% (primary), ৯৬% (LLMSecEval); gemini-2.
 | gpt-5, primary dataset | মাত্র ২৩% | baseline ইতিমধ্যে মোটামুটি ভালো; বা dataset-এর mix (paper "task vulnerability mix"কে কারণ বলেছে) |
 | Generic CoT বা Zero-shot | অস্থির, কখনো খারাপ | অনির্দিষ্ট reasoning, নির্দিষ্ট constraint ছাড়া |
 | LLMSecEval vs primary | ফল আলাদা মাত্রার | task mix ও language mix আলাদা |
+
+**সহজ কথায়:** যেখানে করণীয় পরিষ্কার (TLS, password, crypto), সেখানে prompt খুব কাজ করে। যেখানে OS বা compiler জড়িত (C), সেখানে আংশিক।
 
 ## ১২. Limitations
 
@@ -280,7 +382,7 @@ Reduction (paper): claude-4.5 ৭০% (primary), ৯৬% (LLMSecEval); gemini-2.
 
 1. **প্রতি cell-এ একটি sample, temperature ১, কোনো repeat নেই।** "Internal validity" paragraph run-to-run variance আসলে মাপেনি (CG4)। Table-এর অনেক cell-এর পার্থক্য ১–২ (যেমন Java gpt-5: ২ বনাম ৩) যা noise হতে পারে।
 2. **কোনো statistical test নেই;** "consistently" শব্দ count-তুলনার ওপর দাঁড়িয়ে (CG8)।
-3. **একটি analyzer (SonarQube) ও একটি rule-set।** MA-CoT-এর mitigation (TLS verify, hard-coded secret নয়, modern crypto, input validation) মোটামুটি SonarQube rule-এর সাথে একই। অর্থাৎ prompt-কে evaluator-এর মাপকাঠির দিকে tune করা হয়েছে, Goodhart-ধরনের ঝুঁকি (CG12)। Exploit-ভিত্তিক বা অন্য analyzer (CodeQL, Semgrep) দিয়ে cross-check নেই।
+3. **একটি analyzer (SonarQube) ও একটি rule-set।** MA-CoT-এর mitigation (TLS verify, hard-coded secret নয়, modern crypto, input validation) মোটামুটি SonarQube rule-এর সাথে একই। অর্থাৎ prompt-কে evaluator-এর মাপকাঠির দিকে tune করা হয়েছে, Goodhart-ধরনের ঝুঁকি (মাপকাঠিকেই লক্ষ্য বানালে মাপকাঠি আর ভালো মাপক থাকে না) (CG12)। Exploit-ভিত্তিক বা অন্য analyzer (CodeQL, Semgrep) দিয়ে cross-check নেই।
 4. **Functional correctness report নেই।** Primary dataset-এর unit test থাকলেও MA-CoT code-এর pass rate দেওয়া হয়নি; অতিরিক্ত সতর্ক code ভাঙা বা অকার্যকর হতে পারে (CG5)। 2026-এর SusVibes (নিচে ২১) ঠিক এই FuncPass বনাম SecPass ফাঁক দেখায়।
 5. **Confound: MA-CoT prompt অনেক দীর্ঘ ও বেশি তথ্য দেয়।** "Vanilla + একই checklist (CoT ছাড়া)" বা তিন component-এর ablation নেই, তাই কোন অংশ কাজ করছে জানা যায় না।
 6. **Paper-এর নিজস্ব সংখ্যায় অসঙ্গতি** (নিচে ১২.৩)।
@@ -288,6 +390,8 @@ Reduction (paper): claude-4.5 ৭০% (primary), ৯৬% (LLMSecEval); gemini-2.
 8. **Residual finding-এর ব্যাখ্যা subjective:** c:S5798 ও CWE-367-কে "hardening signal, weaker security নয়" বলা হয়েছে; কিন্তু কিছু finding আসল (TOCTOU race সত্যিকারের ঝুঁকি হতে পারে)। কোনটি false positive তার manual verdict count দেওয়া নেই।
 9. **Reviewer agreement report নেই** (দুই researcher, কোনো κ নেই)।
 10. **Verification loop অনুপস্থিত:** একবার generate, কোনো scanner-feedback loop নেই। তাই "reliability" শুধু প্রথম-পর্যায় output-এর ওপর।
+
+**সহজ কথায়:** সবচেয়ে বড় দুর্বলতাগুলো: একবারের run, একটি scanner, test নেই, আর functional result নেই। এগুলো আমাদের কাজের সুযোগ।
 
 ### ১২.৩ Paper-internal inconsistency (আমি Table III/IV থেকে পুনরায় গুনেছি)
 
@@ -299,7 +403,11 @@ Reduction (paper): claude-4.5 ৭০% (primary), ৯৬% (LLMSecEval); gemini-2.
 | 4 | ৭,২০০ program, মোট ৩৫০ task | ৭,২০০ কেবল primary (৩ × ৩ × ৪ × ২০০)। LLMSecEval-এর program সংখ্যা (৩ × ৩ × ৪ × ১৫০ = ৫,৪০০ হলে) বলা নেই |
 | 5 | Language-core-এর সংজ্ঞা strict | Java "secret representation (CWE-259)" ও Python "generation-prone idioms" (Table VII) কে language-core বা Table II-তে নেই এমন layer-এ রাখা; strict সংজ্ঞার সাথে মেলে না |
 
+**সহজ কথায়:** এই table-এ paper-এর নিজের সংখ্যায় ছোটখাটো অমিল দেখানো হয়েছে। বড় সিদ্ধান্ত বদলায় না, কিন্তু কোথায় সতর্ক থাকতে হবে তা বোঝায়।
+
 Abstract-এর "MA-CoT is the only strategy that consistently improves" বাক্যটি table অনুযায়ী মূলত ঠিক (সাতটি cell-এ সবচেয়ে কম), কিন্তু gpt-5-এর দুটি cell-এ tie।
+
+**সহজ কথায়:** Paper-এর বড় দাবিটি মূলত ঠিক, কিন্তু কয়েকটি ছোট বাক্যে সংখ্যার সাথে মিল নেই। এটা paper-এর মান নষ্ট করে না, কিন্তু আমাদের নিজেদের হিসাব মিলিয়ে নেওয়া উচিত।
 
 ## ১৩. Research gaps
 
@@ -316,16 +424,20 @@ Abstract-এর "MA-CoT is the only strategy that consistently improves" বা�
 | G9 | Agent/repository-level patch-এ প্রযোজ্যতা অজানা; শুধু single-function generation | ২০০ standalone task | CG9, CG5 / 01_Agents |
 | G10 | Security scanner finding-এর "delta" (patch আগে ও পরে) ও hardening-জনিত নতুন finding আলাদা করা | C Blocker ৪ থেকে ১০ | CG5, CG12 |
 
+**সহজ কথায়:** এই gap-গুলোর বেশিরভাগই একই কথা: ফলটা আরও কঠোরভাবে (বারবার, একাধিক tool দিয়ে, test সহ) পরীক্ষা করা হয়নি।
+
 ## ১৪. Improvement ideas
 
-1. **Repeat ও variance:** প্রতি task-এ k = ৫ sample, temperature বদলে, SecPass^k ও finding-এর std dev report; McNemar বা paired bootstrap (task-wise)।
+1. **Repeat ও variance:** প্রতি task-এ k = ৫ sample, temperature বদলে, SecPass^k ও finding-এর std dev report; McNemar বা paired bootstrap (একই task-এর দুই ফল জোড়া করে তুলনার test) (task-wise)।
 2. **Scanner ensemble:** SonarQube ছাড়াও Semgrep, CodeQL, Bandit/Flawfinder; finding union ও intersection আলাদা report; scanner disagreement-ই অনিশ্চয়তা।
 3. **Exploit/test-ভিত্তিক সংকেত:** BaxBench/CWEval-ধরনের security test, fuzzing/sanitizer (ASan, UBSan) C code-এ।
-4. **Ablation:** baseline rule শুধু; CWE mitigation শুধু; language checklist শুধু; এবং prompt-length-matched placebo (অপ্রাসঙ্গিক সমান দৈর্ঘ্যের টেক্সট)।
+4. **Ablation (এক এক অংশ বাদ দিয়ে পরীক্ষা):** baseline rule শুধু; CWE mitigation শুধু; language checklist শুধু; এবং prompt-length-matched placebo (অপ্রাসঙ্গিক সমান দৈর্ঘ্যের টেক্সট)।
 5. **Closed loop:** generate, scan, finding-based feedback, regenerate (সর্বোচ্চ ২ রাউন্ড); প্রতিটি রাউন্ডে নতুন finding ও functional test regression মাপা।
 6. **Held-out scanner:** prompt যে scanner দিয়ে tune হয়েছে, আর evaluate হয় যে scanner দিয়ে, তা আলাদা।
 7. **Per-category report** (paper-এর ভালো ধারণা) এবং layered attribution-কে report-এ স্থায়ীভাবে রাখা।
 8. **Secure-by-construction wrapper:** residual CWE-367/14-এর জন্য prompt নয়, post-process লিন্ট বা safe-API replacement।
+
+**সহজ কথায়:** Improvement-এর মূল ধারণা: একটা prompt বা একটা scanner-কে সম্পূর্ণ বিশ্বাস না করে বারবার ও একাধিক উপায়ে যাচাই করা।
 
 ## ১৫. Publication potential (SPL3-feasible)
 
@@ -335,6 +447,8 @@ Abstract-এর "MA-CoT is the only strategy that consistently improves" বা�
 - **ঝুঁকি:** নতুন ফল না-ও আসতে পারে (variance ছোট হলে)। সেক্ষেত্রেও negative result ও tool paper হিসেবে মূল্য আছে।
 - **Venue ধরন:** MSR/ICSE workshop (LLM4Code ধরনের), বা SPL3 report-এর একটি অধ্যায়।
 
+**সহজ কথায়:** ছোট একটা ভালো পরীক্ষাও paper হতে পারে, এমনকি ফল "বিশেষ বদলায় না" হলেও।
+
 ## ১৬. SPL3 implementation
 
 1. **Task set:** paper-এর LLMSecEval (১৫০) থেকে ৫০টি + আমাদের assurance benchmark-এর কিছু patch-task।
@@ -342,9 +456,11 @@ Abstract-এর "MA-CoT is the only strategy that consistently improves" বা�
 3. **Models:** ২টি open/সস্তা model + ১টি commercial (খরচ-সচেতন; ২১.৪ দেখো)।
 4. **Runs:** k = ৫, একই seed বর্জিত; সব raw output ও scanner JSON সংরক্ষণ।
 5. **Scanners:** Semgrep, Bandit (Python), Flawfinder/cppcheck (C), CodeQL যেখানে সম্ভব; প্রতিটির version ও rule-set hash লিখে রাখা (CG11)।
-6. **Metrics:** finding per program, SecPass^k, high-severity count, category shift table, scanner agreement (Jaccard), functional pass rate (unit test)।
+6. **Metrics:** finding per program, SecPass^k, high-severity count, category shift table, scanner agreement (Jaccard: দুই scanner-এর ধরা ভুলের কতটা মেলে), functional pass rate (unit test)।
 7. **Assurance report-এ আউটপুট:** একক নম্বর নয়; scanner-wise অনুচ্ছেদ, run-variance range, "delta findings introduced by patch" এবং "could not verify" অবস্থা।
 8. **Analysis:** paired bootstrap, task-clustered CI; মাত্র গণনার tab নয়।
+
+**সহজ কথায়:** আমরা বড় নয়, ছোট কিন্তু কঠোর পরীক্ষা করব: কম task, বেশি repeat, একাধিক scanner।
 
 ## ১৭. আগের sub-domain-এর সাথে সম্পর্ক
 

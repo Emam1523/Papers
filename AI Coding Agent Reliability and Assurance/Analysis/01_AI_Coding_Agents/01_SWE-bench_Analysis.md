@@ -20,9 +20,68 @@
 
 ---
 
+## ★ সহজ ভাষায় পুরো Paper (প্রথমবার পড়ার জন্য)
+
+> এই অংশটা তাদের জন্য, যারা জীবনে কখনো research paper পড়েনি। আগে শুধু এটুকু পড়ো। বুঝে গেলে নিচের বড় section-গুলো পড়া অনেক সহজ হবে।
+
+### ক. Paper-টা কী নিয়ে?
+
+- এটা একটা **benchmark paper**। Benchmark মানে হলো একটা standard পরীক্ষার খাতা, যেটা দিয়ে সবার ক্ষমতা একই মাপে মাপা যায়।
+- এখানে নতুন কোনো AI বানানো হয়নি। বানানো হয়েছে AI-কে পরীক্ষা করার একটা কঠিন খাতা, নাম **SWE-bench**।
+- Paper লিখেছেন Princeton University ও University of Chicago-র গবেষকরা। মূল লেখক Carlos Jimenez ও John Yang। Paper ছাপা হয়েছে ICLR 2024 conference-এ।
+- পরীক্ষার প্রশ্ন নেওয়া হয়েছে আসল GitHub project থেকে। মোট ২,২৯৪টা আসল bug বা সমস্যা।
+- AI-কে সেই bug ঠিক করে দেখাতে হয়। ঠিক হলো কিনা, তা project-এর নিজের test চালিয়ে দেখা হয়।
+
+### খ. সমস্যাটা কী ছিল?
+
+- আগে AI-র coding ক্ষমতা মাপা হতো HumanEval-এর মতো ছোট প্রশ্ন দিয়ে। যেমন "দুটো সংখ্যা যোগ করার function লেখো"।
+- এটা অনেকটা ছাত্রকে শুধু ছোট অঙ্ক করতে দিয়ে বলা, "তুমি তো ভালো engineer"। অথচ আসল engineer-কে হাজার হাজার file-এর বিশাল project-এ কাজ করতে হয়।
+- ফলে দেখা যেত AI-রা ওই ছোট পরীক্ষায় প্রায় full marks পাচ্ছে। কিন্তু আসল কাজে তারা কতটা পারে, কেউ জানত না।
+- **একটা উদাহরণ:** একজন user লিখলেন, "proxy URL-এ একটা '/' কম দিলে software ভুল error message দেখায়।" Engineer-কে প্রথমে খুঁজে বের করতে হয় হাজার হাজার file-এর কোনটায় ভুল আছে। তারপর সেটা ঠিক করতে হয়, কিন্তু অন্য কিছু যেন না ভাঙে। ছোট function লেখার পরীক্ষায় এই কাজ কখনো মাপা যেত না।
+- যা মাপা যায় না, তা ভালো করাও যায় না। তাই একটা বাস্তব পরীক্ষা দরকার ছিল।
+
+### গ. Paper কী solve করেছে?
+
+- ১২টা জনপ্রিয় Python project (django, sympy, flask ইত্যাদি) থেকে **২,২৯৪টা আসল bug** নিয়ে benchmark বানিয়েছে।
+- প্রতিটা প্রশ্নে থাকে আসল bug-এর বিবরণ, পুরো project-এর code, আর যাচাই করার test। কাজেই উত্তর ঠিক কিনা তা মেশিনই বলে দেয়, কারো মতামত লাগে না।
+- সেই সময়ের সেরা AI গুলোকে পরীক্ষা করেছে। দেখিয়েছে সবাই খুব খারাপ করছে।
+- খুঁজে পেয়েছে, AI-র আসল সমস্যা code লেখা নয়। সমস্যা হলো **bug-টা project-এর কোথায় আছে তা খুঁজে বের করা**।
+- একটা open-source model (SWE-Llama) বানিয়ে দেখিয়েছে, খোলা model-ও কিছুটা পারে।
+- **গুরুত্বপূর্ণ ৩টা সংখ্যা:**
+  - **১.৯৬%:** সেরা AI (Claude 2) ২,২৯৪টার মধ্যে ঠিক করেছে মাত্র প্রায় ৪৫টা। মানে ১০০টার মধ্যে মাত্র ২টা।
+  - **৪.৮০%:** যদি AI-কে আগে থেকেই বলে দেওয়া হয় কোন file-এ bug, তখনও মাত্র ১০০টার মধ্যে প্রায় ৫টা।
+  - **২,২৯৪:** মোট কতগুলো আসল প্রশ্ন আছে। এটাই পরে সারা দুনিয়ার standard পরীক্ষা হয়ে গেছে।
+
+### ঘ. কীভাবে solve করেছে?
+
+1. প্রথমে ১২টা জনপ্রিয় Python project থেকে প্রায় ৯০,০০০ Pull Request (code পরিবর্তনের আবেদন) জোগাড় করেছে।
+2. তারপর ছাঁকনি দিয়েছে। শুধু সেই PR রেখেছে, যেগুলো মেনে নেওয়া হয়েছে, কোনো issue ঠিক করেছে এবং সঙ্গে test বদলেছে।
+3. এরপর প্রতিটা PR-এর code আসলে চালিয়ে দেখেছে। যে test আগে fail করত আর fix-এর পর pass করে, সেই test আছে এমন PR-ই রেখেছে। এভাবে ২,২৯৪টা বাকি থেকেছে।
+4. প্রতিটা প্রশ্নে AI-কে দেওয়া হয়েছে bug-এর বিবরণ আর project-এর code। AI-র কাজ একটা patch (কোন line বদলাতে হবে তার তালিকা) লেখা।
+5. যেহেতু পুরো project AI-র মাথায় ঢোকে না, তাই BM25 নামের একটা keyword-search দিয়ে সবচেয়ে মিল থাকা file গুলো বেছে দেওয়া হয়েছে।
+6. তুলনার জন্য একটা "চিট" setting-ও রেখেছে। সেখানে সঠিক file গুলো আগেই দিয়ে দেওয়া হয়। এতে বোঝা যায় খোঁজাটা কতটা কঠিন।
+7. AI-র patch project-এ বসিয়ে test চালানো হয়। আগের সব test আর নতুন test একটাও fail না করলে তবেই "Resolved"।
+8. শেষে নিজেরা CodeLlama model-কে ১৯,০০০ উদাহরণ দিয়ে আরও শিখিয়েছে। সেটাই SWE-Llama।
+
+### ঙ. এরপর কী করা যায়?
+
+- **Authors নিজেরা বলেছেন:** শুধু Python না, অন্য language-এও এরকম benchmark বানানো দরকার। আর শুধু সরল পদ্ধতি নয়, agent (যে AI নিজে ধাপে ধাপে ভেবে কাজ করে) দিয়েও পরীক্ষা করা দরকার।
+- **এখনো খোলা সমস্যা:** শুধু test pass করলেই কি patch সত্যিই ঠিক? দুর্বল test হলে ভুল patch-ও পাস করে যেতে পারে।
+- **আরেকটা খোলা সমস্যা:** AI কি একই প্রশ্ন বারবার করলে একই উত্তর দেয়? Paper শুধু একবার চালিয়েছে, তাই বোঝা যায় না।
+- **আমরা SPL3-তে করতে পারি:** SWE-bench-এর ছোট অংশ (Lite বা Verified) দিয়ে একটা tool বানানো, যা "Resolved" patch-গুলো আবার যাচাই করে।
+- **আমরা আরও করতে পারি:** শুধু test নয়, security scan (নিরাপত্তা-ত্রুটি খোঁজা) আর code quality-ও মাপা। যেমন Bandit বা Semgrep চালানো।
+- **আমরা আরও করতে পারি:** একই task ৩ বার চালিয়ে দেখা AI প্রতিবার সফল হয় কিনা।
+
+> **মনে রাখো:**
+> SWE-bench হলো আসল GitHub bug দিয়ে বানানো পরীক্ষা, আর ২০২৩-এ সেরা AI-ও এতে ১০০টার মধ্যে মাত্র ২টা পেরেছিল।
+> মূল বাধা ছিল bug-এর সঠিক জায়গা খুঁজে পাওয়া। আর test pass করা মানেই patch ঠিক, এটা পুরো সত্য নয়।
+> আমাদের SPL3-এর সুযোগ হলো এই "ঠিক কিনা" যাচাইয়ের জায়গাটা (assurance) নিয়ে কাজ করা।
+
+---
+
 ## ১. এক লাইনে Paper (TL;DR)
 
-**SWE-bench হলো একটা benchmark যেখানে LLM-কে আসল GitHub repository-র আসল bug report (issue) দেওয়া হয়, আর LLM-কে code পরিবর্তন (patch) করে সেই bug ঠিক করতে হয়; সেই patch সঠিক কিনা তা repository-র আসল unit test চালিয়ে যাচাই করা হয়।**
+**SWE-bench হলো একটা benchmark (AI-র পরীক্ষার খাতা)। এখানে LLM-কে আসল GitHub repository-র আসল bug report (issue) দেওয়া হয়। LLM-কে code পরিবর্তন (patch) করে সেই bug ঠিক করতে হয়। সেই patch সঠিক কিনা, তা repository-র আসল unit test চালিয়ে যাচাই করা হয়।**
 
 ### Supervisor-কে ৩০ সেকেন্ডে কীভাবে বলবো
 > "Sir, আগে LLM-এর coding ability মাপা হতো HumanEval-এর মতো ছোট ছোট function লেখার problem দিয়ে, যেগুলো বাস্তবের software engineering-এর মতো না। SWE-bench প্রথমবার 12টা জনপ্রিয় Python repository থেকে 2,294টা আসল GitHub issue নিয়ে একটা realistic benchmark বানিয়েছে। এখানে model-কে হাজার হাজার file-এর codebase বুঝে, সঠিক জায়গা খুঁজে, patch লিখতে হয় এবং আসল test-এ pass করতে হয়। 2023-এ সবচেয়ে ভালো model Claude 2 মাত্র 1.96% solve করতে পেরেছিল — অর্থাৎ problem-টা অনেক কঠিন। এই paper-টাই পরে AI coding agent research-এর standard yardstick হয়ে গেছে।"
@@ -61,6 +120,8 @@ SWE-bench-এর **PASS_TO_PASS** test গুলো আসলে regression test
 | **FAIL_TO_PASS** | ❌ Fail | ✅ Pass | এই test প্রমাণ করে issue-টা আসলেই ঠিক হয়েছে |
 | **PASS_TO_PASS** | ✅ Pass | ✅ Pass | এই test প্রমাণ করে পুরনো কিছু ভাঙেনি (regression নেই) |
 
+**সহজ কথায়:** F2P হলো "রোগ সেরেছে" তার প্রমাণ। P2P হলো "অন্য কোনো রোগ হয়নি" তার প্রমাণ। দুটো মিললে তবেই fix ঠিক।
+
 ### ২.৬ Context Window ও Long Context
 LLM একবারে কত token (মোটামুটি শব্দের টুকরা) পড়তে পারে, সেটাই context window। SWE-bench-এর codebase গড়ে **438,000 line** — কোনো model-এর context-এ পুরোটা ঢোকে না। তাই কোন file দেখাবো তা বাছাই (retrieval) করতে হয়।
 
@@ -97,6 +158,8 @@ Bug আপনা-আপনি ঠিক করার research field। SWE-bench
 3. **ভালো benchmark বানানো কঠিন:** task এমন হতে হবে যা (ক) model-এর জন্য কঠিন, কিন্তু (খ) উত্তর সহজে যাচাই করা যায়। এই দুটো একসাথে পাওয়া কঠিন।
 4. **Contamination:** static benchmark পুরনো হলে model-এর training data-তে ঢুকে যায়।
 
+**সহজ কথায়:** পুরনো পরীক্ষা এত সহজ ও ছোট ছিল যে সবাই পাস করে ফেলত। আবার প্রশ্ন ফাঁস হয়ে গেলে মুখস্থ করেও পাস করা যেত।
+
 ### ৩.২ কেন এটা গুরুত্বপূর্ণ?
 LLM তখন Copilot-এর মতো commercial product-এ ব্যবহার হচ্ছিল। কিন্তু বাস্তব software engineering কাজে এরা কতটা সক্ষম তা মাপার কোনো ভালো উপায় ছিল না। **যা মাপা যায় না, তা উন্নত করা যায় না।**
 
@@ -106,12 +169,16 @@ LLM তখন Copilot-এর মতো commercial product-এ ব্যবহা
 
 **Goal:** একটা realistic, কঠিন, execution-based ও সহজে update করা যায় এমন benchmark তৈরি করা।
 
+**সহজ কথায়:** লক্ষ্য হলো এমন পরীক্ষা, যা আসল কাজের মতো কঠিন, যার উত্তর মেশিন দিয়ে যাচাই করা যায়, আর যা ভবিষ্যতে নতুন প্রশ্ন দিয়ে নতুন করা যায়।
+
 Paper-টা মূলত এই প্রশ্নগুলোর উত্তর খুঁজেছে (implicit RQ):
 - **RQ1:** State-of-the-art LLM (GPT-4, Claude 2, ChatGPT-3.5) আসল GitHub issue কতটা solve করতে পারে?
 - **RQ2:** Retrieval (কোন file দেখানো হবে) performance-এ কতটা প্রভাব ফেলে?
 - **RQ3:** Context length বাড়লে performance-এ কী হয়?
 - **RQ4:** Open-source model-কে fine-tune করে (SWE-Llama) কি proprietary model-এর সাথে প্রতিযোগিতা করা যায়?
 - **RQ5:** Model-এর লেখা patch আর মানুষের লেখা patch-এর মধ্যে পার্থক্য কী?
+
+**সহজ কথায়:** মোট পাঁচটা প্রশ্ন। AI কতটা পারে, file খোঁজা কতটা জরুরি, বেশি লেখা দিলে লাভ হয় কিনা, ছোট খোলা model পারে কিনা, আর AI-র patch মানুষের patch-এর মতো কিনা।
 
 ---
 
@@ -125,6 +192,8 @@ Paper-টা মূলত এই প্রশ্নগুলোর উত্ত�
 | II | Attribute Filter | PR merged হয়েছে + কোনো issue resolve করে + test file পরিবর্তন করে | Candidate task |
 | III | Execution Filter | Install সফল হয় + অন্তত ১টা FAIL_TO_PASS test আছে | **2,294 task instance** |
 
+**সহজ কথায়:** ৯০,০০০ থেকে তিনটা ছাঁকনি দিয়ে বাছতে বাছতে ২,২৯৪টা ভালো প্রশ্ন বাকি থাকে। অর্থাৎ ১০০টার মধ্যে প্রায় ২.৫টা টিকে যায়।
+
 **Stage I — Repository selection ও scraping:**
 - PyPI-এর top 5,000 সবচেয়ে বেশি download হওয়া library থেকে top 100 বাছাই, license check, তারপর 12টা repository নেওয়া হয় (django, sympy, scikit-learn, sphinx, matplotlib, pytest, xarray, astropy, pylint, requests, seaborn, flask)।
 - কেন popular repo? কারণ এগুলো well-maintained, ভালো documentation ও ভালো test coverage আছে।
@@ -133,6 +202,8 @@ Paper-টা মূলত এই প্রশ্নগুলোর উত্ত�
 1. Status = **Merged** (অর্থাৎ maintainer গ্রহণ করেছে),
 2. কোনো issue-কে link করে ("fixes #24" এরকম লেখা দিয়ে),
 3. কোনো test file পরিবর্তন করে (path-এ "test"/"testing" শব্দ আছে)।
+
+**সহজ কথায়:** Stage II-এর কাজ হলো শুধু "পুরো গল্প" আছে এমন PR রাখা। মানে সমস্যা ছিল, সমাধান হয়েছে, আর সমাধান যাচাইয়ের test আছে।
 
 **Stage III — Execution-based filtering:**
 - Codebase install করা হয়, PR-এর test অংশ (test patch) apply করা হয়।
@@ -143,10 +214,14 @@ Paper-টা মূলত এই প্রশ্নগুলোর উত্ত�
 
 **গুরুত্বপূর্ণ design decision:** Problem statement-এ শুধু PR-এর প্রথম commit-এর **আগের** comment রাখা হয় — যাতে solution-এর hint leak না হয়।
 
+**সহজ কথায়:** AI-কে এমন কিছু দেখানো হয় না যা উত্তরের ইঙ্গিত দেয়। তাই শুধু code বদলানোর আগের আলোচনাটুকু রাখা হয়েছে।
+
 ### ৫.২ Task Formulation
 - **Input:** Issue text + পুরো codebase
 - **Output:** একটা patch file
 - **Evaluation:** Patch apply → test চালানো → সব F2P ও P2P pass করলে "Resolved"
+
+**সহজ কথায়:** একটাই সরল নিয়ম। বিবরণ আর code নাও, patch দাও, আর সব test পাস করলে তবেই সফল।
 
 ### ৫.৩ Evaluation Pipeline (প্রতিটা prediction-এর জন্য ৭টা ধাপ)
 1. Repository base commit-এ checkout
@@ -159,23 +234,31 @@ Paper-টা মূলত এই প্রশ্নগুলোর উত্ত�
 
 যদি ধাপ ৫/৬/৭ fail করে → score = 0।
 
+**সহজ কথায়:** AI-র লেখা patch project-এ বসিয়ে test চালানো হয়। কোথাও আটকে গেলে সেই task-এ নম্বর শূন্য।
+
 ### ৫.৪ Baseline System: Retrieval + Generation
 যেহেতু পুরো codebase context-এ ঢোকে না, তাই দুটো setting:
 1. **BM25 (Sparse) retrieval:** issue text দিয়ে BM25 চালিয়ে সবচেয়ে প্রাসঙ্গিক file গুলো নেওয়া, context limit (13k/27k/50k token) পর্যন্ত। File path-ও document-এর শুরুতে যোগ করা হয়েছে, যাতে issue-তে file-এর নাম থাকলে মিলে যায়।
-2. **"Oracle" retrieval:** আসল (gold) patch যে file গুলো পরিবর্তন করেছে, সরাসরি সেই file গুলো দেওয়া — বাস্তবসম্মত নয় (কারণ বাস্তবে কেউ আগে জানে না কোন file বদলাতে হবে), কিন্তু **upper-bound analysis**-এর জন্য।
-3. **"Oracle-collapsed":** Oracle file-এর শুধু পরিবর্তিত line-এর ±15 line রাখা, বাকি সব collapse — এটা একটা **ablation study**।
+2. **"Oracle" retrieval:** আসল (gold) patch যে file গুলো পরিবর্তন করেছে, সরাসরি সেই file গুলো দেওয়া — বাস্তবসম্মত নয় (কারণ বাস্তবে কেউ আগে জানে না কোন file বদলাতে হবে), কিন্তু **upper-bound analysis**-এর জন্য (সর্বোচ্চ কত পর্যন্ত সম্ভব তা জানতে)।
+3. **"Oracle-collapsed":** Oracle file-এর শুধু পরিবর্তিত line-এর ±15 line রাখা, বাকি সব collapse — এটা একটা **ablation study** (একটা অংশ বদলে দেখা তার প্রভাব কতটা)।
 
 Prompt-এ থাকে: instruction + issue + retrieved files (+ README) + একটা example patch format।
+
+**সহজ কথায়:** AI-কে একটা চিঠি দেওয়া হয়। তাতে লেখা থাকে কী করতে হবে, bug-এর বিবরণ, আর কয়েকটা file। তিন রকম file-বাছাইয়ের মধ্যে Oracle হলো "উত্তর-সহ" সুবিধাজনক রূপ, আর BM25 হলো আসল জীবনের মতো।
 
 ### ৫.৫ SWE-Llama: Open Model Fine-tuning
 - **কেন:** off-the-shelf CodeLlama repository-wide edit-এর instruction follow করতে পারছিল না — placeholder বা অপ্রাসঙ্গিক code লিখছিল।
 - **Data:** SWE-bench-train — **37টা আলাদা** repository থেকে 19,000 issue-PR pair (test বাধ্যতামূলক নয়)। Evaluation repository-র সাথে **disjoint**, যাতে contamination না হয়। 30,000 token-এর বেশি লম্বা sequence বাদ দিয়ে কার্যকর ~10,000 instance।
 - **Training:** Input = instruction + issue + oracle file; Output = gold patch।
 - **Hyperparameters:** LoRA r = 16, α = 16, dropout = 0.05 (attention-এর Q, K, V, O projection-এ); learning rate 6e-4; batch size 32; সর্বোচ্চ 4 epoch; 100টা held-out instance-এর validation loss দিয়ে best checkpoint বাছাই।
-- **Compute:** 7B — 4×A100-এ 20 ঘন্টা; 13B — 8×A100-এ 47 ঘন্টা। Long context-এর জন্য DeepSpeed Ulysses ও Flash Attention।
+- **Compute:** 7B — 4×A100-এ 20 ঘন্টা; 13B — 8×A100-এ 47 ঘন্টা। Long context-এর জন্য DeepSpeed Ulysses ও Flash Attention ব্যবহার হয়েছে (দুটোই লম্বা input কম memory-তে চালানোর কৌশল)।
+
+**সহজ কথায়:** মূল model-এর সব অংশ না বদলে শুধু ছোট একটা অংশ শেখানো হয়েছে, তাই কম GPU-তে কাজ হয়েছে।
 
 ### ৫.৬ Inference Setting
 প্রতিটা task-এ মাত্র **১টা patch**, **greedy decoding** (খরচ কমানোর জন্য)।
+
+**সহজ কথায়:** AI-কে প্রতি প্রশ্নে একবারই সুযোগ দেওয়া হয়েছে। তাই ফলাফল "প্রথমবারেই ঠিক"-এর হার।
 
 ---
 
@@ -183,10 +266,13 @@ Prompt-এ থাকে: instruction + issue + retrieved files (+ README) + এ�
 
 Paper-এ explicitly অনেক equation নেই (benchmark paper হওয়ায়), কিন্তু পুরো evaluation-টা formal ভাবে লেখা যায়। Supervisor-কে দেখানোর জন্য এটা খুব কাজের।
 
+**সহজ কথায়:** এই section-এ পুরো পরীক্ষাটা অঙ্কের ভাষায় লেখা হয়েছে। প্রতিটা সূত্রের নিচে কথায় বলা আছে সেটা কী হিসাব করে। সূত্র না বুঝলেও কথাগুলো পড়লেই চলবে।
+
 ### ৬.১ একটা Task Instance-এর Formal Definition
 $$
 I = (C,\; P,\; T,\; \delta)
 $$
+**এটা কী হিসাব করে:** একটা প্রশ্ন আসলে কী কী দিয়ে তৈরি, তা এক লাইনে লেখা। মানে প্রশ্ন = code + সমস্যার বিবরণ + test + সঠিক উত্তর।
 - $C$ = base commit-এ codebase (bug থাকা অবস্থা)
 - $P$ = problem statement (issue title + description + comments)
 - $T$ = test patch (PR-এর test অংশ)
@@ -196,6 +282,7 @@ Model $M$ ও retriever $R$ থাকলে model-এর prediction:
 $$
 \hat{\delta} = M\big(P,\; R(C, P)\big)
 $$
+**এটা কী হিসাব করে:** AI-র উত্তর কীভাবে তৈরি হয়। আগে একজন খোঁজকারী (retriever) কিছু file বাছে। তারপর AI সেই file আর bug-এর বিবরণ দেখে patch লেখে।
 অর্থাৎ retriever codebase থেকে কিছু file বাছাই করে, model সেই file আর issue দেখে patch $\hat{\delta}$ তৈরি করে।
 
 ### ৬.২ F2P ও P2P Set
@@ -206,6 +293,7 @@ $$
 $$
 P2P = \{\, t \;:\; s(t,\, C \oplus T) = \text{PASS} \;\land\; s(t,\, C \oplus T \oplus \delta) = \text{PASS} \,\}
 $$
+**এটা কী হিসাব করে:** কোন কোন test কে F2P আর কোনগুলো P2P, তার গাণিতিক সংজ্ঞা। নিচের "সহজ ভাষায়" লাইনটাই এর মানে।
 **সহজ ভাষায়:** F2P = যে test গুলো gold patch-এর কারণে fail থেকে pass হয়েছে। P2P = যে test গুলো আগেও pass ছিল, পরেও pass।
 
 ### ৬.৩ Resolved হওয়ার শর্ত
@@ -216,6 +304,7 @@ $$
 0, & \text{অন্যথায়}
 \end{cases}
 $$
+**এটা কী হিসাব করে:** একটা task পাস না ফেল। Patch বসাতে হবে এবং সব দরকারি test পাস করতে হবে। একটাও ব্যর্থ হলে ফল ০, নয়তো ১।
 **মানে:** একটা test-ও fail বা missing হলে পুরো task fail। এটা একটা **binary, all-or-nothing** metric — কোনো partial credit নেই।
 
 ### ৬.৪ Main Metric: % Resolved ও % Apply
@@ -225,7 +314,10 @@ $$
 $$
 \%\,\text{Apply} = \frac{1}{N} \sum_{i=1}^{N} \mathbb{1}\big[\hat{\delta}_i \text{ সফলভাবে apply হয়েছে}\big] \times 100
 $$
+**এটা কী হিসাব করে:** ১০০টার মধ্যে কতগুলো task ঠিক হয়েছে (% Resolved), আর কতগুলোর patch অন্তত project-এ বসেছে (% Apply)। ফল নিচের ছোট উদাহরণে দেখো।
 **Worked example:** N = 2,294; Claude 2 = 1.96% → $2294 \times 0.0196 \approx 45$টা task solve করেছে। আর % Apply = 43.07% → প্রায় 988টা patch অন্তত syntax/format ঠিক রেখে apply হয়েছে, কিন্তু তার মধ্যে মাত্র 45টা আসলে সঠিক।
+
+**সহজ কথায়:** patch বসানো আর সঠিক হওয়া এক জিনিস না। প্রায় ১,০০০টা patch ঠিকঠাক বসেছে, কিন্তু সঠিক ছিল মাত্র ৪৫টা।
 
 ### ৬.৫ BM25 Retrieval Score
 Query $Q$ (issue text)-এ শব্দ $q_1, \dots, q_n$; document $D$ (একটা code file):
@@ -235,6 +327,7 @@ $$
 $$
 \text{IDF}(q_i) = \ln\!\left(\frac{N - n(q_i) + 0.5}{n(q_i) + 0.5} + 1\right)
 $$
+**এটা কী হিসাব করে:** প্রতিটা file একটা নম্বর পায়, bug-এর বিবরণের সঙ্গে সেটা কতটা মেলে। বেশি নম্বর মানে file-টা আগে দেখানো হবে। IDF অংশ বলে, দুর্লভ শব্দ মিললে বেশি নম্বর।
 | Symbol | মানে |
 |---|---|
 | $f(q_i, D)$ | file $D$-তে শব্দ $q_i$ কতবার আছে (term frequency) |
@@ -252,49 +345,65 @@ $$
 
 **সীমাবদ্ধতা:** BM25 শুধু শব্দ মেলায়, **অর্থ (semantics)** বোঝে না। Issue-তে "proxy error" লেখা থাকলে আর code-এ `get_connection` নামে function থাকলে BM25 মিলাতে পারবে না।
 
+**সহজ কথায়:** BM25 শুধু শব্দ মেলায়, মানে বোঝে না। তাই bug-এর বিবরণে একরকম শব্দ আর code-এ অন্যরকম নাম থাকলে সে ধরতে পারে না।
+
 ### ৬.৬ Retrieval Recall (Oracle-এর তুলনায়)
 $O$ = oracle file set, $\hat{R}$ = BM25 যে file গুলো এনেছে:
 $$
 \text{Recall} = \frac{|\hat{R} \cap O|}{|O|}
 $$
+**এটা কী হিসাব করে:** দরকারি file গুলোর মধ্যে কতগুলো খোঁজকারী আসলে এনেছে। যেমন ৪টা দরকারি, ২টা পেলে recall = ০.৫।
 Paper তিনভাবে report করেছে:
 - **Avg:** গড় recall
 - **All:** কত % task-এ $O \subseteq \hat{R}$ (সব দরকারি file পেয়েছে)
 - **Any:** কত % task-এ $\hat{R} \cap O \neq \emptyset$ (অন্তত একটা দরকারি file পেয়েছে)
+
+**সহজ কথায়:** Avg হলো গড় সাফল্য। All হলো কঠোর মাপ, সব দরকারি file পেয়েছে কিনা। Any হলো সহজ মাপ, অন্তত একটা পেয়েছে কিনা।
 
 ### ৬.৭ LoRA (SWE-Llama-তে ব্যবহৃত)
 মূল weight matrix $W_0 \in \mathbb{R}^{d \times k}$ freeze রেখে:
 $$
 W' = W_0 + \Delta W = W_0 + \frac{\alpha}{r}\, B A, \qquad B \in \mathbb{R}^{d \times r},\; A \in \mathbb{R}^{r \times k},\; r \ll \min(d, k)
 $$
+**এটা কী হিসাব করে:** পুরনো বড় matrix ($W_0$) একদম না ছুঁয়ে তার পাশে ছোট দুটো matrix ($A$ ও $B$) জুড়ে দেওয়া হয়। শুধু ছোট দুটো শেখানো হয়। এভাবে খরচ কমে।
 শুধু $A$ ও $B$ train হয়।
 
 **Worked example:** $d = k = 4096$ হলে full fine-tuning-এ একটা matrix-এ $4096 \times 4096 \approx 16.7$M parameter। LoRA ($r=16$)-তে $2 \times 4096 \times 16 = 131{,}072$ parameter — **মাত্র ~0.78%**। তাই কম GPU memory-তে train করা যায়। এখানে $\alpha/r = 16/16 = 1$।
+
+**সহজ কথায়:** পুরো matrix শেখালে প্রায় ১.৭ কোটি সংখ্যা শিখতে হতো। LoRA-তে মাত্র ১ লক্ষ ৩১ হাজার। মানে খরচ প্রায় ১০০ ভাগের ১ ভাগ।
 
 ### ৬.৮ Fine-tuning Loss (Causal LM Cross-Entropy)
 Input $x$ (issue + code), target patch $y = (y_1, \dots, y_m)$:
 $$
 \mathcal{L}(\theta) = -\sum_{t=1}^{m} \log p_\theta(y_t \mid x,\, y_{<t})
 $$
+**এটা কী হিসাব করে:** model-এর "ভুলের মাপ"। সঠিক patch-এর প্রতিটা শব্দ model যত কম সম্ভাবনায় ধরেছে, loss তত বেশি। training-এ এটাকে কমানোই লক্ষ্য।
 অর্থাৎ model-কে শেখানো হয় gold patch-এর প্রতিটা token সঠিকভাবে predict করতে।
 
 ### ৬.৯ Greedy Decoding
 $$
 y_t = \arg\max_{v \in V}\; p_\theta(v \mid x,\, y_{<t})
 $$
+**এটা কী হিসাব করে:** প্রতিবার সবচেয়ে সম্ভাব্য পরের শব্দটা বেছে নেওয়া। কোনো এলোমেলো বাছাই নেই, তাই একই input-এ একই output।
 
 ### ৬.১০ সম্পর্কিত সূত্র: Pass@k (Chen et al., 2021 — HumanEval)
 Paper এটা ব্যবহার না করলেও তুলনার জন্য জানা দরকার। $n$টা sample-এর মধ্যে $c$টা সঠিক হলে:
 $$
 \text{pass@}k = \mathbb{E}\left[1 - \frac{\binom{n-c}{k}}{\binom{n}{k}}\right]
 $$
+**এটা কী হিসাব করে:** k বার চেষ্টা করলে অন্তত একবার সঠিক হওয়ার সম্ভাবনা। k = ১ হলে এটা সরাসরি "একবারে কত % ঠিক"।
 SWE-bench শুধু 1টা sample নিয়েছে, তাই এটা মূলত **pass@1**।
+
+**সহজ কথায়:** SWE-bench-এ একবারই চেষ্টা, তাই pass@1-ই যথেষ্ট। বেশি বার চেষ্টা করালে ফল ভালো দেখাত, কিন্তু সেটা আসল ব্যবহারের মতো হতো না।
 
 ### ৬.১১ Cyclomatic Complexity (Appendix-এ code quality analysis-এ ব্যবহৃত)
 $$
 M = E - N + 2P
 $$
+**এটা কী হিসাব করে:** code-এ কতগুলো আলাদা পথ (if, loop) আছে তার গণনা। সংখ্যা বেশি মানে code বোঝা ও test করা কঠিন।
 $E$ = control-flow graph-এর edge, $N$ = node, $P$ = connected component। যত বেশি branch (if/else/loop), তত বেশি complexity। Paper দেখিয়েছে Claude 2-এর একটা সঠিক patch-ও gold patch-এর চেয়ে বেশি complexity তৈরি করেছে (3→5 বনাম 2→3)।
+
+**সহজ কথায়:** AI-র patch পাস করলেও সেটা মানুষের patch-এর চেয়ে জটিল হতে পারে। জটিল code মানে ভবিষ্যতে bug-এর ঝুঁকি বেশি।
 
 ---
 
@@ -321,6 +430,8 @@ $E$ = control-flow graph-এর edge, $N$ = node, $P$ = connected component। �
 | Fail-to-pass tests | 9.1 | 1,633 |
 | Total tests | 120.8 | 9,459 |
 
+**সহজ কথায়:** একটা সাধারণ প্রশ্নে bug-এর বিবরণ প্রায় ২০০ শব্দ, project প্রায় ৪ লক্ষ line, আর সঠিক উত্তর বদলায় গড়ে মাত্র ১.৭টা file। মানে বিশাল খড়ের গাদায় একটা ছোট সূচ খোঁজা।
+
 ---
 
 ## ৮. Results — মূল ফলাফল
@@ -336,6 +447,8 @@ $E$ = control-flow graph-এর edge, $N$ = node, $P$ = connected component। �
 
 *GPT-4 শুধু 25% subset-এ।
 
+**সহজ কথায়:** সেরা AI-ও BM25-এ ১০০টার মধ্যে মাত্র ২টা পেরেছে। আগে থেকে সঠিক file দিলেও ১০০টার মধ্যে ৫টা। GPT-4-র ০.০০ মানে ওই সেটে একটাও ঠিক হয়নি।
+
 ### ৮.২ Context length বাড়লে কী হয় (Claude 2, BM25)
 | Context limit | 13k | 27k | 50k |
 |---|---|---|---|
@@ -343,6 +456,8 @@ $E$ = control-flow graph-এর edge, $N$ = node, $P$ = connected component। �
 | BM25 Recall (Avg) | 29.58 | 44.41 | 51.06 |
 
 **গুরুত্বপূর্ণ paradox:** Context বাড়ালে সঠিক file পাওয়ার সম্ভাবনা (recall) **বাড়ে**, কিন্তু performance **কমে**! কারণ model অপ্রাসঙ্গিক code-এ "বিভ্রান্ত" হয়ে যায় (*lost in the middle* phenomenon)।
+
+**সহজ কথায়:** বেশি পড়তে দিলে সঠিক file পাওয়ার সুযোগ বাড়ে। কিন্তু AI অপ্রয়োজনীয় লেখার ভিড়ে হারিয়ে যায়। ফল, বেশি দিলেও নম্বর কমে।
 
 ### ৮.৩ Oracle-collapsed (Ablation)
 | Model | Oracle | Oracle-collapsed |
@@ -352,6 +467,8 @@ $E$ = control-flow graph-এর edge, $N$ = node, $P$ = connected component। �
 
 অপ্রাসঙ্গিক code সরিয়ে দিলে performance বাড়ে → **Localization (সঠিক জায়গা খুঁজে পাওয়া)-ই মূল bottleneck।**
 
+**সহজ কথায়:** ভিড় কমিয়ে দিলে AI ভালো করে। তার মানে AI-র আসল কঠিন কাজ "কোথায় দেখতে হবে" ঠিক করা।
+
 ### ৮.৪ Model patch বনাম Gold patch (Oracle setting, Table 8)
 | | Total lines | Files |
 |---|---|---|
@@ -359,6 +476,8 @@ $E$ = control-flow graph-এর edge, $N$ = node, $P$ = connected component। �
 | Gold patch (সব) | 74.5 | 1.7 |
 
 Model রা ছোট, সরল, "greedy" patch লেখে; প্রায় কখনো একাধিক file edit করে না।
+
+**সহজ কথায়:** মানুষ গড়ে ৭৪.৫ line বদলায় এবং ১.৭টা file ছোঁয়। AI ছোট করে, প্রায় একটাই file বদলায়। অর্থাৎ বড় সমস্যায় AI অল্প করে ঠেকা দিতে চায়।
 
 ### ৮.৫ Date অনুযায়ী (Contamination check)
 2023-এর আগে ও পরের issue-তে performance প্রায় একই (Claude 2: 4.87 বনাম 4.23) → model মুখস্থ থেকে উত্তর দিচ্ছে এমন শক্ত প্রমাণ নেই। (তবে এটা দুর্বল প্রমাণ — Section ১২ দেখো।)
@@ -371,9 +490,11 @@ Model রা ছোট, সরল, "greedy" patch লেখে; প্রায�
 2. **Retrieval/Localization হলো সবচেয়ে বড় bottleneck** — Oracle file দিলে performance ~2.5 গুণ বাড়ে।
 3. **বেশি context ≠ ভালো performance** — model noise-এ বিভ্রান্ত হয়।
 4. **Patch format কঠিন, কিন্তু পুরো file লেখার চেয়ে ভালো** — পুরো file regenerate করলে Claude 2: 2.2% বনাম patch-এ 4.8%।
-5. **Fine-tuned model distribution shift-এ sensitive** — SWE-Llama oracle context-এ train হয়েছে, তাই BM25 context-এ (যেখানে অনেক file বদলানোর দরকার নেই) খারাপ করেছে।
-6. **Model-রা ভিন্ন ভিন্ন task solve করে** — Claude 2 ও SWE-Llama 13B প্রায় সমান সংখ্যক solve করলেও overlap মাত্র 42% → ensemble-এর সুযোগ আছে।
+5. **Fine-tuned model distribution shift-এ sensitive** (train-এর ধরন আর test-এর ধরন আলাদা হলে ঘাবড়ে যায়) — SWE-Llama oracle context-এ train হয়েছে, তাই BM25 context-এ (যেখানে অনেক file বদলানোর দরকার নেই) খারাপ করেছে।
+6. **Model-রা ভিন্ন ভিন্ন task solve করে** — Claude 2 ও SWE-Llama 13B প্রায় সমান সংখ্যক solve করলেও overlap মাত্র 42% → ensemble-এর (কয়েকটা model মিলিয়ে একসঙ্গে ব্যবহার) সুযোগ আছে।
 7. **Test pass করা মানেই ভালো code নয়** — model-এর patch কম comprehensive, কম readable, বেশি complex হতে পারে (authors নিজেরাই স্বীকার করেছেন)।
+
+**সহজ কথায়:** এই ৭টা কথা মনে রাখলেই paper-এর সারকথা বলা যায়। সবচেয়ে বড় দুটো হলো, "খোঁজাই আসল কঠিন কাজ" আর "test pass মানেই সঠিক নয়"।
 
 ---
 
@@ -389,6 +510,8 @@ Model রা ছোট, সরল, "greedy" patch লেখে; প্রায�
 | Update করা যায়? | না (static) | কঠিন (manual) | **হ্যাঁ — automatic pipeline** |
 | Contamination প্রতিরোধ | না | না | **নতুন PR দিয়ে refresh করা যায়** |
 | Language | Python | Java | Python |
+
+**সহজ কথায়:** অন্য benchmark ছোট বা আংশিক বাস্তব। SWE-bench-ই একমাত্র যেখানে আসল project, আসল bug, আর পুরনো feature না ভাঙার যাচাই একসঙ্গে আছে।
 
 **মূল শক্তি:**
 1. **Realism (ecological validity):** বাস্তব কাজের সাথে মিল।
@@ -415,6 +538,8 @@ Model রা ছোট, সরল, "greedy" patch লেখে; প্রায�
 - **Code quality, security, maintainability** মাপতে চাইলে — benchmark শুধু functional correctness দেখে।
 - **Feature development / long-horizon task** — বেশিরভাগ task ছোট bug fix।
 
+**সহজ কথায়:** SWE-bench ছোট bug ঠিক করার পরীক্ষা। নতুন বড় feature বানানো, অন্য language, নিরাপত্তা বা code-এর সৌন্দর্য মাপতে চাইলে এটা যথেষ্ট নয়।
+
 ---
 
 ## ১২. Limitations — দুর্বলতা
@@ -436,6 +561,8 @@ Model রা ছোট, সরল, "greedy" patch লেখে; প্রায�
 8. **Environment reproducibility:** প্রথম version conda-based ছিল; পরে Docker-এ নেওয়া হয়েছে কারণ environment flaky ছিল।
 9. **Security dimension নেই:** Agent-এর patch নতুন vulnerability তৈরি করছে কিনা তা দেখা হয় না।
 
+**সহজ কথায়:** মূল দুর্বলতা হলো "পরীক্ষাটাই কতটা নির্ভরযোগ্য"। দুর্বল test হলে ভুল উত্তরও নম্বর পায়। আর একবার মাত্র চালানো হয়েছে বলে AI কতটা ধারাবাহিক তা জানা যায় না।
+
 ---
 
 ## ১৩. Research Gaps — কোথায় কাজ করার সুযোগ আছে
@@ -452,17 +579,21 @@ Model রা ছোট, সরল, "greedy" patch লেখে; প্রায�
 | G8 | **Graded / partial-credit metric** | Binary metric progress লুকায় | — (খোলা) |
 | G9 | **Multimodal issue (image)** | UI/plotting bug | — (খোলা, পরে SWE-bench Multimodal এসেছে) |
 
+**সহজ কথায়:** এই তালিকা হলো "কোথায় এখনো কাজ বাকি"। G1 ও G4 আমাদের domain-এর (reliability ও assurance) সবচেয়ে কাছের। G7, G8, G9-এ আমাদের folder-এর কোনো paper এখনো কাজ করেনি।
+
 ---
 
 ## ১৪. কী করলে আরও ভালো হবে — Improvement Ideas
 
-1. **Test augmentation:** LLM বা mutation testing দিয়ে প্রতিটা task-এ অতিরিক্ত test তৈরি করে "resolved" patch আবার যাচাই করা → false positive rate মাপা।
+1. **Test augmentation:** LLM বা mutation testing (code-এ ইচ্ছে করে ছোট ভুল ঢুকিয়ে test কতটা ধরতে পারে দেখা) দিয়ে প্রতিটা task-এ অতিরিক্ত test তৈরি করে "resolved" patch আবার যাচাই করা → false positive rate (ভুল patch-কে সঠিক বলে ধরার হার) মাপা।
 2. **Multi-dimensional score:** শুধু `Resolved` নয় —
    $$\text{AssuranceScore} = w_1 \cdot \text{Correctness} + w_2 \cdot \text{Security} + w_3 \cdot \text{Quality} + w_4 \cdot \text{Consistency}$$
    (এটা আমার প্রস্তাবিত idea — paper-এ নেই।)
 3. **Repeated-run reliability:** প্রতিটা task k বার চালিয়ে **pass^k** (সব k বার সফল হওয়ার হার) মাপা — pass@k-এর উল্টো, এটা reliability মাপে।
 4. **Issue quality classifier:** কোন issue underspecified তা আগে detect করে আলাদা report।
-5. **Semantic retrieval:** BM25-এর বদলে code-aware embedding বা AST/call-graph ভিত্তিক retrieval।
+5. **Semantic retrieval:** BM25-এর বদলে code-aware embedding বা AST/call-graph (code-এর গাছের মতো কাঠামো ও কে কাকে ডাকে তার নকশা) ভিত্তিক retrieval।
+
+**সহজ কথায়:** আমাদের প্রস্তাব হলো শুধু "পাস না ফেল" না দেখে, patch-টা কতটা ভরসাযোগ্য সেটাও মাপা।
 
 ---
 
@@ -476,6 +607,8 @@ Model রা ছোট, সরল, "greedy" patch লেখে; প্রায�
 | **G4+G1: Multi-dimensional assurance** (correctness + security + quality) | ✅ হ্যাঁ — Semgrep/Bandit/CodeQL + test | উচ্চ, domain-এর নামের সাথে সরাসরি মেলে | ⭐⭐⭐⭐⭐ |
 | **G5: Run-to-run reliability** | ✅ হ্যাঁ, কিন্তু API cost বেশি | মাঝারি-উচ্চ | ⭐⭐⭐ |
 | G2: নতুন contamination-free benchmark | ⚠️ কঠিন (অনেক infra লাগে) | মাঝারি (SWE-rebench আছে) | ⭐⭐ |
+
+**সহজ কথায়:** ছাত্র হিসেবে সবচেয়ে বাস্তব পথ হলো G1 ও G4 মিলিয়ে কাজ করা। কম infra লাগে, নতুনত্বও আছে।
 
 **সম্ভাব্য venue (general guidance):**
 - **Conference:** ICSE, FSE, ASE, ISSTA (top SE); তাদের workshop (যেমন LLM4Code) — student-এর জন্য শুরু করা সহজ।
@@ -590,6 +723,8 @@ A: SWE-bench evaluation pipeline (Lite/Verified subset), BM25 baseline, এব�
 | Multimodal (paper-এ image-সহ issue বাদ পড়ে) | — | Official top 35.98% (শেষ entry 2025-11); Opus 5.5: 61.4% (**vendor-reported**) | leaderboards.json; Opus 5.5 System Card |
 | প্রতি task-এর খরচ | Paper-এ মাপা হয়নি (critique #7) | Verified-এ USD 0.10 (DeepSeek V4 Pro) থেকে USD 2.05 (Fable 5) per test (**independent**) | Vals.ai, Sept 2026 |
 
+**সহজ কথায়:** ২০২৩-এ সেরা ছিল ২%, আর ২০২৬-এ নতুন model-এর সংখ্যা ৯০%-এর উপরে। কিন্তু benchmark নিজেই দুর্বল ও পুরনো হয়ে যাওয়ায় সংখ্যাগুলো পুরোপুরি বিশ্বাসযোগ্য নয়।
+
 **আমার পর্যবেক্ষণ:** $\frac{97.0}{1.96} \approx 49.5$ গুণ। কিন্তু এটা একই benchmark নয় (full 2,294 বনাম Verified 500), একই setting নয় (single-shot RAG বনাম agent harness)। আর fact sheet নিজেই বলছে official board-এ Feb 2026-এ ~79% আর Vals-এ Sept 2026-এ ~97% — একই 500 task-এ এত দ্রুত লাফ, সাথে 59.4% flawed test-এর তথ্য মিলিয়ে ~90%-এর উপরের score-এর একটা অংশ memorization বা contamination হতে পারে। এটা fact sheet-এর লেখকেরও **অনুমান, মাপা তথ্য নয়**।
 
 ### ২১.২ কোন Finding এখনো সত্য, কোনটা পুরনো হয়ে গেছে
@@ -616,6 +751,8 @@ A: SWE-bench evaluation pipeline (Lite/Verified subset), BM25 baseline, এব�
 | G8: Graded / partial-credit metric | **আংশিক সমাধান** | FrontierCode v1.1 held-out test-এর সাথে model-graded "mergeability" rubric ব্যবহার করে; কিন্তু LLM judge নিজেই অবিশ্বস্ত — ComPass-এ plain LLM baseline মাত্র 62.14% (search-snippet only) |
 | G9: Multimodal issue | **আংশিক সমাধান** | SWE-bench Multimodal আছে; official top 35.98% (2025-11), vendor দাবি 61.4% |
 | CG10 / CG12: Evaluation validity ও verifier gaming | **খোলা, নতুন রূপে** | SWE-Bench Pro Verified (arXiv 2609.08149): GLM-5.2-এর score 78.80% থেকে anti-hacking safeguard দিলে 57.32%; agent `.git` history থেকে gold patch পড়ে |
+
+**সহজ কথায়:** paper-এর রেখে যাওয়া বেশিরভাগ gap ২০২৬-এও পুরো সমাধান হয়নি। তাই আমাদের গবেষণার সুযোগ এখনো আছে।
 
 ### ২১.৪ বর্তমান Model দিয়ে আবার পরীক্ষা করলে — SPL3 Idea
 

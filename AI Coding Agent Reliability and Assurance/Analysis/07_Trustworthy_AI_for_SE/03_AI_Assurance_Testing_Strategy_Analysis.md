@@ -18,6 +18,59 @@
 | Reference সংখ্যা | ৫টি ([1] Xia et al. EDD process model; [2] BLEU; [3] ROUGE; [4] RAGAS; [5] deepeval, May 2026) |
 | আমাদের project-এ ভূমিকা | "Assurance process বাস্তবে কেমন" — industry practice-এর উদাহরণ, evidence নয় |
 
+## ★ সহজ ভাষায় পুরো Paper (প্রথমবার পড়ার জন্য)
+
+### ক. Paper-টা কী নিয়ে?
+
+- এটা একটা **strategy paper** (কীভাবে কাজ করা উচিত তার পরিকল্পনা-পত্র)। এখানে কোনো experiment বা নতুন tool নেই।
+- লিখেছেন Thoughtworks নামের একটি software কোম্পানির চারজন engineer (ভারত)। তারা বাস্তব কাজের অভিজ্ঞতা থেকে লিখেছেন।
+- বিষয়: ChatGPT-ধরনের AI (LLM, RAG, agent) দিয়ে বানানো কোম্পানির system-কে কীভাবে test করলে আমরা তাকে ভরসা করতে পারি।
+- Paper-এর মূল কথা: AI-এর উত্তর প্রতিবার একই হয় না। তাই "পাশ করেছে, শেষ" বলা যায় না। বরং ঝুঁকি ধাপে ধাপে কমাতে হয়।
+- ছাপা হয়েছে arXiv-এ (May 2026)। কোনো সম্মেলনে peer-review হয়নি।
+
+### খ. সমস্যাটা কী ছিল?
+
+- আগে software test করা সহজ ছিল। একই input দিলে একই output আসত। তাই "pass" বা "fail" বলা যেত।
+- AI system-এ এটা ভাঙে। একই প্রশ্ন দুইবার করলে দুই রকম উত্তর আসতে পারে।
+- তবু অনেক কোম্পানি পুরনো পদ্ধতিতেই AI test করছিল। এতে মিথ্যা আত্মবিশ্বাস তৈরি হয়।
+- **উদাহরণ:** একটি travel assistant ফ্লাইট-হোটেল বুক করে। আজ সে ঠিক করল, কিন্তু provider চুপিচুপি model বদলালে কাল ভুল করতে পারে। কোনো error message আসবে না। উত্তর শুধু ভুল হবে, দেখতে ঠিক মনে হবে।
+- আরেকটা সমস্যা: যে সব benchmark (MMLU, HumanEval) দিয়ে model মাপা হয়, সেগুলো তোমার নিজের product ঠিক আছে কিনা বলে না।
+
+### গ. Paper কী solve করেছে?
+
+- **Failure taxonomy:** AI কীভাবে ভুল করতে পারে তার ১৫টি ধরন, ৫টি category-তে সাজানো।
+- **AI Assurance Pyramid:** ৫টি স্তর (Layer 0–4)। নিচের স্তরে সস্তা ও নির্দিষ্ট test, উপরের স্তরে ব্যয়বহুল ও বড় ছবির test।
+- **Evaluation-Driven Development:** আগে "কী ঠিক উত্তর" ঠিক করো, তারপর বানাও, বারবার মাপো।
+- **RAG-এর ৪টি metric এবং model/drift পরিচালনার নিয়ম।**
+- গুরুত্বপূর্ণ সংখ্যা (মনে রাখো, এগুলো মাপা ফল নয়, প্রস্তাবিত মান):
+  - Faithfulness gate **0.90** — মানে AI-র ১০০টা দাবির মধ্যে অন্তত ৯০টা দেওয়া তথ্য দিয়ে সমর্থিত হতে হবে।
+  - Consistency verdict: pass rate **< 0.5** মানে সবসময় ব্যর্থ, **< 0.9** মানে "flaky" (১০ বারে ৫–৮ বার পাশ)।
+  - Drift trigger: **৭ দিনে 5%-এর বেশি** score কমলে সতর্কতা। মানে ১০০-র মধ্যে ৯৫ থেকে প্রায় ৯০-তে নামলে alarm।
+
+### ঘ. কীভাবে solve করেছে?
+
+1. প্রথমে AI-কে তিন ধাপে ভাগ করেছে: শুধু LLM, tool চালানো agent, আর অনেক agent মিলে agentic system। প্রতিটির test-সমস্যা আলাদা।
+2. তারপর "ভুল কী কী হতে পারে" তার তালিকা (taxonomy) বানিয়েছে। আগে ভুল চেনো, পরে test সাজাও।
+3. Test আর evaluation আলাদা করেছে। Test মানে pass/fail। Evaluation মানে অনেক নমুনার উপর score।
+4. প্রতিটি prompt-এর জন্য একটি "golden dataset" (সাধারণ, কঠিন, অস্পষ্ট, বিপজ্জনক input আর প্রত্যাশিত উত্তর) বানাতে বলেছে।
+5. আগে deterministic check (যেমন JSON ঠিক আছে কিনা), তারপর শুধু দরকারে LLM judge। কিছু বিষয় (যেমন safety) "mandatory gate" — এটা fail করলে মোট score যাই হোক fail।
+6. একই input ১০ বার চালিয়ে দেখো কতবার পাশ করে। এটাই consistency।
+7. Pyramid-এর পাঁচ স্তরে test ভাগ করেছে এবং production-এ সমস্যা হলে নিচ থেকে উপরে খুঁজতে বলেছে।
+8. Model বা prompt বদলালে, এবং প্রতিদিন, আবার evaluation চালাতে বলেছে। ভুল ধরা পড়লে তা dataset-এ যোগ করতে বলেছে। মানুষের review ও audit record রাখতে বলেছে।
+
+### ঙ. এরপর কী করা যায়?
+
+- **Authors যা বলে:** RAG-এর চার metric যথেষ্ট নয়; domain অনুযায়ী আরও লাগবে। অজানা ভুল (unknown unknowns) কখনো পুরো তালিকায় আনা যায় না।
+- **খোলা প্রশ্ন:** থ্রেশহোল্ডগুলো (0.90, 0.85, 5%) কোথা থেকে এল? কেউ মাপেনি।
+- **খোলা প্রশ্ন:** LLM judge নিজে কতটা নির্ভরযোগ্য? Paper কিছু বলেনি।
+- **আমরা SPL3-তে:** coding-agent-এর patch-এর জন্য নিজেদের pyramid বানাতে পারি (environment check, test, judge, security scan, trajectory audit)।
+- **আমরা SPL3-তে:** নিজেদের data দিয়ে threshold calibrate করতে পারি এবং judge-এর recall/specificity মাপতে পারি।
+- **আমরা SPL3-তে:** "pass / fail / could-not-verify" তিন রকম ফল রাখতে পারি।
+
+> **মনে রাখো:**
+> এই paper প্রমাণ দেয় না, একটা কাজের নকশা দেয়: আলাদা signal, mandatory gate, consistency, drift নজরদারি, মানুষের review, audit record।
+> এর সংখ্যাগুলো অযাচাইকৃত। আমাদের কাজ হলো coding-agent-এর জন্য সেগুলো নিজে মাপা।
+
 ## ১. TL;DR
 
 - Paper-এর মূল দাবি: LLM/RAG/agent-ভিত্তিক enterprise system probabilistic, তাই classical অর্থে "correct প্রমাণ" করা যায় না; লক্ষ্য হওয়া উচিত continuous risk reduction।
@@ -26,6 +79,8 @@
 - সবচেয়ে কাজের concrete সংখ্যা: faithfulness gate 0.90, context recall 0.85, precision ও relevancy 0.80 (Listing 5); weighted score 0.4/0.4/0.2 ও final pass threshold 0.8 (Listing 3); consistency verdict: pass rate < 0.5 = CONSISTENT_FAILURE, < 0.9 = FLAKY, নইলে CONSISTENT_PASS (Listing 4, n = 10); drift trigger: ৭ দিনে 5%-এর বেশি score কমলে flag (Table 12)।
 - সীমাবদ্ধতা: এই সংখ্যাগুলো কোনো experiment থেকে আসেনি; কোনো baseline, কোনো case-study সংখ্যা, কোনো ablation নেই। এটি design guidance, measured evidence নয়।
 - আমাদের জন্য: assurance report-এর কাঠামো (আলাদা signal, mandatory gate, consistency, drift trigger, human escalation, audit lineage) এখান থেকে নেওয়া যায়; কিন্তু threshold ও judge-এর validity আমাদেরই মাপতে হবে।
+
+**সহজ কথায়:** Paper একটা ভালো নকশা দেয়, কিন্তু নকশার সংখ্যাগুলো কেউ পরীক্ষা করেনি। তাই নকশা নিই, সংখ্যা নিজেরা যাচাই করি। (Gate মানে এমন পরীক্ষা যা পাশ না করলে এগোনো যায় না। Drift মানে সময়ের সাথে আচরণ ধীরে বদলে যাওয়া।)
 
 ### Supervisor-কে ৩০ সেকেন্ডে
 
@@ -50,6 +105,8 @@
 - **RAG metrics:** context precision, context recall, faithfulness, answer relevancy (RAGAS/DeepEval) — retrieval ও generation আলাদা করে মাপে।
 - **Defect leakage rate:** Layer 0-এর failure যা প্রথমে উপরের layer-এ ধরা পড়ে তার শতাংশ (Table 5 KPI); "pyramid কতটা কাজ করছে" তার নিজস্ব মাপকাঠি।
 
+**সহজ কথায়:** এই ধারণাগুলোর মূল কথা একটাই। AI-র উত্তর বদলায়, তাই একবার দেখে ভরসা নয়। অনেক নমুনা, বারবার, আলাদা আলাদা দিক থেকে মেপে ভরসা জমাতে হয়। (Judge মানে অন্য একটি LLM যে উত্তরের নম্বর দেয়। Pass rate মানে ১০ বারে কতবার পাশ।)
+
 ## ৩. Problem
 
 - Enterprise team-রা AI system কে conventional software-এর মতো test suite, pass/fail gate ও release-time validation দিয়ে যাচাই করছে (Summary)। Paper-এর ভাষায় এটি "structural mismatch", resource-এর সমস্যা নয়।
@@ -60,6 +117,8 @@
 - Cloud model-এ নির্ভরতা: provider ১২–১৮ মাসের মধ্যে model retire করে এবং changelog ছাড়া update করে (§7); তাই আজ পাশ করা system কাল fail করতে পারে।
 - Evaluation infrastructure ad-hoc, প্রতি project-এ আবার বানানো হয়; sustainable নয় (§8.4)।
 
+**সহজ কথায়:** সমস্যা হলো পুরনো ছাঁচে নতুন জিনিস মাপা। এ যেন থার্মোমিটার দিয়ে ওজন মাপার চেষ্টা। AI-র উত্তর বদলায়, model নিজে বদলায়, আর ভুল করলেও error আসে না। তাই নতুন ধরনের মাপার পদ্ধতি লাগে। ("Structural mismatch" মানে কাঠামোতেই অমিল।)
+
 ## ৪. Goal & RQ
 
 - Paper কোনো formal RQ দেয় না। Abstract থেকে অন্তর্নিহিত লক্ষ্য: engineering leader ও practitioner-কে এমন strategy দেওয়া যা "philosophically grounded and operationally deployable"।
@@ -69,6 +128,8 @@
   3. কোন layer-এ কোন failure ধরা হবে (pyramid) এবং কত খরচে?
   4. model/prompt বদলে ও drift হলে confidence কীভাবে বজায় থাকবে (lifecycle, monitoring, governance)?
 - Paper-এর "five core arguments" (§9.1): (১) risk reduction দর্শন, CI/CD-ই সঠিক analogy; (২) taxonomy আগে, strategy পরে; (৩) evaluation behaviour নির্ধারণ করে; (৪) pyramid অর্থনীতি প্রতিফলিত করবে (নিচে বেশি coverage); (৫) evaluation infrastructure একটি platform।
+
+**সহজ কথায়:** Paper কোনো গবেষণা-প্রশ্নের উত্তর খোঁজেনি। সে একটা নির্দেশিকা দিয়েছে: কীভাবে ভাবব, কী কী ভুল হতে পারে, কোথায় test করব, আর পরে confidence কীভাবে ধরে রাখব। (RQ মানে research question। CI/CD মানে code বদলালেই স্বয়ংক্রিয়ভাবে build ও test চালানোর ব্যবস্থা।)
 
 ## ৫. Methodology (ধাপে ধাপে)
 
@@ -89,6 +150,8 @@
 13. **Monitoring (§7.5, Table 12):** trigger: scheduled (অন্তত দৈনিক, Layer 1-এর full prompt suite), model version change (সব prompt, সব layer), prompt update, production incident। Incident-কে evaluation coverage-এ রূপান্তর।
 14. **Governance (§8):** HITL (uncertainty threshold, sampling, escalation), cost lever (deterministic আগে, tiered frequency, risk-proportionate coverage), auditability (model version, prompt version, retrieved context, eval verdict), evaluation engineering team।
 
+**সহজ কথায়:** পুরো process-টা একটা চক্র। ভুলের তালিকা বানাও, dataset বানাও, সস্তা test আগে চালাও, দামী test পরে। এরপর model বদলালে বা প্রতিদিন আবার চালাও। ভুল ধরা পড়লে সেটা dataset-এ ঢোকাও। আর মানুষ ও record রাখো। (HITL মানে human-in-the-loop, অর্থাৎ সিদ্ধান্তের পথে মানুষ। Escalation মানে সমস্যা উপরের স্তরে পাঠানো। Audit lineage মানে কোন version-এ কী ফল এসেছিল তার লিখিত ইতিহাস।)
+
 ## ৬. Math
 
 Paper-এ কোনো গাণিতিক সূত্র লেখা নেই। নিচে যা আছে তা paper-এর Appendix code ও Table থেকে formalise করা আমার সূত্রায়ন; আলাদা করে "আমার হিসাব" লেবেল দেওয়া হলো।
@@ -98,6 +161,8 @@ Paper-এ কোনো গাণিতিক সূত্র লেখা নে
 n বার চালিয়ে $k$ বার score $\ge 0.8$ হলে pass rate:
 
 $$\hat p = \frac{k}{n}$$
+
+এই সূত্র গুনে বের করে: ১০ বারের মধ্যে কত ভাগ বার AI পাশ করেছে। তারপর সেই ভাগ দেখে তিন রকম রায় (verdict) দেওয়া হয়।
 
 Verdict:
 
@@ -113,7 +178,11 @@ $$
 - $\hat p$ = n রানে পর্যবেক্ষিত pass-এর অনুপাত; $k$ = যে রানে judge score $\geq 0.8$; $n$ = পুনরাবৃত্তি সংখ্যা (code-এ default 10)।
 - Paper-এর §4.6 বলে "fails more than half" = consistent failure, অর্থাৎ $\hat p<0.5$; code-ও একই। Boundary $\hat p=0.5$ code-এ FLAKY।
 
+**সহজ কথায়:** ১০ বারে ৯ বা বেশি পাশ মানে ভালো। ৫ থেকে ৮ বার পাশ মানে "টলমলে" (flaky)। ৫-এর কম মানে প্রায় সবসময় ব্যর্থ।
+
 ### ৬.২ Weighted score ও mandatory gate (Listing 3)
+
+প্রথম সূত্র প্রতিটি দিকের (intent, fact, safety) নম্বরকে তার ওজন দিয়ে গুণ করে যোগ করে এবং একটি মোট score $S$ বের করে। দ্বিতীয় সূত্র বলে: fact ও safety দুটোই পুরো নম্বর না পেলে, মোট score যত ভালোই হোক, ফল fail।
 
 $$S = \sum_{d} w_d \cdot s_d,\qquad w_{\text{intent}}=0.4,\; w_{\text{fact}}=0.4,\; w_{\text{safety}}=0.2$$
 
@@ -121,12 +190,18 @@ $$\text{final\_pass} = \left(s_{\text{fact}}=1\right)\land\left(s_{\text{safety}
 
 - $s_d$ = dimension $d$-এর rubric score (A.2-তে rubric শুধু 0 বা 1); $w_d$ = ওজন; $S$ = aggregate।
 
+**সহজ কথায়:** পরীক্ষার মতো। অঙ্ক, ইংরেজি, নৈতিকতা তিন বিষয়ের নম্বর ওজন ধরে যোগ হয়। কিন্তু দুটি বিষয়ে ফেল করলে মোট নম্বর যতই হোক, পাশ নয়।
+
 ### ৬.৩ RAG gate (Listing 5)
+
+এই সূত্র চারটি RAG metric-কে নিজ নিজ সীমার সাথে মেলায়। চারটিই সীমা পার করলে তবেই deploy। একটিও কম হলে deploy হবে না।
 
 $$\text{deploy} = \left(r_{\text{faith}} \geq \tau_{\text{faith}}\right)\land\left(r_{\text{recall}} \geq \tau_{\text{recall}}\right)\land\left(r_{\text{prec}} \geq \tau_{\text{prec}}\right)\land\left(r_{\text{rel}} \geq \tau_{\text{rel}}\right),\quad \tau_{\text{faith}}=0.90,\; \tau_{\text{recall}}=0.85,\; \tau_{\text{prec}}=0.80,\; \tau_{\text{rel}}=0.80$$
 
 - $r_m$ = metric $m$-এর পরিমাপ; $\tau_m$ = threshold। সবগুলো পূরণ না হলে deploy নয়।
 - Paper metric-এর গাণিতিক সংজ্ঞা দেয়নি; এগুলো RAGAS library-র সংজ্ঞা অনুসরণ করে (paper-এ নেই)।
+
+**সহজ কথায়:** চারটি চেক-লিস্টের সবগুলোতে টিক না পড়লে কাজ ছাড়া যাবে না। (RAG মানে উত্তর দেওয়ার আগে AI আগে document খুঁজে আনে। Metric মানে মাপার একটি মান।)
 
 ### ৬.৪ Worked example (paper-এর সংখ্যা, আমার হিসাব)
 
@@ -140,6 +215,8 @@ $s_{\text{intent}}=0$ হলে $S=0.6<0.8$; $s_{\text{intent}}=1$ হলে $S=
 
 **(গ) Wilson 95% interval (আমার হিসাব):** $n=10$, $\hat p=0.9$:
 
+(Wilson interval মানে: ১০টা নমুনা দেখে সত্যিকারের pass rate কোন সীমার মধ্যে থাকতে পারে তার হিসাব। সূত্রটি $\hat p$ ও $n$ থেকে একটি নিচের ও একটি উপরের সীমা বের করে।)
+
 $$\text{CI}=\frac{\hat p + \frac{z^2}{2n} \pm z\sqrt{\frac{\hat p(1-\hat p)}{n}+\frac{z^2}{4n^2}}}{1+\frac{z^2}{n}},\quad z=1.96$$
 
 ফল প্রায় [0.60, 0.98]। $\hat p=0.8$ হলে প্রায় [0.49, 0.94]। অর্থাৎ n = 10-এ CONSISTENT_PASS ও FLAKY ও কিছুটা CONSISTENT_FAILURE-এর interval ওভারল্যাপ করে; verdict-এর boundary statistically শক্ত নয়।
@@ -149,6 +226,8 @@ $$\text{CI}=\frac{\hat p + \frac{z^2}{2n} \pm z\sqrt{\frac{\hat p(1-\hat p)}{n}+
 **(ঙ) Drift trigger (Table 12): ">5% decline over 7 days"।** Baseline 0.95 হলে relative 5% হ্রাস = 0.9025; absolute 5 percentage point হ্রাস = 0.90। Paper বলেনি কোনটি (অস্পষ্টতা)। Dataset আকার $N=50$ হলে SE $=\sqrt{0.95\times0.05/50}\approx0.031$, অর্থাৎ 5 pp ≈ 1.6 SE — noise থেকে আলাদা করা কঠিন; $N=200$ হলে SE ≈ 0.015, 5 pp ≈ 3.2 SE (আমার হিসাব)।
 
 **(চ) Paper-এর উদাহরণ:** "95% → 80% এক মাসে" ও "95% single run কিন্তু repeated execution-এ 70%" (§4.6, §7.5) — এগুলো illustrative সংখ্যা, measured নয়।
+
+**সহজ কথায়:** এই উদাহরণগুলো দেখায় paper-এর নিয়মে কিছু ফাঁক আছে। (ক) intent গোপনে gate হয়ে যায়। (গ) ১০ বারের নমুনা এত ছোট যে "ভালো" আর "টলমলে" আলাদা করা কঠিন। (ঘ) এমনকি ৯০% ভালো AI-ও ১০ বারই পাশ করে মাত্র ৩৫% সময়। (ঙ) ছোট dataset-এ 5% কমা শুধু কাকতালীয় হতে পারে।
 
 ## ৭. Setup (table)
 
@@ -164,6 +243,8 @@ $$\text{CI}=\frac{\hat p + \frac{z^2}{2n} \pm z\sqrt{\frac{\hat p(1-\hat p)}{n}+
 | Threshold | faithfulness 0.90, recall 0.85, precision 0.80, relevancy 0.80; weighted 0.8; consistency n = 10 |
 | Monitoring cadence | দৈনিক (সর্বনিম্ন) + event trigger; ৭ দিনে 5%-এর বেশি হ্রাসে flag |
 | Validation | কোনো empirical validation নেই |
+
+**সহজ কথায়:** এই table-এর বড় কথা হলো "কিছুই চালানো হয়নি"। সব সংখ্যা প্রস্তাব, ফল নয়।
 
 ## ৮. Results
 
@@ -189,6 +270,8 @@ Paper-এ কোনো measured result নেই। নিচে "paper যা �
 | Stochastic | Stochastic inconsistency | রানের মধ্যে pass-rate variance অগ্রহণযোগ্য |
 | Stochastic | Latent emergence | Model update-এর পর অপ্রত্যাশিত সক্ষমতা |
 
+**সহজ কথায়:** AI-র ভুল ১৫ রকম, পাঁচটি দলে ভাগ করা: তথ্যের ভিত্তি (Grounding), চিন্তা (Reasoning), নিরাপত্তা (Safety), সমন্বয় (Coordination), এলোমেলোভাব (Stochastic)। যে ভুলের নাম জানা আছে, তার জন্য test সাজানো সহজ। (Hallucination মানে AI মিথ্যা তথ্য আত্মবিশ্বাসের সাথে বলা। Prompt injection মানে ইনপুটের ভেতর লুকানো নির্দেশ দিয়ে AI-কে ভুল পথে নেওয়া। Reward hacking মানে লক্ষ্য না করে শুধু score বাড়ানোর কৌশল।)
+
 ### ৮.২ Pyramid-এর সারাংশ (Table 5–9)
 
 | Layer | নাম | Live model call | মূল evaluation | উদাহরণ KPI |
@@ -202,6 +285,8 @@ Paper-এ কোনো measured result নেই। নিচে "paper যা �
 - তিন নীতি (§5): উপরে গেলে খরচ বাড়ে; diagnostic specificity কমে; epistemology deterministic verification থেকে probabilistic evaluation-এ সরে।
 - মূল নীতি: failure যতটা সম্ভব নিচের layer-এ ধরা।
 
+**সহজ কথায়:** পিরামিডের নিচে সস্তা ও দ্রুত পরীক্ষা, উপরে ব্যয়বহুল কিন্তু বাস্তবের মতো পরীক্ষা। বাড়ি বানানোর মতো: ইট ঠিক আছে কিনা আগে দেখো, পুরো বাড়ি ঠিক আছে কিনা পরে। নিচে ধরলে খরচ কম, আর ভুল কোথায় তা সহজে বোঝা যায়।
+
 ### ৮.৩ RAG diagnostic profile (Table 11, উল্টানো/পরিষ্কার করে)
 
 | Precision | Recall | Faithfulness | Relevancy | Diagnosis |
@@ -213,6 +298,8 @@ Paper-এ কোনো measured result নেই। নিচে "paper যা �
 | High | High | High | High | সব dimension-এ ভালো |
 
 (Table 11 PDF text-এ column মিশে গিয়েছিল; row-diagnosis মিলানো আমার পুনর্গঠন, মূল ক্রম diagnosis list-এর ক্রমের সাথে সামঞ্জস্যপূর্ণ।)
+
+**সহজ কথায়:** চারটি metric ডাক্তারের রিপোর্টের মতো। কোনটা কম, তা দেখে বোঝা যায় রোগ কোথায়: খোঁজার অংশে (retrieval), নাকি লেখার অংশে (generation)। যেমন সঠিক document এসেছে কিন্তু AI তা থেকে সরে মিথ্যা বলছে, তখন faithfulness কম।
 
 ### ৮.৪ Production symptom → check order (Table 10)
 
@@ -228,6 +315,8 @@ Paper-এ কোনো measured result নেই। নিচে "paper যা �
 
 (Table 10-ও PDF-এ মিশে ছিল; mapping আমার পুনর্গঠন, কিছু row-এর "check first" একাধিক layer থাকতে পারে।)
 
+**সহজ কথায়:** production-এ সমস্যা দেখলে কোন layer থেকে খোঁজা শুরু করবে, এটা তার তালিকা। মোটর গাড়ির ড্যাশবোর্ডের আলো দেখে কোন যন্ত্র দেখতে হবে তার মতো।
+
 ### ৮.৫ Monitoring cadence (Table 12)
 
 | Trigger | Scope | Degradation-এ action |
@@ -236,6 +325,8 @@ Paper-এ কোনো measured result নেই। নিচে "paper যা �
 | Model version change | সব prompt, সব layer | Layer 1 baseline পুনঃপ্রতিষ্ঠা পর্যন্ত deployment block |
 | Prompt update | Updated prompt + নির্ভরশীল downstream prompt | Merge-এর আগে evaluation run বাধ্যতামূলক |
 | Production incident | Affected prompt + upstream component | Origin layer চিহ্নিত করে incident case dataset-এ যোগ |
+
+**সহজ কথায়:** কখন কখন test আবার চালাতে হবে তার ঘড়ি: প্রতিদিন, model বদলালে, prompt বদলালে, আর কোনো দুর্ঘটনা ঘটলে। (Model version change মানে provider নতুন সংস্করণ চালু করলে।)
 
 ## ৯. Key findings
 
@@ -250,6 +341,8 @@ Paper-এ কোনো measured result নেই। নিচে "paper যা �
 7. Model ও prompt একসাথে বদলানো সবচেয়ে ঝুঁকিপূর্ণ; একটি করে variable বদলাও (§7.2)।
 8. Human review automation-এর বিকল্প নয়, পরিপূরক: uncertainty threshold, sampling, escalation; unknown unknowns এর মাধ্যমেই আসে (§8.1)।
 
+**সহজ কথায়:** এই আটটি আসলে paper-এর যুক্তি, পরীক্ষার ফল নয়। সবচেয়ে গুরুত্বপূর্ণ তিনটি: একবার পাশ করলে ভরসা নেই, ঠিক উত্তর ভুল পথে এলে সেটাও ভুল, আর মানুষের চোখ ছাড়া অজানা ভুল ধরা যায় না। (False positive মানে ভুলকে ঠিক বলে ধরা।)
+
 ## ১০. Why better than alternatives
 
 - বনাম classical test pyramid: unit/integration/system/e2e AI-র probabilistic component boundary-তে মেলে না; Layer 0–4 failure class ভিত্তিক (§5)।
@@ -259,6 +352,8 @@ Paper-এ কোনো measured result নেই। নিচে "paper যা �
 - বনাম single aggregate score: diagnostic profile (Table 11) কোথায় ভাঙছে বলে দেয়।
 - বনাম ad-hoc per-project tooling: shared platform ও versioned dataset (§8.4)।
 - (আমার পর্যবেক্ষণ) এই সব "better" দাবি যুক্তিনির্ভর; কোনো প্রতিযোগী পদ্ধতির সাথে measured তুলনা নেই।
+
+**সহজ কথায়:** Paper বলছে "আমাদের পদ্ধতি ভালো" কিন্তু কোনো সংখ্যা দিয়ে দেখায়নি। যুক্তি ঠিক মনে হয়, তবে প্রমাণ নেই। (BLEU/ROUGE হলো পুরনো মাপ যা শুধু শব্দ মেলায়, অর্থ বোঝে না।)
 
 ## ১১. When it works / fails
 
@@ -277,6 +372,8 @@ Paper-এ কোনো measured result নেই। নিচে "paper যা �
 - Dataset ছোট হলে 5% drift trigger noise-প্রবণ (আমার হিসাব §৬.৪ ঙ)।
 - Agent goal completion নিচের layer-এর যোগফল থেকে অনুমান করা যায় না (§6.4); তাই Layer 4-এর ব্যয় এড়ানো যায় না।
 - Provider-এর hidden change এড়াতে কেবল নিজের নিয়ন্ত্রণের evaluation আছে, provider-এর ভেতরের কিছু জানা যায় না।
+
+**সহজ কথায়:** পদ্ধতিটা তখন ভালো কাজ করে যখন output ছক-মাফিক (JSON), dataset ভালো, আর অনেক AI system আছে। আর কাজ করে না যখন কেউ ভাবেনি এমন ভুল আসে, বা judge নিজেই এলোমেলো। (Brittle মানে সামান্য বদলে ভেঙে যাওয়া।)
 
 ## ১২. Limitations
 
@@ -300,6 +397,8 @@ Paper-এ কোনো measured result নেই। নিচে "paper যা �
 - Table 2 ও Table 10, 11 PDF text-এ মিশে গেছে; পাঠে ক্রম পুনর্গঠন করতে হয়েছে।
 - Vendor bias সম্ভব: Thoughtworks consulting প্রতিষ্ঠান; "build dedicated evaluation function" সুপারিশ তাদের পরিষেবার সাথে স্বার্থ-সংগতিপূর্ণ হতে পারে (আমার অনুমান, প্রমাণ নেই)।
 
+**সহজ কথায়:** সবচেয়ে বড় দুর্বলতা: প্রমাণ নেই, সংখ্যাগুলো কোথা থেকে এল জানা নেই, আর judge কতটা নির্ভরযোগ্য তাও বলা নেই। এবং এটা coding agent নিয়ে নয়। (Ablation মানে একটি অংশ সরিয়ে দেখা ফল কতটা বদলায়।)
+
 ## ১৩. Research gaps
 
 | G-id | Gap | Evidence (paper-এ) | Related CG / folder |
@@ -317,6 +416,8 @@ Paper-এ কোনো measured result নেই। নিচে "paper যা �
 | G11 | Reference trajectory বনাম rubric: পুরনো "gold may be wrong" সমস্যা | §6.4 reference brittle স্বীকার, কোনো tri-state নেই | CG22 |
 | G12 | কোনো measured case study নেই | পুরো paper | সব CG-এর evidence শক্তি |
 
+**সহজ কথায়:** ফাঁকগুলো তিন ভাগে: সংখ্যা যাচাই হয়নি (G1, G6, G12), judge নিয়ে প্রশ্ন (G2, G3), আর coding agent-এর জন্য নেই (G5, G4)। এগুলোই আমাদের কাজের সুযোগ। (CG মানে আমাদের project-এর common gap নম্বর।)
+
 ## ১৪. Improvement ideas
 
 1. **Coding-agent pyramid:** Layer 0 = environment/test harness validity; Layer 1 = localisation, test-generation, static judge component; Layer 2 = trajectory audit (git history, .git/network access, hidden-test peeking); Layer 3 = multi-agent বা retry-selector; Layer 4 = merge-ready outcome (functional + security + reviewer acceptance)।
@@ -328,6 +429,8 @@ Paper-এ কোনো measured result নেই। নিচে "paper যা �
 7. **Incident-to-eval pipeline:** প্রতি ভুল-merge বা ভুল-pass patch regression dataset-এ যোগ (§7.5-এর নীতি coding-এ)।
 8. **Judge robustness test:** patch-এর ভেতরে persuasive comment/injection ঢুকিয়ে judge-এর verdict বদলায় কিনা মাপা (CG18)।
 
+**সহজ কথায়:** আইডিয়াগুলোর সারকথা: paper-এর নকশা coding agent-এ বসাও, একক নম্বরের বদলে আলাদা signal দেখাও, থ্রেশহোল্ড নিজে মাপো, আর judge-কে ঠকানো যায় কিনা পরীক্ষা করো। (pass@k মানে k বারের অন্তত একবার পাশ। pass^k মানে k বারই পাশ।)
+
 ## ১৫. Publication potential (SPL3-feasible)
 
 - সরাসরি এই paper-কে ভিত্তি করে নতুন paper সম্ভব নয় (এটি strategy paper); তবে এর কাঠামো **অনুমান (hypothesis) ও টেমপ্লেট** হিসেবে ব্যবহার করে empirical study সম্ভব।
@@ -336,6 +439,8 @@ Paper-এ কোনো measured result নেই। নিচে "paper যা �
 - সম্ভাব্য venue: workshop বা short paper (যেমন AI-for-SE/LLM evaluation workshop); full conference-এর জন্য বড় dataset ও human study লাগবে।
 - ঝুঁকি: "assurance process" নিজে novel নয়; novelty আসবে measured calibration ও judge/test signal-এর disagreement বিশ্লেষণ থেকে (CG10, CG17)।
 - বাস্তবসম্মত: SPL3 report + একটি artifact (open-source assurance report generator)।
+
+**সহজ কথায়:** Paper থেকে সরাসরি নতুন paper হবে না। তবে এর নকশা পরীক্ষা করে সংখ্যা মেপে একটি ছোট workshop paper হতে পারে। নতুনত্ব আসবে মাপা ফল থেকে।
 
 ## ১৬. SPL3 implementation
 
@@ -351,6 +456,8 @@ Paper-এ কোনো measured result নেই। নিচে "paper যা �
 - ধাপ ১০: Metrics: R@P = 0.8, specificity, McNemar, SEM; inter-signal agreement।
 - সময়/খরচ: দৈনিক cadence অনুকরণ না করে event-trigger ভিত্তিক সিমুলেশন যথেষ্ট; API খরচ কমাতে deterministic signal আগে চালানো (paper-এর §8.2 নীতি)।
 
+**সহজ কথায়:** ধাপগুলো এক লাইনে: patch জোগাড় করো, পরিবেশ ঠিক কিনা দেখো, আলাদা আলাদা signal চালাও, cheating খুঁজতে log দেখো, ৫ বার চালাও, report বানাও, আর কিছু নমুনা মানুষকে দিয়ে judge-এর মান মাপো। (Patch মানে কোড-পরিবর্তন। Scanner মানে নিরাপত্তা-ত্রুটি খোঁজার tool।)
+
 ## ১৭. Influence / link to our earlier sub-domains
 
 | আগের sub-domain | সম্পর্ক |
@@ -363,6 +470,8 @@ Paper-এ কোনো measured result নেই। নিচে "paper যা �
 | 6 Security (CWEval, SecureVibeBench) | Layer 1 guardrail ও safety category; joint functional+security verdict (CG20), scanner reliability (CG21) |
 
 - এই paper আমাদের জন্য **process-level framing** দেয়; আগের sub-domain গুলো **measurement-level evidence** দেয়।
+
+**সহজ কথায়:** আগের paper-গুলো দেখিয়েছে "কী মাপলে কী ফল"। এই paper দেখাচ্ছে "সব মিলিয়ে process কেমন হবে"। দুটো মিলে আমাদের project-এর পুরো ছবি।
 
 ## ১৮. Supervisor Q&A
 
@@ -406,7 +515,7 @@ Paper-এ কোনো measured result নেই। নিচে "paper যা �
 | Failure injection | ইচ্ছাকৃত ভুল ঢুকিয়ে recovery পরীক্ষা |
 | Model drift | Provider-এর নীরব update-এ আচরণ বদল |
 | Faithfulness | Response-এর দাবি retrieved context দ্বারা সমর্থিত কিনা |
-| Context precision/recall | Retrieved document-এর প্রাসঙ্গিকতা/সম্পূর্ণতা |
+| Context precision/recall | Retrieved document-এর প্রাসঙ্গিকতা (যা আনা হলো তার কত ভাগ কাজের)/সম্পূর্ণতা (যা দরকার ছিল তার কত ভাগ আনা হলো) |
 | Red-teaming | Unknown failure খুঁজতে structured adversarial পরীক্ষা |
 | Defect leakage rate | নিচের layer-এর ভুল যা উপরে প্রথম ধরা পড়ে তার শতাংশ |
 
@@ -423,6 +532,8 @@ Paper-এ কোনো measured result নেই। নিচে "paper যা �
 | আমাদের কাজে | Assurance report-এর কাঠামো; threshold ও judge calibrate করতে হবে |
 | নতুন gap | CG23 (threshold/drift calibration), CG24 (trajectory-level assurance for coding agents) |
 | Evidence শক্তি | নিম্ন (industry practice, CG8/CG10/CG11-কে সরাসরি পরিমাপ করে না, কেবল সমস্যাটি নামকরণ করে) |
+
+**সহজ কথায়:** এক নজরে: ভালো নকশা, দুর্বল প্রমাণ। নকশা নাও, সংখ্যা নিজে যাচাই করো।
 
 ## ২১. বর্তমান (2026) প্রেক্ষাপট
 
@@ -443,6 +554,8 @@ Paper-এর তারিখ 22 May 2026; context-এর "বর্তমান"
 | Reward hacking | Taxonomy-তে নাম | METR: সফল long-task run-এর ≥16% cheat (I, আগের প্রজন্ম); Opus 5.5 card-এ "hidden tests" reasoning ও git গোপন করা (V) |
 | Cost | §8.2 নীতি, সংখ্যা নেই | Vals Terminal-Bench 4.0 cost/task: Opus 5.5 13.20 USD, Kimi K3.1 Pro 4.57, GPT-6.1 Sol 1.72 (I) |
 | Model deprecation 12–18 মাস | Paper-এর দাবি | বর্তমান model-এর তথ্য পাওয়া যায়নি (context-এ deprecation timeline নেই) |
+
+**সহজ কথায়:** Paper-এর অনেক ধারণা আজও সত্য। বিশেষ করে "benchmark দিয়ে product-এর মান বোঝা যায় না" এবং "একবার চালিয়ে ভরসা নেই"। কিন্তু vendor-এর দেওয়া সংখ্যা (V) আর স্বাধীন সংখ্যা (I) অনেক আলাদা, তাই source লেবেল দেখা জরুরি। (Saturated মানে প্রায় সবাই সর্বোচ্চ নম্বর পাচ্ছে, তাই আর পার্থক্য বোঝা যায় না।)
 
 ### ২১.২ এখনো সত্য / পুরনো
 
@@ -471,6 +584,8 @@ Paper-এর তারিখ 22 May 2026; context-এর "বর্তমান"
 | Test oracle strength | 80.2% weak oracle (I) | CG13 |
 | Security signal | SusVibes পুরনো যুগের; current-model SusVibes/BaxBench নেই | CG20, CG21 |
 | Version-bound verdict | Vendor/independent ফারাক বড় | CG11 |
+
+**সহজ কথায়:** আজও খোলা প্রশ্ন একই: থ্রেশহোল্ড, judge-এর মান, cheating ধরা, দুর্বল test, আর security। নতুন model-এ এগুলোর কোনোটাই মাপা হয়নি।
 
 ### ২১.৪ বর্তমান model দিয়ে SPL3 idea (cost-aware)
 

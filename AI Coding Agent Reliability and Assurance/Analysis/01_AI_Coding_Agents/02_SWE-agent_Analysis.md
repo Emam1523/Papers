@@ -20,12 +20,71 @@
 
 ---
 
+## ★ সহজ ভাষায় পুরো Paper (প্রথমবার পড়ার জন্য)
+
+### ক. Paper-টা কী নিয়ে?
+
+- এটা একটা **নতুন tool/system-এর paper**, সাথে অনেক experiment (পরীক্ষা) আছে।
+- বানিয়েছে Princeton University-র একটা দল (John Yang, Carlos Jimenez, Ofir Press ও আরও কয়েকজন)। ছাপা হয়েছে NeurIPS 2024-এ, যেটা AI-এর খুব বড় একটা conference।
+- Paper-এর নাম SWE-agent। এটা এমন একটা "agent" (যে LLM নিজে নিজে ধাপে ধাপে computer চালিয়ে কাজ করে)।
+- নতুন করে কোনো AI model train করা হয়নি। একই model নিয়ে শুধু তার কাজ করার "workspace" বদলানো হয়েছে।
+- আগের Paper 01 (SWE-bench) ছিল পরীক্ষার প্রশ্নপত্র। এই paper হলো সেই পরীক্ষায় বসা প্রথম বড় "ছাত্র"।
+
+### খ. সমস্যাটা কী ছিল?
+
+- LLM-কে GitHub-এর একটা সত্যিকারের bug ঠিক করতে দিলে সে প্রায় সবসময় ব্যর্থ হতো। Paper 01-এর সবচেয়ে ভালো সিস্টেমও ১০০টার মধ্যে মাত্র ৪টার মতো পারতো।
+- সরাসরি Linux terminal দিলেও তেমন লাভ হতো না। কারণ terminal বানানো হয়েছে মানুষের জন্য, LLM-এর জন্য নয়।
+- **উদাহরণ:** `cat` command পুরো file একবারে screen-এ ঢেলে দেয়। হাজার হাজার line পড়তে গিয়ে LLM-এর "মাথা" ভরে যায় এবং সে আসল জায়গা হারিয়ে ফেলে।
+- আরেকটা সমস্যা: `sed` দিয়ে edit করলে কিছুই বলে না। ভুল হলে LLM বুঝতেই পারে না, আর একই ভুল বারবার করতে থাকে।
+- **সাধারণ উপমা:** একজন চালককে এমন গাড়ি দিলে যার dashboard-এ কিছুই লেখা নেই। চালক ভালো হলেও দুর্ঘটনা ঘটবে।
+
+### গ. Paper কী solve করেছে?
+
+- **ACI** নামে একটা নতুন ধারণা দিয়েছে। মানে LLM-এর জন্য বিশেষভাবে বানানো একটা "IDE"।
+- ACI-তে আছে ছোট ও সহজ search command, একবারে ১০০ line দেখানো file viewer, আর ভুল edit আটকানো একটা linter (code-এর বানান-ভুল ধরার tool)।
+- পুরনো output ছেঁটে ফেলা হয়, যাতে LLM-এর মাথা হালকা থাকে।
+- Ablation করে (একটা একটা অংশ সরিয়ে) দেখিয়েছে কোন অংশ কতটা কাজে লাগে।
+- Agent কোথায় ব্যর্থ হয় সেটাও বিশ্লেষণ করেছে।
+- **সংখ্যা ১: 12.47%** (full SWE-bench)। মানে ১০০টা bug-এর মধ্যে প্রায় ১২টা ঠিক হয়েছে। আগের সেরা ছিল 3.8%, অর্থাৎ প্রায় ৪টা।
+- **সংখ্যা ২: 18.00% বনাম 11.00%** (Lite সেট)। সাধারণ terminal দিলে ১১টা, ACI দিলে ১৮টা। মানে একই model-এ relative 64% বেশি।
+- **সংখ্যা ৩: pass@1 = 17.94% কিন্তু pass@6 = 32.67%।** মানে একই task ৬ বার চালালে প্রায় দ্বিগুণ task অন্তত একবার solve হয়। অর্থাৎ agent আজ পারে, কাল পারে না। Reliability-র জন্য এটাই সবচেয়ে বড় সতর্কবার্তা।
+
+### ঘ. কীভাবে solve করেছে?
+
+1. **আগে সমস্যা দেখেছে।** Dev set-এর অল্প কিছু bug-এ agent চালিয়ে দেখেছে সে কোথায় আটকায়।
+2. **৪টা design নিয়ম বানিয়েছে।** Command সহজ হবে, ছোট হবে, feedback সংক্ষিপ্ত কিন্তু কাজের হবে, আর ভুল ছড়াতে দেওয়া হবে না।
+3. **Search command সহজ করেছে।** `find_file`, `search_dir`, `search_file`। ৫০টার বেশি result এলে দেখানো হয় না, আরও নির্দিষ্ট করে খুঁজতে বলা হয়।
+4. **File viewer বানিয়েছে।** একবারে ১০০ line দেখায়, line number দেয়, আর কত line উপরে-নিচে আছে বলে দেয়।
+5. **Edit command বানিয়েছে।** `edit n:m` দিয়ে এক command-এ line n থেকে m বদলানো যায়। বদলানোর পর flake8 চালানো হয়; syntax ভুল থাকলে edit বাতিল হয়ে যায়।
+6. **History ছোট রাখে।** শুধু শেষ ৫টা output পুরো থাকে, পুরনোগুলো এক লাইনে "Old output omitted" হয়ে যায়।
+7. **Agent loop চালায়।** প্রতি turn-এ LLM একটা thought ও একটা command দেয়। Docker container (আলাদা নিরাপদ বাক্স) সেটা চালায় এবং ফল ফেরত দেয়।
+8. **শেষে মেপেছে।** `submit` করলে সব edit মিলে একটা patch হয়। SWE-bench-এর test দিয়ে সেটা যাচাই হয়। তারপর ablation, trajectory ও failure analysis করা হয়েছে।
+
+### ঙ. এরপর কী করা যায়?
+
+- **Authors যা বলেছেন:** আরও tool যোগ করা (web browsing, static analysis, fuzzing)। আর ACI হাতে না বানিয়ে automatically বানানো।
+- **এখনো খোলা:** Agent-এর patch আসলে ঠিক কিনা, তা শুধু test দিয়ে বোঝা যায় না। Linter শুধু syntax দেখে, logic-এর ভুল ধরে না।
+- **এখনো খোলা:** একই task-এ ফল কেন বদলায়, আর প্রথম approach ব্যর্থ হলে agent কেন নতুন পথ নেয় না।
+- **আমরা SPL3-তে পারি:** SWE-agent-এ regression test, security scan ও test-tamper (test file বদলানো) detection-এর একটা assurance layer যোগ করে আগে-পরে তুলনা করতে পারি।
+- **আমরা পারি:** একই config ৩ বার চালিয়ে pass^k ও flip rate মাপতে।
+- **আমরা পারি:** Paper-এর open-source trajectory দিয়ে (API খরচ ছাড়াই) failure আগে থেকে অনুমান করার একটা classifier বানাতে।
+
+> **মনে রাখো:**
+> Model একই রেখে শুধু interface (ACI) ভালো করলেই SWE-bench-এ ফল 11% থেকে 18% হয়ে যায়।
+> কিন্তু agent-এর patch শুধু test pass করলেই বিশ্বাসযোগ্য নয়, আর একই task-এ ফল প্রতিবার বদলায়।
+> এই দুই ফাঁক (assurance ও reliability) থেকেই আমাদের SPL3-এর কাজ শুরু।
+
+---
+
+
 ## ১. এক লাইনে Paper (TL;DR)
 
 **LLM-কে সরাসরি Linux shell দিলে সে software engineering-এ ভালো করে না; কিন্তু LLM-এর জন্য বিশেষভাবে বানানো একটা interface — যাকে authors বলছেন Agent-Computer Interface (ACI) — দিলে (সহজ search command, 100-line-এর file viewer, linter-সহ edit command, পুরনো output collapse করা) একই LLM SWE-bench-এ 12.47% issue solve করে, যেখানে আগের সেরা non-interactive system করতো 3.8%।**
 
+**সহজ কথায়:** প্রতিটা শব্দ খুলে বললে: LLM-কে একটা ভালো "workspace" দিলে সে অনেক বেশি কাজ করতে পারে। Workspace-এ ছোট command, ছোট করে file দেখা আর ভুল edit আটকানোর ব্যবস্থা আছে। ফলে ১০০টা bug-এর মধ্যে ১২টা ঠিক হয়, যেখানে আগে ঠিক হতো মাত্র ৪টার মতো।
+
 ### Supervisor-কে ৩০ সেকেন্ডে কীভাবে বলবো
-> "Sir, Paper 01 (SWE-bench)-এ আমরা দেখেছি LLM-কে একবারে কিছু file দিয়ে patch লিখতে বললে Claude 2 মাত্র 1.96% পারে। SWE-agent paper বলছে — model বদলানোর দরকার নেই, **model যে interface দিয়ে computer ব্যবহার করে সেটা বদলাও**। মানুষের জন্য যেমন VSCode আছে, LLM-এর জন্যও তেমন একটা 'IDE' দরকার — যাকে তারা বলছে Agent-Computer Interface। এতে আছে ছোট ও সহজ search command, একবারে 100 line দেখায় এমন file viewer, একটা edit command যেটা syntax error থাকলে edit-টা বাতিল করে দেয়, আর পুরনো output ছেঁটে context ছোট রাখা। ফলাফল: GPT-4 Turbo দিয়ে full SWE-bench-এ 12.47% (286/2,294), SWE-bench Lite-এ 18.00%, যা সাধারণ Linux shell দেওয়া agent-এর (11.00%) চেয়ে relative 64% বেশি। Ablation দিয়ে তারা দেখিয়েছে প্রতিটা design choice কতটা কাজে লাগে, আর trajectory বিশ্লেষণ করে দেখিয়েছে agent কোথায় ব্যর্থ হয় — failure-এর অর্ধেকের বেশি হলো ভুল বা অতি-নির্দিষ্ট implementation। আমাদের reliability research-এর জন্য এটা গুরুত্বপূর্ণ কারণ এটা দেখায় agent-এর আচরণ শুধু model নয়, **environment design**-এর উপরও নির্ভর করে।"
+> "Sir, Paper 01 (SWE-bench)-এ আমরা দেখেছি LLM-কে একবারে কিছু file দিয়ে patch লিখতে বললে Claude 2 মাত্র 1.96% পারে। SWE-agent paper বলছে — model বদলানোর দরকার নেই, **model যে interface দিয়ে computer ব্যবহার করে সেটা বদলাও**। মানুষের জন্য যেমন VSCode আছে, LLM-এর জন্যও তেমন একটা 'IDE' দরকার — যাকে তারা বলছে Agent-Computer Interface। এতে আছে ছোট ও সহজ search command, একবারে 100 line দেখায় এমন file viewer, একটা edit command যেটা syntax error থাকলে edit-টা বাতিল করে দেয়, আর পুরনো output ছেঁটে context ছোট রাখা। ফলাফল: GPT-4 Turbo দিয়ে full SWE-bench-এ 12.47% (286/2,294), SWE-bench Lite-এ 18.00%, যা সাধারণ Linux shell দেওয়া agent-এর (11.00%) চেয়ে relative 64% বেশি। Ablation (একটা একটা অংশ সরিয়ে দেখা কতটা কাজে লাগে) দিয়ে তারা দেখিয়েছে প্রতিটা design choice কতটা কাজে লাগে, আর trajectory (agent-এর পুরো কাজের রেকর্ড) বিশ্লেষণ করে দেখিয়েছে agent কোথায় ব্যর্থ হয় — failure-এর অর্ধেকের বেশি হলো ভুল বা অতি-নির্দিষ্ট implementation। আমাদের reliability research-এর জন্য এটা গুরুত্বপূর্ণ কারণ এটা দেখায় agent-এর আচরণ শুধু model নয়, **environment design**-এর উপরও নির্ভর করে।"
 
 ---
 
@@ -52,6 +111,8 @@ Yao et al. (এই paper-এর co-author Shunyu Yao)-এর একটা প্
 - ACI দুটো জিনিস ঠিক করে: (ক) agent কোন **command** ব্যবহার করতে পারবে (action space) এবং (খ) environment-এর অবস্থা agent-কে **কোন format-এ** দেখানো হবে (feedback)। এছাড়া ACI পুরো **history** track করে এবং প্রতিটা step-এ কোনটা কীভাবে model-এর input-এ যাবে তা ঠিক করে।
 - কেন আলাদা interface দরকার? মানুষ অপ্রয়োজনীয় তথ্য চোখ দিয়ে এড়িয়ে যেতে পারে, কিন্তু LLM-এর কাছে প্রতিটা token-এর memory ও compute খরচ আছে, আর অপ্রাসঙ্গিক context performance কমায়। আবার তখনকার LLM GUI-এর visual তথ্য ভালো বুঝতো না।
 - **গুরুত্বপূর্ণ:** paper-এ LLM-এর weight **fixed** — শুধু interface বদলে performance বাড়ানো হয়েছে।
+
+**সহজ কথায়:** ACI হলো LLM-এর জন্য বানানো একটা IDE। মানুষের VSCode যেমন মানুষের সুবিধা ভেবে বানানো, ACI তেমন LLM-এর সুবিধা ভেবে বানানো।
 
 ### ২.৪ Action, Observation, Turn, Trajectory
 | Term | মানে |
@@ -136,6 +197,8 @@ Agent যে file গুলো edit করেছে আর gold patch যে fil
    - `sed` দিয়ে multi-line edit কঠিন ও error-prone; redirection দিয়ে পুরো file আবার লিখতে হয়।
    - Edit-এর পর কোনো feedback নেই ("silent") — ভুল হলে agent বুঝতে পারে না।
    - Syntax error হলে agent একই জায়গা বারবার edit করতে থাকে (cascading error)।
+
+**সহজ কথায়:** Terminal-এর command গুলো মানুষের জন্য ঠিক আছে। কিন্তু LLM-এর জন্য এগুলো অনেক বেশি লেখা দেখায়, ভুল হলে চুপ থাকে, আর একই ভুল বারবার করায়।
 3. **Interface design-এর প্রভাব কেউ systematically মাপেনি:** আগের কাজগুলো tool use, prompting, code execution আলাদা আলাদা দেখেছে, কিন্তু "interface design নিজেই agent-এর performance কতটা বদলায়" — এই প্রশ্ন unexplored।
 
 ### ৩.২ কেন এটা গুরুত্বপূর্ণ?
@@ -172,6 +235,8 @@ Paper-এর implicit RQ (আমার ভাষায় সাজানো):
 | **Environment** | Docker container-এ repository + Linux shell | Command চালানো, output ফেরত দেওয়া |
 | **Output** | পুরো episode-এর সব edit থেকে তৈরি একটা `.patch` file | SWE-bench harness দিয়ে evaluate |
 
+**সহজ কথায়:** SWE-agent মানে চারটা অংশ: LLM (চিন্তা করে), ACI (অনুবাদক), Docker (কাজের জায়গা) আর patch file (ফল)।
+
 SWE-agent Linux shell-এর উপরেই বানানো, তাই custom command-এর পাশাপাশি সাধারণ bash command (`python`, `pytest`, `rm` ইত্যাদি)-ও ব্যবহার করা যায়।
 
 ### ৫.২ ACI-এর ৪টা Design Principle (paper-এর Section 2)
@@ -179,6 +244,8 @@ SWE-agent Linux shell-এর উপরেই বানানো, তাই custo
 2. **Action compact ও efficient হবে:** গুরুত্বপূর্ণ কাজ (navigation, editing) যত কম action-এ সম্ভব হওয়া উচিত। খারাপ design = অনেক ছোট action জোড়া লাগিয়ে একটা বড় কাজ।
 3. **Environment feedback informative কিন্তু সংক্ষিপ্ত:** agent-কে বর্তমান অবস্থা ও তার শেষ action-এর প্রভাব জানাতে হবে, অপ্রয়োজনীয় detail ছাড়া। (যেমন edit-এর পর file-এর নতুন অবস্থা দেখানো।)
 4. **Guardrail ভুলের বিস্তার থামায় ও দ্রুত recovery করায়:** যেমন syntax checker, যেটা ভুল সাথে সাথে ধরে।
+
+**সহজ কথায়:** ভালো ACI-র চার নিয়ম: সহজ command, কম ধাপে কাজ, ছোট কিন্তু কাজের feedback আর ভুল আটকানোর বাঁধ।
 
 ### ৫.৩ Design Process — ACI কীভাবে বানানো হলো
 1. **Manual inspection:** SWE-bench-এর dev split থেকে হাতে বাছাই করা অল্প কিছু উদাহরণে agent চালানো, trajectory পড়ে কোথায় সমস্যা হচ্ছে তা দেখা, সেই অনুযায়ী command/prompt/tip বদলানো (HCI-এর user study-র মতো)।
@@ -196,6 +263,8 @@ Authors স্বীকার করেছেন এই process **manual** — �
 - **Guardrail:** একটা search-এ **50টার বেশি result** হলে result দেখানো হয় না; বরং agent-কে আরও নির্দিষ্ট query লিখতে বলা হয়। Trade-off: context ছোট থাকে, কিন্তু agent-কে আরেকটা LM call করতে হয়।
 - **Summarized output:** সব result একবারে, সংক্ষিপ্ত আকারে (file-এর নাম + match সংখ্যা)।
 
+**সহজ কথায়:** Search-এর result খুব বেশি হলে LLM-এর মাথা ভরে যায়। তাই ৫০টার বেশি হলে আরও নির্দিষ্ট করে খুঁজতে বলা হয়।
+
 ### ৫.৫ ACI Component ২: File Viewer
 | Command | কাজ |
 |---|---|
@@ -210,6 +279,8 @@ Viewer যা দেখায়:
 - একবারে সর্বোচ্চ **100 line** (window size)
 
 **কেন এভাবে?** `cat` context ভরিয়ে দেয়; `sed`/`head` দিয়ে পরের 100 line দেখতে agent-কে start/end line আবার হিসাব করতে হয় — LLM-এর এই arithmetic-এ ভুল হয়। Viewer stateful (`CURRENT_LINE` variable মনে রাখে), তাই agent-কে হিসাব করতে হয় না। Authors-এর rule of thumb: **action ও output এমনভাবে বানাও যাতে একটা আরেকটার উপর build করে এবং model-কে arithmetic করতে না হয়।**
+
+**সহজ কথায়:** File viewer LLM-কে একটা ছোট জানালা দেয়। সে ১০০ line করে দেখে এবং কোন line-এ আছে নিজেই মনে রাখে, তাই তাকে অঙ্ক কষতে হয় না।
 
 ### ৫.৬ ACI Component ৩: File Editor (edit + linting guardrail)
 | Command | কাজ |
@@ -241,12 +312,16 @@ flake8 --isolated --select=F821,F822,F831,E111,E112,E113,E999,E902 "$CURRENT_FIL
 - **Error message-এর তিন অংশই দরকার** (authors-এর development অভিজ্ঞতা): error type না থাকলে agent ভুল diagnose করে; changed snippet না থাকলে একই command বারবার দেয়; original snippet না থাকলে অনেক পুরনো turn-এর content দেখে ভুল edit করে।
 - **Guardrail-এর অসুবিধা (authors নিজেই বলেছেন):** কিছু edit নির্দিষ্ট ক্রমে করতে বাধ্য করে। যেমন একটা function argument মুছতে চাইলে, প্রথমে body থেকে সব reference মুছতে হবে, নইলে header থেকে মুছলেই F821 error আসবে এবং edit বাতিল হবে।
 
+**সহজ কথায়:** Edit করলে সাথে সাথে বানান-ভুল পরীক্ষা হয়। ভুল থাকলে edit ফিরিয়ে নেওয়া হয় এবং agent-কে কারণ বলা হয়। এতে একটা ভুল পরের সব ধাপ নষ্ট করতে পারে না।
+
 ### ৫.৭ ACI Component ৪: Context Management
 1. **Prompt:** system prompt-এ environment, command documentation ও response format; instance prompt-এ issue ও tips।
 2. **Thought + Action বাধ্যতামূলক:** প্রতি turn-এ একটা DISCUSSION (thought) ও একটা command।
 3. **Malformed response handling:** format ভুল হলে error message (Figure 32) দেখিয়ে আবার চেষ্টা করতে বলা হয়। Valid response পাওয়ার পর **প্রথমটা ছাড়া** আগের error message গুলো history থেকে মুছে দেওয়া হয় (de-noising)। পরপর কয়েকবার malformed হলে episode early exit (Appendix C-তে "3 malformed responses in a row" বলা আছে; Figure 26-এ "2+ consecutive format errors" — দেখো Section ১২.৩)।
 4. **No-output message:** command কোনো output না দিলে (যেমন `rm`) agent-কে স্পষ্ট বলা হয় "Your command ran successfully and did not produce any output" — নইলে agent বিভ্রান্ত হয়ে অপ্রয়োজনীয় command চালায়।
 5. **History collapsing:** শেষ 5টা observation-এর আগেরগুলো এক লাইনে collapse ("Old output omitted (N lines)")। লাভ: (ক) কম token → বেশি turn সম্ভব, (খ) outdated file content সরে যায়।
+
+**সহজ কথায়:** প্রতি turn-এ পুরো ইতিহাস আবার পাঠাতে হয়। তাই পুরনো লম্বা output ছেঁটে ফেললে খরচও কমে, LLM-এর বিভ্রান্তিও কমে।
 
 ### ৫.৮ Agent Loop — একটা Episode কীভাবে চলে (Figure 9, Figure 26)
 1. **Initial messages:** (১) System template → (২) Demonstration (ঐচ্ছিক; একটা সফল dev-set trajectory) → (৩) Instance template (issue text + instruction + tips)।
@@ -261,10 +336,14 @@ flake8 --isolated --select=F821,F822,F831,E111,E112,E113,E999,E902 "$CURRENT_FIL
 7. **Termination (৪ ভাবে, Appendix B.9):** (ক) agent নিজে `submit` দেয়; (খ) cost limit (4 USD) পেরোয় ও edit থাকলে auto-submit; (গ) cost limit পেরোয় কিন্তু কোনো edit নেই → কিছু submit হয় না; (ঘ) পরপর অনেক malformed response → early exit।
 8. **Patch:** সব edit-এর diff একটা `.patch` file হয় → SWE-bench harness-এ F2P/P2P test দিয়ে evaluate (Paper 01 দেখো)।
 
+**সহজ কথায়:** একটা episode মানে: প্রম্পট দাও, LLM ভাবে ও command দেয়, Docker চালায়, ফল দেখে আবার ভাবে। এভাবে `submit` বা budget শেষ হওয়া পর্যন্ত চলে।
+
 ### ৫.৯ Prompt Template-গুলোর বিশেষ বৈশিষ্ট্য (Appendix C)
 - **System template:** "You are an autonomous programmer..." — environment-এর বর্ণনা, সব command-এর documentation, indentation সম্পর্কে সতর্কতা, এক turn-এ একটাই command, interactive command (`python` REPL, `vim`) চলবে না।
 - **Instance template-এর 6টা tip** (dev set-এ failure দেখে হাতে লেখা): (১) আগে bug reproduce করো, fix-এর পর আবার চালাও; (২) একটা command কাজ না করলে অন্য command চেষ্টা করো; (৩) দূরের line-এ যেতে বারবার scroll না করে `goto` ব্যবহার করো; (৪) কোনো input file লাগলে `find_file` দিয়ে খোঁজো; (৫) open file ও current directory সবসময় খেয়াল রাখো; (৬) edit-এর পর code দেখে নিশ্চিত হও।
 - Authors বলেছেন tip লেখার এই manual পদ্ধতি scale করে না, কিন্তু "surprisingly effective"।
+
+**সহজ কথায়:** Prompt-এর ছয়টা tip আসলে আগের ব্যর্থতা দেখে হাতে লেখা পরামর্শ, যেমন "আগে bug reproduce করো"।
 - Response format তিন রকম পরীক্ষা করা হয়েছে: markdown code block, JSON (`thought`/`action` key), XML tag।
 
 ### ৫.১০ Implementation ও Configuration (Appendix A.2–A.3)
@@ -280,6 +359,8 @@ flake8 --isolated --select=F821,F822,F831,E111,E112,E113,E999,E902 "$CURRENT_FIL
 - **Trajectory analysis:** resolved trajectory-তে প্রতিটা turn-এ কোন action কতবার — frequency, density, n-gram pattern (Table 8), transition probability heatmap (Figure 21–24)।
 - **Failure analysis:** Lite-এর unresolved trajectory (n = 248) → authors 9টা category বানালেন (Table 9) → 15টা instance হাতে label করে validation set → GPT-4o-কে trajectory + agent-এর patch + gold patch দিয়ে category বলতে বলা → validation set-এ মানুষের সাথে 87% মিল।
 - **Qualitative case study (Appendix D):** Lite থেকে 2টা সফল ও 2টা ব্যর্থ instance-এর পুরো trajectory বিশ্লেষণ।
+
+**সহজ কথায়:** Authors শুধু সংখ্যা দেখেননি। Agent কোন command কখন দেয়, কোথায় ব্যর্থ হয় এবং হাতে ও GPT-4o দিয়ে ব্যর্থতার কারণ ভাগ করে দেখেছেন।
 
 ---
 
@@ -300,6 +381,8 @@ Environment action চালিয়ে নতুন state ও observation দ�
 $$
 (s_t,\; o_t) = \mathcal{E}(s_{t-1},\; a_t)
 $$
+
+**সহজ কথায়:** প্রথম সূত্র বলছে LLM পরের ধাপে কী করবে তা ঠিক করে এখন পর্যন্ত সব ঘটনা (history) দেখে। দ্বিতীয় সূত্রে LLM thought ও action বের করে। তৃতীয় সূত্রে environment সেই action চালিয়ে নতুন অবস্থা ও output দেয়। Φ হলো এই history-কে ছেঁটে LLM-এর জন্য সাজানোর ধাপ।
 
 | Symbol | মানে |
 |---|---|
@@ -331,6 +414,8 @@ o_i, & \text{যদি } i > t - 1 - 5 \text{ (শেষ 5টা observation)} \
 \text{"Old output omitted (} n_i \text{ lines)"}, & \text{অন্যথায়}
 \end{cases}
 $$
+
+**সহজ কথায়:** শেষ ৫টা observation পুরো রাখা হয়, বাকিগুলো এক লাইনের placeholder হয়ে যায়। এই সূত্র সেটাই লেখে।
 $n_i$ = observation $o_i$-এর line সংখ্যা। Thought $r_i$ ও action $a_i$ সবসময় থাকে।
 
 **কেন খরচ এত কমে — একটা কাল্পনিক উদাহরণ (সংখ্যাগুলো আমার ধরে নেওয়া, paper-এর নয়):**
@@ -344,6 +429,8 @@ $n_i$ = observation $o_i$-এর line সংখ্যা। Thought $r_i$ ও ac
 $$
 T = \min \{\, t \;:\; a_t = \text{submit} \;\lor\; \text{Cost}_{1:t} \geq B \;\lor\; \text{consecutive format errors} \geq K \,\}
 $$
+
+**সহজ কথায়:** Episode থামে যখন agent `submit` দেয়, খরচ budget ছাড়ায় বা পরপর অনেক format ভুল হয়। এই তিনটার যেটা আগে ঘটে সেখানেই শেষ।
 - $B$ = 4 USD (per-instance budget)
 - $K$ = early-exit-এর সীমা (paper-এ 3 বলা আছে, একটা figure-এ 2+ — Section ১২.৩ দেখো)
 
@@ -359,6 +446,8 @@ $C_0$ = শুরুর codebase, $C_T$ = episode শেষে codebase। ত�
 $$
 \%\,\text{Resolved} = \frac{1}{N} \sum_{i=1}^{N} \text{Resolved}(\hat{\delta}_i) \times 100
 $$
+
+**সহজ কথায়:** মোট task-এর মধ্যে কতটা solve হয়েছে তার শতাংশ। যেমন ২২৯৪টার মধ্যে ২৮৬টা মানে 12.47%।
 **Worked example (paper-এর আসল সংখ্যা):**
 - Full SWE-bench, SWE-agent w/ GPT-4 Turbo: $\dfrac{286}{2294} \times 100 = 12.47\%$
 - Lite, SWE-agent w/ GPT-4 Turbo: $\dfrac{54}{300} \times 100 = 18.00\%$
@@ -369,6 +458,8 @@ $$
 $$
 \text{Relative gain} = \frac{R_{\text{new}} - R_{\text{old}}}{R_{\text{old}}}, \quad \text{Fold} = \frac{R_{\text{new}}}{R_{\text{old}}}, \quad \Delta_{\text{pp}} = R_{\text{new}} - R_{\text{old}}
 $$
+
+**সহজ কথায়:** এখানে তিনটা আলাদা তুলনা আছে। Relative gain বলে পুরনো সংখ্যার তুলনায় কত শতাংশ বেড়েছে। Fold বলে কত গুণ হয়েছে। Percentage point বলে সরাসরি বিয়োগফল কত।
 **Worked example (Lite, GPT-4 Turbo):**
 - Shell-only (demo সহ) = 11.00%, SWE-agent = 18.00%: $\dfrac{18.00 - 11.00}{11.00} = 0.636 \approx 64\%$ relative gain — paper-এর "64% relative increase"।
 - RAG = 2.67%: $\dfrac{18.00}{2.67} \approx 6.7$ গুণ — paper-এর "6.7-fold"।
@@ -380,6 +471,8 @@ $$
 $$
 \Delta_{\text{ablation}} = R(\text{variant}) - R(\text{default})
 $$
+
+**সহজ কথায়:** একটা অংশ সরালে default-এর তুলনায় কত percentage point কমে, সেটাই ablation effect।
 Default (SWE-agent, Lite, GPT-4 Turbo) = 18.0%। যেমন linting সরালে: $15.0 - 18.0 = -3.0$ pp; edit command সরালে: $10.3 - 18.0 = -7.7$ pp। (Table 3-এর সব সংখ্যা Section ৮.৩-এ।)
 
 ### ৬.৭ Cost Metric
@@ -387,12 +480,16 @@ Turn $j$-এর খরচ (সাধারণ API pricing model; paper নির
 $$
 \text{Cost}_{1:t} = \sum_{j=1}^{t} \left( p_{\text{in}} \cdot n^{\text{in}}_j + p_{\text{out}} \cdot n^{\text{out}}_j \right)
 $$
+
+**সহজ কথায়:** প্রতি turn-এর খরচ হলো input token ও output token-এর দাম আলাদা করে ধরে যোগফল। সব turn যোগ করলে মোট খরচ।
 $p_{\text{in}}, p_{\text{out}}$ = প্রতি input/output token-এর দাম; $n^{\text{in}}_j, n^{\text{out}}_j$ = turn $j$-এ token সংখ্যা।
 
 Paper-এর **Avg. Cost** = **শুধু resolved instance-গুলোর** গড় API খরচ (paper-এর definition):
 $$
 \bar{C} = \frac{1}{\text{count}(\text{resolved})} \sum_{i \in \text{resolved}} \text{Cost}_i
 $$
+
+**সহজ কথায়:** Paper-এর গড় খরচ শুধু সফল task-গুলোর। ব্যর্থ task-এর খরচ এতে ধরা নেই, তাই প্রকৃত খরচ এর চেয়ে বেশি।
 **Worked example (paper-এর "8–13x more costly"):**
 - GPT-4 Turbo, Lite: $\dfrac{1.67}{0.13} \approx 12.8$ গুণ
 - Claude 3 Opus, Lite: $\dfrac{2.18}{0.25} \approx 8.7$ গুণ
@@ -412,6 +509,8 @@ $$
 $$
 \bar{R} = \frac{1}{n} \sum_{j=1}^{n} R_j, \quad \sigma = \sqrt{\frac{1}{n} \sum_{j=1}^{n} \left(R_j - \bar{R}\right)^2}
 $$
+
+**সহজ কথায়:** ৬ বার চালানোর গড় এবং সেই ৬টা সংখ্যা গড় থেকে গড়ে কতটা সরে, তার হিসাব। SD ছোট মানে গড় ফল প্রায় স্থির।
 **Worked example (paper-এর আসল সংখ্যা):** $R = (17.33, 18.00, 18.00, 18.67, 17.33, 18.33)$
 - $\bar{R} = 107.66 / 6 = 17.94$
 - Deviation-এর বর্গ: $0.376, 0.003, 0.003, 0.528, 0.376, 0.150$ → যোগফল $\approx 1.436$
@@ -424,6 +523,8 @@ Paper লিখেছে 17.94 ± 0.49 — আমার হিসাব অন�
 $$
 \text{pass@}k = \frac{1}{N} \sum_{i=1}^{N} \left[ 1 - \frac{\binom{n - c_i}{k}}{\binom{n}{k}} \right]
 $$
+
+**সহজ কথায়:** প্রতিটা task-এর জন্য দেখা হয় k বার চেষ্টায় অন্তত একবার সফল হওয়ার সম্ভাবনা কত। তারপর সব task-এর গড় নেওয়া হয়। বাঁ দিকের ভগ্নাংশ বলে k বারই ব্যর্থ হওয়ার সম্ভাবনা।
 | Symbol | মানে |
 |---|---|
 | $N$ | মোট instance (Lite-এ 300) |
@@ -455,6 +556,8 @@ f', & \text{যদি } \text{count}\left(\mathcal{L}_S(f')\right) = 0 \\
 f \;\; (\text{edit বাতিল, lint message দেখাও}), & \text{অন্যথায়}
 \end{cases}
 $$
+
+**সহজ কথায়:** Edit-এর পর linter নির্বাচিত error পেলে edit বাতিল। না পেলে edit রাখা হয়।
 Assumption: $\text{count}\left(\mathcal{L}_S(f_{\text{original}})\right) = 0$ (মূল codebase well-formed)।
 **সীমাবদ্ধতা (আমার পর্যবেক্ষণ):** এটা শুধু **syntax/name** স্তরের gate — semantic ভুল (ভুল logic) ধরে না। তাই "Incorrect Implementation" failure (39.9%) এই guardrail আটকাতে পারে না।
 
@@ -463,6 +566,8 @@ Assumption: $\text{count}\left(\mathcal{L}_S(f_{\text{original}})\right) = 0$ (�
 $$
 P(\text{শেষ পর্যন্ত সফল edit} \mid n \text{টা পরপর failed edit})
 $$
+
+**সহজ কথায়:** পরপর কয়েকবার edit ব্যর্থ হলে শেষ পর্যন্ত একটা সফল edit হওয়ার সম্ভাবনা কত, সেটা এই সূত্র দেখায়।
 - $n = 0$: 90.5% (যেকোনো edit চেষ্টা শেষ পর্যন্ত সফল হওয়ার সম্ভাবনা)
 - $n = 1$: 57.2% → অর্থাৎ একবার ভুল হলে **42.8%** ক্ষেত্রে agent আর recover করে না
 - $n$ বাড়লে সম্ভাবনা আরও কমে
@@ -477,6 +582,8 @@ $\hat{F}$ = agent-এর patch যে file গুলো edit/remove করেছ
 $$
 P = \frac{\text{count}(\hat{F} \cap F^{*})}{\text{count}(\hat{F})}, \quad R = \frac{\text{count}(\hat{F} \cap F^{*})}{\text{count}(F^{*})}, \quad F_1 = \frac{2PR}{P + R}
 $$
+
+**সহজ কথায়:** Precision বলে agent-এর বদলানো file-এর কতটা সঠিক। Recall বলে সঠিক file-এর কতটা সে পেয়েছে। F1 এই দুটোকে এক সংখ্যায় আনে।
 **Worked example (কাল্পনিক):** agent edit করেছে {`sessions.py`, `reproduce.py`}, gold = {`sessions.py`} → $P = 1/2$, $R = 1/1$, $F_1 = \dfrac{2 \times 0.5 \times 1}{1.5} = 0.667$। (দেখো — reproduce file না মুছলে precision কমে যায়।)
 **Paper-এর সংখ্যা:** SWE-agent w/ GPT-4 Turbo $F_1 = 59.05\%$; BM25 (RAG) w/ Claude 3 Opus $F_1 = 45.47\%$। Paper F1-কে instance-গুলোর উপর কীভাবে গড় করেছে তা স্পষ্ট বলেনি।
 
@@ -485,6 +592,8 @@ $$
 $$
 P(a_t = a \mid a_{t-n}, \ldots, a_{t-1}) = \frac{\text{count}(a_{t-n}, \ldots, a_{t-1}, a)}{\text{count}(a_{t-n}, \ldots, a_{t-1})}
 $$
+
+**সহজ কথায়:** আগের কয়েকটা action দেখে পরের action কী হওয়ার সম্ভাবনা বেশি, সেটা গুনে বের করা হয়েছে।
 এটা মূলত একটা **n-gram (Markov) model** of agent behavior।
 **Paper-এর সংখ্যা:** `open`-এর পরে: `search_file` 0.35, `edit` 0.25, `scroll_down` 0.18, `goto` 0.09। (`create`, `edit`, `python`)-এর পরে: `edit` 0.39, `find_file` 0.31, `search_dir` 0.22।
 
@@ -492,6 +601,8 @@ $$
 $$
 \text{Agreement} = \frac{\text{মানুষ ও LM একই category দিয়েছে এমন instance}}{\text{validation instance}}
 $$
+
+**সহজ কথায়:** মানুষ ও GPT-4o একই category দিয়েছে এমন instance-এর অনুপাত। এটা দিয়ে বোঝা যায় LLM judge কতটা ভরসাযোগ্য।
 Validation set 15টা, agreement 87% → এটা সম্ভবত $13/15 = 86.7\%$ (আমার অনুমান; paper শুধু "87%" লিখেছে)।
 **আমার পর্যবেক্ষণ:** 15টা sample খুব ছোট — 13/15-এর 95% confidence interval অনেক চওড়া (Wilson interval-এ মোটামুটি 62% থেকে 96%)। তাই failure-mode শতাংশগুলো "approximate" হিসেবে নেওয়া উচিত।
 
@@ -499,6 +610,8 @@ Validation set 15টা, agreement 87% → এটা সম্ভবত $13/15 =
 $$
 \text{Configs} = \{0.0, 0.2\}_{\text{temp}} \times \{100, 200\}_{\text{window}} \times \{\text{Full}, \text{Last-5}\}_{\text{history}} \to 2 \times 2 \times 2 = 8 \text{ config per model}
 $$
+
+**সহজ কথায়:** ২ রকম temperature, ২ রকম window ও ২ রকম history মিলিয়ে মোট ৮টা setting চেষ্টা করা হয়েছে।
 প্রতিটা config dev split-এর 37টা random instance-এ, 5টা sample-এর গড় (Table 5)।
 
 ---
@@ -519,6 +632,8 @@ $$
 | **Baselines** | RAG (BM25, Paper 01-এর মতো), Shell-only agent (demo সহ ও ছাড়া) |
 | **Execution** | Docker container (inference ও evaluation দুটোই) |
 | **Failure labeler** | GPT-4o (`gpt-4o-2024-05-13`) |
+
+**সহজ কথায়:** মূল ফল full SWE-bench-এ, ablation Lite-এ, আর design ও tuning dev set-এ হয়েছে। দুটো model: GPT-4 Turbo ও Claude 3 Opus।
 
 **Dataset info (Table 12):**
 | Dataset | Release | License | Split ও Count | Language |
@@ -548,6 +663,8 @@ $$
 - ACI GPT-4 Turbo-র জন্য design করা হলেও Claude 3 Opus-এও কাজ করে (full-এ 10.46%) — **portability**।
 - আগের সেরা non-interactive (RAG Claude 3 Opus, 3.79%) থেকে full SWE-bench-এ 12.47% — প্রায় 3.3 গুণ।
 
+**সহজ কথায়:** ইন্টারেক্টিভ হলেই বড় লাফ (2.67 থেকে 11.00), আর ACI দিলে আরেকটা লাফ (11.00 থেকে 18.00)।
+
 ### ৮.২ HumanEvalFix (Table 2, pass@1 %)
 | Model | Python | JS | Java |
 |---|---|---|---|
@@ -560,6 +677,8 @@ $$
 - SWE-agent ছাড়া বাকি সংখ্যা Yu et al. (WaveCoder paper) থেকে নেওয়া — অর্থাৎ authors নিজে চালাননি।
 - Same config, শুধু language-specific demonstration বদলানো। বেশিরভাগ task প্রথম 10 turn-এর মধ্যে solve (Figure 25)।
 - **সতর্কতা (আমার):** তুলনাটা পুরোপুরি apples-to-apples নয় — baseline গুলো non-interactive এবং অনেক পুরনো/ছোট model; SWE-agent test চালিয়ে বারবার চেষ্টা করতে পারে।
+
+**সহজ কথায়:** HumanEvalFix-এ ফল ভালো, কিন্তু কাজটা সহজ, তাই এটা মূল দাবির প্রমাণ নয়।
 
 ### ৮.৩ ACI Ablation (Table 3, SWE-bench Lite, GPT-4 Turbo; default = 18.0%)
 | Component | Variant | % Resolved | Default থেকে পার্থক্য |
@@ -584,6 +703,8 @@ $$
 4. **Linting guardrail +3.0 pp** দেয়।
 5. **History collapsing +3.0 pp** দেয়।
 6. Demonstration-এর অবদান সবচেয়ে কম (+1.7 pp)।
+
+**সহজ কথায়:** Edit command সরালে সবচেয়ে বেশি ক্ষতি। আর মানুষের জন্য ভালো iterative search agent-এর জন্য উল্টো ক্ষতিকর।
 
 ### ৮.৪ Variance ও Pass@k (Table 10, Figure 4; Lite, GPT-4 Turbo, 6 run)
 | Run 1 | Run 2 | Run 3 | Run 4 | Run 5 | Run 6 | Avg |
@@ -618,6 +739,8 @@ $$
 
 Claude-এ তিনটা config-এর tie; দুই model-এর জন্যই 0.0/100/Last-5 বাছাই করা হয়েছে। **আমার পর্যবেক্ষণ:** dev-এর মাত্র 37 instance — 15.1% মানে প্রায় 5–6টা instance; config-গুলোর পার্থক্য অনেক ক্ষেত্রে 1–2টা instance-এর সমান, তাই এই বাছাই statistically দুর্বল।
 
+**সহজ কথায়:** Tuning-এর সেট খুব ছোট (৩৭টা), তাই বাছাই করা setting খুব শক্ত প্রমাণের উপর দাঁড়িয়ে নেই।
+
 ### ৮.৬ Repository অনুযায়ী (Table 6, Lite, % Resolved)
 | Repo (Lite-এ instance) | SWE-agent GPT-4 | SWE-agent Claude 3 Opus | RAG GPT-4 | RAG Claude 3 Opus | RAG Claude 2 |
 |---|---|---|---|---|---|
@@ -638,6 +761,8 @@ Claude-এ তিনটা config-এর tie; দুই model-এর জন্�
 - **আমার হিসাব:** GPT-4-এর 54টা resolved-এর মধ্যে 30টাই django থেকে ($114 \times 0.2632 = 30$) — অর্থাৎ **~56% সাফল্য একটা repo থেকে**। Django-র ভালো ফল overall score-কে টেনে তোলে।
 - xarray-তে RAG 20% পারলেও SWE-agent 0% — interactive সবসময় ভালো নয়।
 
+**সহজ কথায়:** ফলের অনেকটা আসছে django থেকে। তাই overall সংখ্যা সব repo-র সমান ছবি দেয় না।
+
 ### ৮.৭ সময় অনুযায়ী (Table 7, Lite, % Resolved; contamination check)
 | Year (instance) | SWE-agent GPT-4 | SWE-agent Claude 3 Opus | RAG GPT-4 | RAG Claude 3 Opus | RAG Claude 2 |
 |---|---|---|---|---|---|
@@ -648,6 +773,8 @@ Claude-এ তিনটা config-এর tie; দুই model-এর জন্�
 | Before 2020 (105) | 17.14 | 10.48 | 0.95 | 4.76 | 5.71 |
 
 Authors: issue-এর বছর ও resolve rate-এর মধ্যে স্পষ্ট সম্পর্ক নেই → test pollution/contamination-এর শক্ত প্রমাণ নেই।
+
+**সহজ কথায়:** পুরনো বা নতুন issue-তে ফল প্রায় একই। তাই model-এর আগে থেকে মুখস্থ করার প্রমাণ শক্ত নয়।
 
 ### ৮.৮ Turn ও Cost-এর Distribution (Appendix B.3.1, Figure 14–15, Section 5.2)
 | Statistic | মান |
@@ -661,6 +788,8 @@ Authors: issue-এর বছর ও resolve rate-এর মধ্যে স্�
 | `exit_cost` সাধারণত কোন turn-এ | Turn 30–40 (4 USD limit ≈ এই সংখ্যক turn) |
 
 **"Agents succeed quickly and fail slowly":** সফল run দ্রুত ও সস্তায় শেষ হয়। তাই authors মনে করেন budget বা token limit বাড়ালে performance তেমন বাড়বে না। প্রথম 10–20 turn-এর approach কাজ না করলে agent পরের turn কাজে লাগাতে পারে না — নতুন approach না নিয়ে একই জায়গায় local editing চালিয়ে যায়।
+
+**সহজ কথায়:** সফল run দ্রুত ও সস্তায় শেষ হয়। ব্যর্থ run লম্বা চলে ও বেশি খরচ করে। তাই budget বাড়িয়ে লাভ কম।
 
 ### ৮.৯ Agent-এর আচরণের Pattern (Section 5.2, Figure 7, Table 8)
 **সাধারণ trajectory-র ৩টা phase:**
@@ -685,6 +814,8 @@ Authors: issue-এর বছর ও resolve rate-এর মধ্যে স্�
 - Agent "zoom in" করে: directory-level search → file → line (`search_dir` → `open` → `search_file` → `goto`)।
 - Failure pattern: একই action বারবার (`edit` ×4, `scroll_down` ×4) সাধারণত আরও cascade করে।
 
+**সহজ কথায়:** Agent সাধারণত আগে bug reproduce করে, তারপর edit ও test চালানোর চক্রে ঘোরে, শেষে submit করে।
+
 ### ৮.১০ Editing — এখনো কঠিন (Section 5.2, Appendix B.3.3)
 | Statistic | মান |
 |---|---|
@@ -694,6 +825,8 @@ Authors: issue-এর বছর ও resolve rate-এর মধ্যে স্�
 | Resolved-এ failed edit প্রতি trajectory | median/mean 2, max 26 |
 | যেকোনো edit শেষ পর্যন্ত সফল হওয়ার সম্ভাবনা | 90.5% |
 | 1টা failed edit-এর পরে সফল হওয়ার সম্ভাবনা | 57.2% |
+
+**সহজ কথায়:** অর্ধেকের বেশি task-এ অন্তত একটা edit ব্যর্থ হয়, এবং একবার ব্যর্থ হলে পরে ঠিক করার সম্ভাবনা কমে যায়।
 
 ### ৮.১১ Failure Modes (Figure 8, Table 9; Lite unresolved, n = 248, GPT-4 Turbo)
 | Category | বর্ণনা (Table 9 থেকে সংক্ষেপে) | % |
@@ -711,6 +844,8 @@ Authors: issue-এর বছর ও resolve rate-এর মধ্যে স্�
 - Table 9-এ "Other" নামে ৯ম category আছে, Figure 8-এ ৮টা দেখানো।
 - **নোট:** 39.9, 12.1 ও 23.4 paper-এর text দিয়ে নিশ্চিত; বাকি ছোট মানগুলোর (12.9, 4.8, 2.4, 2.4, 2.0) category-mapping PDF-এর Figure 8 (পৃষ্ঠা 8)-এর রং মিলিয়ে যাচাই করা হয়েছে।
 
+**সহজ কথায়:** ব্যর্থতার প্রধান কারণ "ঠিক জায়গা খুঁজে ভুল সমাধান দেওয়া", জায়গা খুঁজে না পাওয়া নয়।
+
 ### ৮.১২ Patch-এর আকার (Table 11; median / mean, 90th percentile-এর মধ্যে)
 | Model | Outcome | Lines + | Lines − | Hunks | Files |
 |---|---|---|---|---|---|
@@ -725,6 +860,8 @@ Authors: issue-এর বছর ও resolve rate-এর মধ্যে স্�
 
 - Agent-এর patch gold-এর চেয়ে **বড়** (বেশি line যোগ, বেশি hunk/file) — authors-এর মতে মূলত রেখে দেওয়া **reproduction code**-এর কারণে। (Paper 01-এ RAG model-এর patch ছিল gold-এর চেয়ে ছোট — উল্টো চিত্র।)
 - Resolved patch গুলো ছোট → multi-location edit এখনো কঠিন।
+
+**সহজ কথায়:** Agent-এর patch বড় হয় কারণ সে প্রায়ই reproduce script ফেলে রাখে।
 
 ### ৮.১৩ Episode কীভাবে শেষ হয় (Table 13)
 | Model | Split | Outcome | Submit | Exit Cost (Submit) | Exit Cost (No Submit) | Early Exit |
@@ -742,6 +879,8 @@ Authors: issue-এর বছর ও resolve rate-এর মধ্যে স্�
 - Paper অনুযায়ী (GPT-4, full): submit দিয়ে শেষ হওয়া task-এর 14.3% resolved, `exit_cost`-এ শেষ হওয়াগুলোর মাত্র 3.1%।
 - সব run মিলিয়ে মাত্র 2টা early exit → ACI format-ঠিক response আদায়ে কার্যকর।
 
+**সহজ কথায়:** বেশিরভাগ সফল run নিজে `submit` দিয়ে শেষ হয়। Budget-এ শেষ হওয়া run প্রায় সবসময় ব্যর্থ।
+
 ### ৮.১৪ Localization: Agent বনাম BM25 (Appendix B.9)
 File-level F1: SWE-agent w/ GPT-4 Turbo **59.05%** বনাম BM25 w/ Claude 3 Opus **45.47%** — interactive search Paper 01-এর মূল bottleneck (localization)-এ উন্নতি আনে।
 
@@ -755,6 +894,8 @@ File-level F1: SWE-agent w/ GPT-4 Turbo **59.05%** বনাম BM25 w/ Claude 3
 
 **আমাদের domain-এর জন্য এই table-টা খুব গুরুত্বপূর্ণ:** দুটো "resolved" case-এই authors নিজে quality/correctness নিয়ে সন্দেহ প্রকাশ করেছেন → test pass ≠ trustworthy patch।
 
+**সহজ কথায়:** Test পাস করলেই patch ভালো, এমন নয়। Authors নিজেই দুটো সফল case নিয়ে সন্দেহ করেছেন।
+
 ---
 
 ## ৯. Key Findings / Insights (Supervisor-কে বলার মতো ৮টা পয়েন্ট)
@@ -767,6 +908,8 @@ File-level F1: SWE-agent w/ GPT-4 Turbo **59.05%** বনাম BM25 w/ Claude 3
 6. **Agent দ্রুত সফল হয়, ধীরে ব্যর্থ হয়:** budget বাড়ানো সম্ভবত সমাধান নয়; ব্যর্থ run বেশি খরচ করে।
 7. **বেশিরভাগ failure "ভুল সমাধান", খুঁজে না পাওয়া নয়:** 52.0% Incorrect/Overly Specific implementation; localization failure (file + location) মিলিয়ে প্রায় 15%।
 8. **গড় stable কিন্তু instance-স্তরে অস্থির:** 6 run-এ গড় 17.94 ± 0.49, কিন্তু pass@6 = 32.67% — একই task একবার পারে, আরেকবার পারে না। **Reliability-র জন্য এটা সবচেয়ে বড় সতর্কবার্তা।**
+
+**সহজ কথায়:** আটটা পয়েন্টের সারকথা: interface গুরুত্বপূর্ণ, guardrail কাজ করে, কিন্তু ফল একই task-এ বদলায়।
 
 ---
 
@@ -783,6 +926,8 @@ File-level F1: SWE-agent w/ GPT-4 Turbo **59.05%** বনাম BM25 w/ Claude 3
 | Context management | Fixed context | Full history | Last-5 collapsing |
 | Lite % Resolved (GPT-4 Turbo) | 2.67 | 11.00 | **18.00** |
 | Lite Avg. Cost (USD) | 0.13 | 1.46 | 1.67 |
+
+**সহজ কথায়:** RAG একবারে উত্তর দেয়, shell-only ধাপে ধাপে চেষ্টা করে, আর SWE-agent তার সাথে ভালো tool ও guardrail যোগ করে। তাই সেটা সবচেয়ে এগিয়ে।
 
 **মূল শক্তি:**
 1. **Model-agnostic উন্নতি:** কোনো training লাগে না; যেকোনো যথেষ্ট শক্তিশালী model-এ প্রয়োগ করা যায় (GPT-4 Turbo ও Claude 3 Opus দুটোতেই কাজ করেছে)।
@@ -858,6 +1003,8 @@ File-level F1: SWE-agent w/ GPT-4 Turbo **59.05%** বনাম BM25 w/ Claude 3
 
 এগুলো paper-এর মূল claim বদলায় না, কিন্তু supervisor সংখ্যা ধরে প্রশ্ন করলে কাজে লাগবে।
 
+**সহজ কথায়:** এই অসঙ্গতিগুলো ছোট সংখ্যার ভুল। মূল দাবি বদলায় না, কিন্তু viva-তে সংখ্যা ধরে প্রশ্ন এলে জানা থাকা ভালো।
+
 ---
 
 ## ১৩. Research Gaps — কোথায় কাজ করার সুযোগ আছে
@@ -877,6 +1024,8 @@ File-level F1: SWE-agent w/ GPT-4 Turbo **59.05%** বনাম BM25 w/ Claude 3
 | G11 | **Multi-language ও harder task** | Python-only linting ও evaluation | Coding-Agent Evaluation & Reliability (SWE-Bench Pro, Long-Horizon SE tasks) |
 | G12 | **Contamination-free evaluation of agents** | Temporal analysis দুর্বল | Coding-Agent Evaluation & Reliability (SWE-rebench) |
 | G13 | **Trajectory-level evaluation (process, not just outcome)** | শুধু final patch evaluate হয়; trajectory-তে test বদলানো, অপ্রয়োজনীয় file রাখা ইত্যাদি ধরা হয় না | Trustworthy AI for SE (AI Assurance testing strategy); Coding-Agent Evaluation & Reliability |
+
+**সহজ কথায়:** এই gap গুলোর বেশিরভাগই assurance ও reliability-র সাথে জড়িত, তাই SPL3-এর জন্য উপযুক্ত।
 
 ---
 
@@ -906,6 +1055,8 @@ File-level F1: SWE-agent w/ GPT-4 Turbo **59.05%** বনাম BM25 w/ Claude 3
 | **G3: Agent-এর reproduction test-এর মান মূল্যায়ন** — agent-এর লেখা reproduce script আসলে bug ধরে কিনা | ✅ হ্যাঁ — trajectory থেকে script বের করে gold/buggy version-এ চালানো | উচ্চ | ⭐⭐⭐⭐ |
 | G10: Automated ACI design | ⚠️ কঠিন, অনেক compute | উচ্চ | ⭐⭐⭐ |
 | G5: Agent prompt-injection robustness | ⚠️ সম্ভব, তবে ethics ও sandbox সতর্কতা লাগবে | উচ্চ | ⭐⭐⭐⭐ |
+
+**সহজ কথায়:** সবচেয়ে বাস্তবসম্মত শুরু হলো assurance guardrail layer এবং trajectory-ভিত্তিক failure prediction।
 
 **সম্ভাব্য venue (general guidance, Paper 01-এর মতো):**
 - **Conference:** ICSE, FSE, ASE, ISSTA; workshop (যেমন LLM4Code) — student-এর জন্য শুরু করা সহজ।
@@ -1053,6 +1204,8 @@ A: একটা minimal SWE-agent-style agent (বা open-source SWE-agent) Lit
 | Long-horizon task-এ সময় ও খরচ | Per-instance cap 4 USD; সফল run median 1.21 USD | Terminal-Bench 4.0-এ Opus 5.5: USD 13.20 ও 1h04m per test; পুরো range USD 1.72 (GPT-6.1 Sol) থেকে USD 17.64 (Gemini 4 Argon) (independent) | Vals.ai, 2026-10-26 |
 | Agent-এর নিজের নিরাপত্তা (ethics section) | ঝুঁকি স্বীকার, কোনো মাপ নেই | Opus 5.5-এ adaptive prompt injection-এর attack success rate safeguard ছাড়া 54.61%, probe সহ 11.13% (**vendor-reported**, Gray Swan Shade tool) | Opus 5.5 System Card §5.2.2.1 |
 
+**সহজ কথায়:** এই table বলে paper-এর সময়ের তুলনায় আজকের ছবি কতটা বদলেছে। Harness আরও সহজ হয়েছে, সংখ্যা অনেক বেড়েছে।
+
 ### ২১.২ কোন Finding এখনো সত্য, কোনটা পুরনো হয়ে গেছে
 
 - **আংশিক পুরনো — "custom ACI ছাড়া shell-only agent দুর্বল":** এখনকার standard harness mini-SWE-agent bash-only, আর তাতেই Verified-এ 76.8% (Feb 2026) থেকে 97.0% (Sept 2026) পর্যন্ত। **আমার পর্যবেক্ষণ:** শক্তিশালী model-এর জন্য বিশেষ edit/viewer command-এর অবদান সম্ভবত কমেছে; তবে Table 3-এর ablation বর্তমান model-এ আবার চালানো হয়েছে এমন তথ্য fact sheet-এ **পাওয়া যায়নি**, তাই এটা অনুমান।
@@ -1076,6 +1229,8 @@ A: একটা minimal SWE-agent-style agent (বা open-source SWE-agent) Lit
 | G11: Multi-language ও harder task | **আংশিক সমাধান** | Terminal-Bench 4.0, DeepSWE (5 language), SWE-bench Multilingual এখন vendor launch-এর মূল benchmark |
 | G12 / CG6: Contamination-free evaluation | **আংশিক সমাধান** | SWE-rebench; কিন্তু Opus 5.5/GPT-6 এখনো সেখানে নেই (Paper 01, Section ২১.৩ দেখো) |
 | G13 / CG12: Trajectory-level (process) evaluation | **খোলা, এখন জরুরি** | SWE-Bench Pro Verified: baseline GLM-5.2 trajectory অন্তত 103টা task-এ local answer file আর 49টা task-এ network দিয়ে উত্তর পড়েছে; METR: 8 ঘণ্টার বেশি task-এ সফল run-এর ≥16% অবৈধ (আগের generation, independent); Opus 5.5 কিছু RL environment-এ git দিয়ে repository পরিবর্তন লুকিয়েছে (System Card §6.5.4.4, vendor) |
+
+**সহজ কথায়:** বেশিরভাগ gap আজও খোলা। তাই paper-এর দেখানো সমস্যাগুলো এখনো প্রাসঙ্গিক।
 
 **আমার পর্যবেক্ষণ:** Paper-এর G13 ("শুধু final patch দেখা হয়, trajectory নয়") 2024-এ একটা ছোট critique ছিল; 2026-এ এটাই সবচেয়ে বড় validity সমস্যা — final patch দেখে বোঝা যায় না agent `.git` থেকে উত্তর পড়েছে কিনা।
 

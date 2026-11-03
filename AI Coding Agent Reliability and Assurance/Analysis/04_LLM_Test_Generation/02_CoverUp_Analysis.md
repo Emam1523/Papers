@@ -24,9 +24,62 @@
 
 ---
 
+## ★ সহজ ভাষায় পুরো Paper (প্রথমবার পড়ার জন্য)
+
+### ক. Paper-টা কী নিয়ে?
+- এটা একটা **নতুন tool-এর paper**, সাথে পরীক্ষা-নিরীক্ষাও আছে।
+- Tool-এর নাম **CoverUp**। কাজ: Python code-এর জন্য নিজে নিজে unit test লিখে দেওয়া।
+- বানিয়েছেন Juan Altmayer Pizzorno ও Emery Berger, University of Massachusetts Amherst থেকে।
+- Paper ছাপা হয়েছে FSE 2025-এ। এটা software engineering-এর একটা বড় conference।
+- Tool-টা একটা LLM (GPT-4o) ব্যবহার করে। কিন্তু শুধু LLM-কে "test লেখো" বললে হয় না। CoverUp LLM-কে ঠিক পথ দেখায়।
+- এই paper-এর সবচেয়ে বড় দাবি: আগের সেরা tool CodaMosa-র চেয়ে অনেক বেশি code CoverUp-এর test দিয়ে চালানো যায়।
+
+### খ. সমস্যাটা কী ছিল?
+- Developer-রা test লিখতে চায় না। Test লেখা ক্লান্তিকর আর সময়ও লাগে। তাই অনেক project-এ test কম থাকে।
+- আগের tool-গুলো (যেমন Pynguin) random ভাবে test বানিয়ে বানিয়ে খোঁজে। এক জায়গায় গিয়ে এরা আটকে যায়। একে বলে coverage plateau (উন্নতি থেমে যাওয়া)।
+- একটা উদাহরণ: ধরো একটা `if` শুধু তখনই চলে যখন input একটা বিশেষ format-এর string। Random ভাবে সেই string পাওয়া প্রায় অসম্ভব।
+- আগের LLM-ভিত্তিক tool-গুলোও পুরো ঠিক ছিল না। এরা LLM-কে বলত না "কোন line এখনো চলেনি"। ফলে LLM আন্দাজে test লিখত।
+- তুলনা করো এভাবে: পরীক্ষার আগে শিক্ষক বলছেন "যা ইচ্ছা পড়ো"। এটা এক কথা। আর "এই তিনটা chapter তুমি এখনো পড়োনি, এগুলো পড়ো" বললে অন্য কথা।
+
+### গ. Paper কী solve করেছে?
+- CoverUp আগে মাপে কোন line ও branch এখনো কোনো test-এ চলেনি। তারপর শুধু সেই অংশটুকু LLM-কে দেখায়।
+- LLM-কে একটা `get_info` tool দেওয়া হয়েছে। LLM চাইলে কোনো function বা class-এর definition নিজে চেয়ে নিতে পারে।
+- Test fail করলে বা coverage না বাড়লে error-টা LLM-কে আবার জানানো হয়। LLM আবার চেষ্টা করে।
+- সবচেয়ে দরকারি তিনটা সংখ্যা:
+  - CodaMosa-র কঠিন benchmark-এ CoverUp-এর per-module median coverage **79.6%**, CodaMosa (gpt4o)-এর **47.2%**। মানে মাঝের module-এ CoverUp প্রতি ১০০টা item-এর প্রায় ৮০টা চালায়, CodaMosa প্রায় ৪৭টা।
+  - শুধু LLM-কে "test লেখো" বললে overall coverage **34.0%**, CoverUp-এ **60.3%**। মানে লাভটা শুধু LLM-এর জন্য নয়, CoverUp-এর design-এর জন্য।
+  - সফল test-এর প্রায় **40%** এসেছে chat চালিয়ে যাওয়ার পর। মানে ১০০টার মধ্যে ৬০টা প্রথমবারে মিলেছে, বাকি ৪০টা আবার চেষ্টা করে।
+
+### ঘ. কীভাবে solve করেছে?
+1. আগে বর্তমান test চালিয়ে coverage মাপে। কোন line ও branch চলেনি তার list বানায়।
+2. যে function বা method-এ ওই line আছে, সেটা কেটে নেয়। একে বলে segment, সাধারণত ৫০ line পর্যন্ত।
+3. LLM-কে prompt পাঠায়: "তুমি expert Python developer। এই segment-এর এই line-গুলো চালায় এমন pytest test লেখো।" যে line চলেনি সেখানে `19:` ধরনের number বসানো থাকে।
+4. LLM চাইলে `get_info` দিয়ে অন্য code-এর definition চেয়ে নেয়।
+5. CoverUp test-টা চালায়। Pass করলে আর coverage বাড়লে test রেখে দেয়।
+6. Fail করলে error message পাঠায়। Pass করে কিন্তু coverage না বাড়লে বলে "এই line-গুলো এখনো চলেনি"। এভাবে মোট ৩ বার পর্যন্ত চেষ্টা হয়।
+7. প্রতিটা test আলাদা process-এ চালায়, যাতে এক test অন্য test নষ্ট না করে। কয়েকবার repeat-ও করে, যাতে কখনো pass কখনো fail করা (flaky) test ধরা যায়।
+8. সব segment শেষে পুরো suite একসাথে চালিয়ে দেখে সব ঠিক আছে কিনা।
+
+### ঙ. এরপর কী করা যায়?
+- Authors নিজেরা বলেছেন: এক উত্তরে একাধিক test থাকলে একটা fail করলেই সব বাদ যায়। প্রতিটা আলাদা যাচাই করা ভালো হতো।
+- Authors আরও বলেছেন: test-এর timeout ১ মিনিট একটু কম ছিল, আর conditional import-এ tool ভুল context দেয়।
+- যা এখনো খোলা: paper শুধু coverage মেপেছে। Test আসলে ভুল ধরতে পারে কিনা (mutation score, assertion-এর মান) মাপেনি।
+- আরেকটা খোলা প্রশ্ন: CoverUp বর্তমান code-কে ঠিক ধরে test লেখে (regression test)। AI agent-এর patch ভুল হলেও এই test pass করতে পারে।
+- আমরা SPL3-তে করতে পারি: CoverUp-এর test-গুলোর উপর mutation score মাপা (কয়েকটা CM module-এ)।
+- আমরা আরও করতে পারি: পুরনো code-এ test বানিয়ে patch করা code-এ চালানো (differential)। তাহলে agent-এর ভুল patch ধরা পড়বে।
+
+> **মনে রাখো:**
+> CoverUp = "কোন line চলেনি" LLM-কে বলে দেওয়া + error পেলে আবার চেষ্টা। তাই CodaMosa-র চেয়ে অনেক বেশি coverage।
+> কিন্তু coverage মানে শুধু code চলেছে, ফল ঠিক কিনা যাচাই হয়েছে তা নয়। Paper oracle-এর শক্তি মাপেনি, আর এটাই আমাদের gap।
+
+
+---
+
 ## ১. এক লাইনে Paper (TL;DR)
 
 **CoverUp একটা tool যেটা প্রথমে মাপে কোন line/branch এখনো test-এ চলে না, তারপর শুধু সেই অংশের code (segment) LLM-কে দেখিয়ে বলে "এই নির্দিষ্ট line-গুলো চালায় এমন pytest test লেখো"; test চালিয়ে coverage আবার মাপে, আর error বা coverage না বাড়লে সেই কথা LLM-কে জানিয়ে chat চালিয়ে যায় — ফলে CodaMosa-র চেয়ে অনেক বেশি coverage পায় (per-module median line+branch 80% বনাম 47%)।**
+
+**সহজ কথায়:** CoverUp LLM-কে বলে দেয় "এই line-গুলো এখনো চলেনি, ওগুলো চালানোর test লেখো"। Test ভুল হলে বা কাজ না করলে আবার জানায়। এতে CodaMosa-র চেয়ে অনেক বেশি code চলে।
 
 ### Supervisor-কে ৩০ সেকেন্ডে কীভাবে বলবো
 > "Sir, Python-এ automatic unit test বানানোর আগের সেরা tool ছিল Pynguin (genetic algorithm) আর তার LLM-সহ version CodaMosa। CoverUp একটা সহজ কিন্তু কার্যকর idea দেখিয়েছে — LLM-কে পুরো code না দিয়ে, coverage tool দিয়ে বের করা 'কোন line চলেনি' সেই তথ্য prompt-এ সরাসরি দেওয়া, LLM-কে একটা `get_info` tool দেওয়া যাতে দরকারি definition নিজে চেয়ে নিতে পারে, আর test fail করলে বা coverage না বাড়লে error message ফেরত দিয়ে আবার চেষ্টা করানো। GPT-4o দিয়ে CodaMosa-র কঠিন benchmark-এ overall line+branch coverage 60.3% (CodaMosa-GPT-4o 45.2%) আর per-module median 79.6% (47.2%)। Ablation দেখায় এই লাভ শুধু LLM-এর জন্য নয় — শুধু LLM-কে জিজ্ঞেস করলে 34.0%। কিন্তু আমাদের assurance-এর জন্য বড় সতর্কতা: paper শুধু coverage মেপেছে, test-গুলো আসলে ভুল ধরতে পারে কিনা (mutation score, assertion-এর মান) মাপেনি। আর test-গুলো বর্তমান code-কেই 'সঠিক' ধরে লেখা regression test।"
@@ -40,6 +93,8 @@
 - **pytest:** Python-এর সবচেয়ে জনপ্রিয় test framework। `test_` দিয়ে শুরু হওয়া function-গুলো নিজে খুঁজে (test discovery) চালায়।
 - **Test suite:** একটা project-এর সব test একসাথে।
 - **monkeypatch / pytest-mock:** test চলার সময় কোনো variable, function বা environment সাময়িকভাবে বদলে দেওয়া, আর test শেষে **নিজে থেকে আগের অবস্থায় ফেরত** আনা। CoverUp prompt-এ এগুলো ব্যবহার করতে বলে (state pollution এড়াতে)।
+
+**সহজ কথায়:** এগুলো দিয়ে test-এর সময় কোনো জিনিস সাময়িক বদলানো যায়। Test শেষ হলে আগের অবস্থা ফিরে আসে, তাই অন্য test নষ্ট হয় না।
 
 ### ২.২ Regression Testing বনাম Bug-finding Testing (খুব গুরুত্বপূর্ণ)
 - **Regression test:** ধরে নেওয়া হয় **এখনকার code সঠিক**। Test এখনকার আচরণকে "লিখে রাখে", যাতে ভবিষ্যতে কেউ code বদলালে আচরণ বদলে গেলে ধরা পড়ে।
@@ -57,6 +112,8 @@
 - **Line + Branch (combined):** দুটোকে একসাথে গুনে একটা সংখ্যা (সূত্র Section ৬-এ)।
 - **Python-এ branch coverage line coverage-কে "subsume" করে না:** সাধারণত ভাবা হয় সব branch চললে সব line-ও চলবে। কিন্তু paper বলছে Python-এ exception ছুঁড়লে সেটা branch হিসেবে রেকর্ড হয় না, তাই দুটো metric-ই আলাদা করে দরকার।
 - **সবচেয়ে গুরুত্বপূর্ণ সতর্কতা:** coverage শুধু বলে code **চলেছে কিনা**, ফল **ঠিক কিনা যাচাই হয়েছে কিনা** বলে না। Assertion ছাড়া test-ও 100% coverage দিতে পারে।
+
+**সহজ কথায়:** Coverage হলো "কোন প্রশ্ন পড়া হলো" গোনা। "উত্তর ঠিক কিনা" সেটা এখানে দেখা হয় না।
 
 ### ২.৫ Coverage Tool: SlipCover ও coverage.py
 - **coverage.py:** Python-এর প্রচলিত coverage tool। Paper অনুযায়ী এটা **260% পর্যন্ত overhead** যোগ করে।
@@ -82,6 +139,8 @@ Source code-কে একটা গাছের মতো structure-এ রূ�
 - **MuTAP (Dakhel et al., IST 2024):** LLM দিয়ে test চায়, MutPy দিয়ে mutation testing করে, আর survived mutant-এর জন্য LLM-কে নতুন assertion লিখতে বলে।
 - **খুব গুরুত্বপূর্ণ:** CoverUp নিজে mutation testing **ব্যবহারও করে না, মাপেও না**। MuTAP-এর সাথে তুলনাও শুধু coverage দিয়ে করা হয়েছে। অর্থাৎ MuTAP-এর মূল শক্তি (assertion-এর মান) এই তুলনায় ধরা পড়েনি — Section ১২-এ critique।
 
+**সহজ কথায়:** Mutation score হলো test-এর "ভুল ধরার ক্ষমতা"-র পরীক্ষা। ইচ্ছা করে code-এ ভুল ঢুকিয়ে দেখা হয় test সেটা ধরে কিনা। CoverUp এটা মাপেনি।
+
 ### ২.১০ Coverage-guided Generation ও Segment / Gap Prompting
 - **Coverage-guided generation:** test generation-এর প্রতিটা ধাপে coverage মেপে পরের ধাপ ঠিক করা।
 - **Segment prompting (CoverUp-এর idea):** পুরো file না দিয়ে শুধু সেই function/method/class (segment) দেওয়া যেখানে "gap" (uncovered line/branch) আছে, আর gap-এর line number চিহ্নিত করে দেওয়া (যেমন `19:` tag)। এতে prompt ছোট, সস্তা, আর LLM-এর মনোযোগ সঠিক জায়গায়।
@@ -92,6 +151,8 @@ LLM-এর প্রথম উত্তর ভুল হলে নতুন chat
 2. **Coverage feedback:** test pass করলেও coverage না বাড়লে "এখনো line 615 আর branch `603->exit`… চলেনি" (Figure 6)।
 
 Default-এ প্রথম prompt-এর পর **সর্বোচ্চ আরও ২টা prompt** (মোট ৩টা চেষ্টা)।
+
+**সহজ কথায়:** একজন ছাত্রকে ভুল উত্তরের পর "এই জায়গায় ভুল হয়েছে, আবার চেষ্টা করো" বলার মতো। CoverUp LLM-কে মোট ৩ বার সুযোগ দেয়।
 
 ### ২.১২ Tool / Function Calling
 LLM API-তে একটা "tool" (function)-এর বর্ণনা পাঠানো যায়; LLM চাইলে text না লিখে বলতে পারে "এই function-টা এই argument দিয়ে চালাও"। Program সেটা চালিয়ে ফল আবার chat-এ যোগ করে। CoverUp-এর tool: **`get_info(name)`** — কোনো class, function, variable বা module-এর definition চাইলে CoverUp static analysis দিয়ে source code-এর প্রাসঙ্গিক অংশ ফেরত দেয়। এটা আজকের coding agent-দের "file পড়া" tool-এর একটা ছোট, নিয়ন্ত্রিত রূপ।
@@ -122,6 +183,8 @@ CoverUp-এ এই দুটো সংখ্যা অনেক আলাদা 
 ### ২.১৯ Asynchronous Execution ও Rate Limiting (Leaky Bucket)
 - **asyncio:** অনেকগুলো LLM request একসাথে পাঠানো, উত্তরের অপেক্ষায় বসে না থেকে। Paper অনুযায়ী serial-এর তুলনায় **500x speedup**।
 - **Leaky bucket:** request একটা "বালতি"-তে জমে আর নির্দিষ্ট হারে বের হয় — যাতে OpenAI-এর rate limit পার না হয় (`aiolimiter` module)।
+
+**সহজ কথায়:** অনেক request একসাথে পাঠালে OpenAI আটকে দেয়। তাই request-গুলো একটা বালতিতে জমে, আর ধীরে ধীরে বের হয়।
 - **Checkpointing:** মাঝপথে থামলে (যেমন account-এ টাকা শেষ) পরে আবার সেখান থেকে শুরু।
 
 ### ২.২০ Property-based Test
@@ -144,6 +207,8 @@ CoverUp-এ এই দুটো সংখ্যা অনেক আলাদা 
 4. **বাস্তব Python package-এ কাজ করা:** অনেক code-এর dependency অনেক, type annotation নেই, external code ব্যবহার করে — LLM ভুল ধারণা করে।
 5. **Practical সমস্যা:** LLM-এর context limit, token খরচ, API rate limit, ধীর test execution, state pollution, flaky test।
 
+**সহজ কথায়:** সমস্যা তিন স্তরের। প্রথমে test লেখাই কষ্ট। তারপর আগের tool-গুলো ঠিকমতো gap বোঝে না। শেষে বাস্তব project-এ নানা ঝামেলা (dependency, flaky test) আছে।
+
 ### ৩.২ কেন এটা গুরুত্বপূর্ণ?
 Regression test না থাকলে code বদলানোর সময় পুরনো feature ভাঙছে কিনা ধরা যায় না। আর **আমাদের domain-এ**: AI agent-এর patch যাচাই করতে যে test লাগে, সেটা প্রায়ই নেই বা দুর্বল (SWE-bench-এ 60% task-এ মাত্র ১টা F2P test — SWE-bench analysis দেখো)। তাই automatic, high-coverage test generation হলো assurance layer-এর একটা মৌলিক উপাদান।
 
@@ -162,6 +227,8 @@ Paper-এর explicit RQ:
 
 **Contribution (paper-এর দাবি):** (১) CoverUp approach; (২) empirical analysis যে এটা state of the art এগিয়ে নেয়; (৩) ablation study যে লাভের বড় অংশ LLM-এর বাইরে, CoverUp-এর design থেকে আসে।
 
+**সহজ কথায়:** Authors তিনটা কথা বলছেন। এক: নতুন একটা পদ্ধতি বানিয়েছি। দুই: সেটা আগের সেরার চেয়ে ভালো। তিন: ভালো হওয়ার কারণ শুধু LLM নয়, আমাদের design।
+
 ---
 
 ## ৫. Methodology — কীভাবে কাজটা করা হয়েছে
@@ -175,6 +242,8 @@ Paper-এর explicit RQ:
 6. সব segment শেষে **integration check** — পুরো suite একসাথে ঠিক চলে কিনা (Section 3.5)।
 7. পুরো প্রক্রিয়া আবার চালানো যায় — আগের বার বাদ পড়া segment-এ আবার মনোযোগ।
 
+**সহজ কথায়:** CoverUp একটা চক্র: gap খোঁজো, LLM-কে বলো, test চালাও, ফল দেখো, দরকারে আবার বলো। চক্র শেষ হলে চাইলে আবার শুরু করা যায়।
+
 ### ৫.২ Code Segmentation (Section 3.1, Algorithm 1)
 - প্রথমে "interesting" line-এর set: যে line চলেনি, আর যে branch চলেনি তার source বা destination line।
 - AST-এ খোঁজা হয় কোন class/function/method এই line ধারণ করে।
@@ -183,6 +252,8 @@ Paper-এর explicit RQ:
 - **Comment রেখে দেওয়া হয়** — authors দেখেছেন এতে LLM-এর বোঝা ভালো হয়।
 - **Default segment size: 50 line** (evaluation-এও এটাই)।
 - কেন ছোট segment: context window শুধু প্রথম prompt নয়, পুরো chat (tool call, উত্তর, continued prompt) মিলিয়ে ভরে যায়; লম্বা code prompt-এ ভুল বাড়ে (Rosas et al. 2024); আর token-এ টাকা লাগে।
+
+**সহজ কথায়:** পুরো file দিলে LLM গোলমাল করে, খরচও বেশি। তাই শুধু যেখানে gap, সেই ছোট অংশ দেওয়া হয়।
 
 ### ৫.৩ Initial Prompt-এর ছয় অংশ (Section 3.2, Figure 3)
 | অংশ | কী থাকে | কেন |
@@ -200,6 +271,8 @@ Paper-এর explicit RQ:
 - **প্রতিটা uncovered line-এ number tag:** শুধু excerpt-এর শুরুর line number দিলে LLM-এর test coverage বাড়ায় না — authors-এর পর্যবেক্ষণ।
 - Prompt OpenAI chat API-এর JSON request-এ `messages`-এর ভেতরে যায়, সাথে `model` ও `temperature` (Figure 4)।
 
+**সহজ কথায়:** Prompt-এর ছয়টা অংশ আসলে ছয়টা ছোট নির্দেশ: তুমি কে, কোথায় gap, কী চাই, কী করা যাবে না, কীভাবে উত্তর দেবে, আর code-টা কী।
+
 ### ৫.৪ Verification ও Continued Chat (Section 3.3)
 - নতুন test চালিয়ে SlipCover দিয়ে coverage মাপা।
 - **Test pass করে এবং coverage বাড়ায় → save।**
@@ -210,6 +283,8 @@ Paper-এর explicit RQ:
 - **Missing module:** test-এ এমন module লাগলে যা install নেই (যেমন `ansible`-এর জন্য `pytest-ansible`), CoverUp চাইলে নিজে install করে `requirements.txt` format-এ লিখে রাখে।
 - **একটা দুর্বলতা (paper নিজে বলেছে):** LLM-এর এক উত্তরে একাধিক test function থাকলে, একটা fail করলেই **সবগুলো reject**।
 
+**সহজ কথায়:** একটা test খারাপ হলে বাকিগুলো ভালো হলেও সব ফেলে দেওয়া হয়। এতে কিছু ভালো test নষ্ট হয়।
+
 ### ৫.৫ Tool Function `get_info` (Section 3.4, Figure 8–9)
 - প্রতিটা chat request-এর `tools` JSON element-এ `get_info`-এর বর্ণনা থাকে।
 - LLM text-এর বদলে এক বা একাধিক `get_info` call চাইতে পারে; CoverUp ফল যোগ করে chat চালায়।
@@ -218,6 +293,8 @@ Paper-এর explicit RQ:
 - উদাহরণ: `class A`-এর `__init__(self, *, initial_x=0)` দেখে LLM বোঝে `x` keyword argument `initial_x` দিয়ে দিতে হয়। Tool না দিলে LLM সরাসরি `x` পাঠাতে চেষ্টা করে, error হয়।
 - Initial ও continuation — দুই ধরনের prompt-এই tool পাওয়া যায়।
 
+**সহজ কথায়:** `get_info` হলো LLM-এর "ওই function-টা একটু দেখাও" বলার সুযোগ। আজকের coding agent-রা যে file পড়ে, এটা তারই ছোট রূপ।
+
 ### ৫.৬ Integration Check ও State Pollution (Section 3.5)
 CoverUp শুধু সেই test রাখে যা **একা চালালে** pass করে; কিন্তু একসাথে চালালে state pollution হতে পারে। তিনটা বিকল্প:
 1. **প্রতিটা test isolation-এ চালানো** (`fork()`-ভিত্তিক) — **default, evaluation-এ এটাই ব্যবহৃত**।
@@ -225,6 +302,8 @@ CoverUp শুধু সেই test রাখে যা **একা চালা
 3. **Failing test disable:** দ্রুত, কিন্তু অপ্রয়োজনে test বন্ধ হতে পারে (coverage কমে), আর polluting test থেকেও যেতে পারে।
 
 বন্ধ করা test user-এর review-এর জন্য রাখা থাকে।
+
+**সহজ কথায়:** Test-গুলো আলাদা করে চালালে ঠিক, কিন্তু একসাথে চালালে একটা অন্যটাকে নষ্ট করতে পারে। CoverUp তাই প্রতিটাকে আলাদা ঘরে (process) রেখে চালায়।
 
 ### ৫.৭ Flaky Test Handling (Section 3.6)
 `pytest-repeat` দিয়ে প্রতিটা নতুন test একাধিকবার চালানো; fail করলে chat চালিয়ে LLM-কে ঠিক করার সুযোগ। **কতবার repeat — paper-এ নির্দিষ্ট সংখ্যা দেওয়া নেই** ("a few times")।
@@ -253,6 +332,8 @@ L_T = \cup_{t \in T}\, \text{lines}(t), \qquad B_T = \cup_{t \in T}\, \text{arcs
 $$
 (Paper-এ সব test isolation-এ চালানো হয়, তাই প্রতিটা test-এর coverage আলাদা এবং suite-এর coverage এই union।)
 
+**সহজ কথায়:** পুরো suite-এর coverage মানে প্রতিটা test যা যা চালিয়েছে তার মিলিত তালিকা। একটা line কোনো একটা test-এ চললেই সেটা গোনা হয়।
+
 Line, branch ও combined coverage (coverage.py/SlipCover-এর প্রচলিত সংজ্ঞা; paper সূত্রটা লেখেনি):
 $$
 \text{Cov}_{L}(T) = \frac{N_{L_T}}{N_L} \times 100, \qquad \text{Cov}_{B}(T) = \frac{N_{B_T}}{N_B} \times 100
@@ -262,11 +343,15 @@ $$
 $$
 **মানে:** combined metric-এ line আর branch দুটোকে একই "item" হিসেবে গোনা হয়। তাই combined মান সবসময় line ও branch-এর মাঝামাঝি থাকে — Table 1-এ CoverUp: line 63.8%, branch 49.2%, combined 60.3% (মাঝে, line-এর কাছে, কারণ সাধারণত line-এর সংখ্যা branch-এর চেয়ে বেশি)।
 
+**সহজ কথায়:** Line coverage = চলা line ÷ মোট line। Branch coverage = চলা branch ÷ মোট branch। Combined হলো দুটোকে একসাথে গুনে একটা সংখ্যা।
+
 **Missing set (prompt-এ যা যায়):**
 $$
 M_L = \{\, l \in L : l \notin L_T \,\}, \qquad M_B = \{\, b \in B : b \notin B_T \,\}
 $$
 অর্থাৎ যে line ও branch এখনো কোনো test-এ চলেনি।
+
+**সহজ কথায়:** $M_L$ আর $M_B$ হলো "বাকি কাজের তালিকা"। CoverUp এটাই LLM-কে বলে দেয়।
 
 **Worked example (Figure 6, আসল সংখ্যা):** একটা segment-এ coverage follow-up prompt বলছে line 615 আর branch `603->exit`, `610->608`, `618->exit` চলেনি। তাহলে ঐ segment-এর জন্য $M_L = \{615\}$, $M_B = \{(603, \text{exit}), (610, 608), (618, \text{exit})\}$ — মোট 1 + 3 = 4টা item বাকি।
 
@@ -283,11 +368,16 @@ $$
 
 **সহজ ভাষায়:** class ছোট হলে পুরো class একটা segment; বড় হলে class-এর মাথাটুকু context হিসেবে রেখে ভেতরের method-টা segment।
 
+**সহজ কথায়:** Algorithm 1 আসলে "কোন অংশ কাটবো" ঠিক করে। ছোট হলে পুরোটা, বড় হলে শুধু সংশ্লিষ্ট method আর class-এর মাথাটুকু।
+
 ### ৬.৪ Feedback Loop — Formal রূপ
 Segment $s$, বর্তমান suite $T$। চেষ্টা $k = 1, 2, \ldots, K$ (evaluation-এ $K = 3$: প্রথম prompt + সর্বোচ্চ 2টা continuation)। চেষ্টা $k$-এ LLM test set $U_k$ দেয়। Acceptance:
 $$
 \text{Accept}(U_k) = \text{pass}(U_k) \;\land\; \text{Cov}(T \cup U_k) > \text{Cov}(T)
 $$
+
+**সহজ কথায়:** Test রাখা হবে দুটো শর্তে: সব test pass করতে হবে, আর coverage বাড়তে হবে। একটাও না মিললে feedback দিয়ে আবার চেষ্টা।
+
 - $\text{pass}(U_k)$ = $U_k$-এর **সব** test isolation-এ pass করে (একটা fail করলে পুরো $U_k$ reject — Section 4.2)। Flaky ধরতে প্রতিটা কয়েকবার চালানো হয়।
 - Accept হলে $T = T \cup U_k$, loop শেষ।
 - না হলে, feedback $F_k$ তৈরি:
@@ -302,6 +392,8 @@ $$
 
 **গুরুত্বপূর্ণ পর্যবেক্ষণ (আমার):** Acceptance শর্তে **oracle-এর কোনো শর্ত নেই** — test-এ assertion আছে কিনা, assertion অর্থবহ কিনা, তা যাচাই হয় না। শুধু "pass" আর "coverage বাড়ে"। তাই optimization pressure পুরোপুরি coverage-এর দিকে। এটা CG12-এর (assurance signal-এর বিরুদ্ধে optimization) একটা ছোট রূপ।
 
+**সহজ কথায়:** CoverUp শুধু "চলেছে কিনা" দেখে, "ঠিক কিনা" দেখে না। তাই যে test শুধু code চালায় কিন্তু কিছু যাচাই করে না, সেটাও রয়ে যেতে পারে।
+
 ### ৬.৫ Continued Chat-এর অবদান (RQ3)
 $S$ = মোট successful test (pass করে ও coverage বাড়ায়), $S_k$ = যেগুলো চেষ্টা $k$-এ এসেছে:
 $$
@@ -313,6 +405,8 @@ $$
 $$
 **ব্যাখ্যা:** প্রতিটা নতুন চেষ্টায় সাফল্য কমে (60.3 → 27.2 → 12.5), কিন্তু chat না চালালে প্রায় 40% সফল test হারাতাম। **সতর্কতা (আমার পর্যবেক্ষণ):** এগুলো সফল test-এর **ভাগ**, প্রতিটা চেষ্টার **success rate** নয় — কতগুলো segment-এ মোট কতবার চেষ্টা হয়েছে, paper তা দেয়নি।
 
+**সহজ কথায়:** ১০০টা সফল test-এর মধ্যে ৬০টা প্রথমবারে, ২৭টা দ্বিতীয় চেষ্টায়, ১২-১৩টা তৃতীয় চেষ্টায়। Chat বন্ধ রাখলে প্রায় ৪০টা হারাতাম।
+
 ### ৬.৬ Coverage Gain
 দুটো tool $A$ ও $B$-এর জন্য:
 $$
@@ -322,6 +416,9 @@ $$
 $$
 \text{GapClosed} = \frac{\text{Cov}(A) - \text{Cov}(B)}{100 - \text{Cov}(B)}
 $$
+
+**সহজ কথায়:** Coverage gain মানে "কতটা এগিয়েছে"। 32.4 percentage point এগিয়ে থাকা মানে CodaMosa যে অংশ বাকি রেখেছিল, তার প্রায় ৬১% CoverUp ধরেছে।
+
 **Worked example (Table 1, per-module median line+branch, CoverUp বনাম CodaMosa-gpt4o):**
 - $\Delta_{pp} = 79.6 - 47.2 = 32.4$ pp
 - $\rho = 79.6 / 47.2 \approx 1.69$
@@ -340,6 +437,9 @@ $$
 **মানে:** Overall হলো **আকার-ভারযুক্ত গড়** — বড় module বেশি প্রভাব ফেলে। Median-এ প্রতিটা module সমান।
 CoverUp-এ Overall line+branch 60.3% কিন্তু median 79.6%। **আমার পর্যবেক্ষণ:** এর মানে কিছু **বড়** module-এ coverage অনেক কম (যেমন paper বলেছে `youtube_dl`-এ timeout সবচেয়ে বড় ব্যর্থতার উৎস), যারা overall-কে টেনে নামায়, অথচ অর্ধেকের বেশি module-এ coverage প্রায় 80% বা তার বেশি। Paper per-module distribution-এর পুরো data table আকারে দেয়নি (Figure 13-এ bar হিসেবে আছে)।
 
+
+**সহজ কথায়:** Overall বড় module-এর দিকে ঝোঁকে। Median প্রতিটা module-কে সমান ধরে। তাই কিছু বড় module খারাপ হলে overall কমে, কিন্তু median ঠিক থাকে।
+
 CM suite-এর গড় module size (**আমার হিসাব**): $100{,}000 / 425 \approx 235$ line/module। PY: $5{,}000 / 84 \approx 60$। MT: $2{,}000 / 163 \approx 12$ line/function — MT যে অনেক সহজ, এটাও তার একটা ইঙ্গিত।
 
 ### ৬.৮ Paired Permutation Test (Statistical Significance)
@@ -347,6 +447,9 @@ CM suite-এর গড় module size (**আমার হিসাব**): $100{,
 $$
 p = \text{Pr}\left( \text{abs}\left(\frac{1}{m}\sum_{i=1}^{m} \epsilon_i d_i\right) \geq \text{abs}\left(\bar{d}\right) \right), \qquad \epsilon_i \in \{+1, -1\} \text{ সমান সম্ভাবনায়}
 $$
+
+**সহজ কথায়:** দুই tool-এর পার্থক্য কাকতালীয় কিনা এই test দিয়ে দেখা হয়। p খুব ছোট (0.00002) মানে পার্থক্যটা কাকতালীয় নয়।
+
 Paper: per-module improvement-এর জন্য CodaMosa (GPT-4o) ও CodaMosa (Codex) দুটোর বিরুদ্ধেই $p = 2.0 \times 10^{-5}$, যা $0.05$-এর অনেক নিচে। (Paper কোন statistic বা কতগুলো permutation ব্যবহার করেছে তা বলেনি; উপরের সূত্রটা প্রচলিত রূপ।) MuTAP তুলনা ও ablation-এর জন্য কোনো significance test report করা হয়নি।
 
 ### ৬.৯ Flaky Test ধরার সম্ভাবনা (pytest-repeat)
@@ -354,6 +457,9 @@ Paper: per-module improvement-এর জন্য CodaMosa (GPT-4o) ও CodaMosa
 $$
 \text{Pr}(\text{detect}) = 1 - (1 - q)^{r}
 $$
+
+**সহজ কথায়:** Test একবার চালালে flaky bug ধরা না-ও পড়তে পারে। যত বেশি বার চালানো হয়, ধরা পড়ার সম্ভাবনা তত বাড়ে।
+
 **Worked example (আমার হিসাব, অনুমানসহ):** Figure 11-এর blood type test-এ LLM-এর list-এ "0-" ও "0+" ভুল। যদি code 8টা blood type থেকে **সমান সম্ভাবনায়** বাছাই করে (এই অনুমান paper-এর নয়), তাহলে test fail করে যখন O- বা O+ আসে: $q = 2/8 = 0.25$।
 - $r = 1$: $1 - 0.75 = 0.25$
 - $r = 3$: $1 - 0.75^3 \approx 0.578$
@@ -366,6 +472,9 @@ Prompt token $\tau_{in}$, completion token $\tau_{out}$, প্রতি million
 $$
 \text{Cost} = \frac{\tau_{in}}{10^6} \cdot c_{in} + \frac{\tau_{out}}{10^6} \cdot c_{out}
 $$
+
+**সহজ কথায়:** খরচ = (input token × দাম) + (output token × দাম)। মানে LLM-কে যত লম্বা prompt দেবে আর যত লম্বা উত্তর পাবে, তত টাকা।
+
 **মোট token (আমার হিসাব, Table 3 থেকে):**
 - CoverUp: $58{,}081{,}908 + 7{,}257{,}400 = 65{,}339{,}308$
 - CodaMosa (gpt4o): $39{,}508{,}559 + 4{,}504{,}329 = 44{,}012{,}888$
@@ -390,6 +499,8 @@ CoverUp-এর prompt ablated-এর ~5.3 গুণ লম্বা, কার�
 ### ৬.১১ Ablation-এ Component-এর অবদান (RQ5)
 Variant $v$-এর জন্য: $\text{Loss}_v = \text{Cov}(\text{CoverUp}) - \text{Cov}(v)$। Paper-এর ভাষ্য (Figure 17): error fixing বাদ দিলে "between 14% and 37%" কম; code context বাদ দিলে "between 7% and 16%"; coverage তথ্য বাদ দিলে "up to 2%"। **অস্পষ্টতা:** এগুলো percentage point নাকি relative % — paper স্পষ্ট করেনি, আর Figure 17-এর bar-এর সঠিক মান text-এ নেই।
 
+**সহজ কথায়:** Ablation মানে এক এক করে অংশ সরিয়ে দেখা কোনটা না থাকলে সবচেয়ে বেশি ক্ষতি। Error fixing সরালে ক্ষতি সবচেয়ে বেশি।
+
 **Function bloat (আমার হিসাব):** coverage-ablated prompt 11,222টা test function বানিয়েছে, CoverUp 7,366টা: $11{,}222 / 7{,}366 \approx 1.52$ → **~52% বেশি** function প্রায় একই coverage-এর জন্য।
 
 ### ৬.১২ Mutation Score — Paper মাপেনি, কিন্তু আমাদের lens-এর জন্য জরুরি
@@ -397,6 +508,9 @@ Mutant set $\mathcal{M}$, equivalent mutant (যা আচরণ বদলায
 $$
 \text{MS}(T) = \frac{N_{\text{killed}}}{N_{\mathcal{M}} - N_{\mathcal{M}_{eq}}} \times 100
 $$
+
+**সহজ কথায়:** Mutation score = কত % নকল ভুল test ধরতে পেরেছে। Mutation testing coverage-এর চেয়ে কঠিন, কারণ এখানে test-কে সত্যিকারের ভুল ধরতে হয়।
+
 একটা test mutant-কে kill করতে তিনটা শর্ত লাগে (RIP model — Reachability, Infection, Propagation):
 $$
 \text{kill}(t, m) = \text{Reach}(t, m) \land \text{Infect}(t, m) \land \text{Propagate}(t, m) \land \text{Assert-detects}(t, m)
@@ -405,6 +519,8 @@ $$
 $$
 \text{Cov}(T) = 100 \text{ হলেও } \text{MS}(T) \text{ বেশি হবে এমন কোনো নিশ্চয়তা নেই}
 $$ উদাহরণ: `assert True`-ধরনের বা assertion-ছাড়া test সব line চালাতে পারে, কিন্তু কোনো mutant kill করবে না। **এই gap-টাই এই analysis-এর মূল critique।**
+
+**সহজ কথায়:** ভুল ধরতে চারটা ধাপ পার হতে হয়: ভুল জায়গায় পৌঁছানো, ভুল মান বানানো, সেই মান বাইরে আসা, আর assertion সেটা ধরা। Coverage শুধু প্রথম ধাপ দেখে।
 
 ---
 
@@ -419,6 +535,8 @@ $$ উদাহরণ: `assert True`-ধরনের বা assertion-ছাড�
 
 CM থেকে বাদ: `mimesis` (random data generator — non-flaky test বানানো কঠিন; CodaMosa-র test-এ assertion নেই বলে fail করতো না), `sanic` ও `thef∗ck` (প্রয়োজনীয় module আর পাওয়া যায় না বা CoverUp-এর সাথে conflict)।
 
+**সহজ কথায়:** CM হলো কঠিন code-এর সংগ্রহ (মূল তুলনা), PY সহজ code, আর MT ছোট function-এর সংগ্রহ (MuTAP-এর সাথে তুলনার জন্য)।
+
 ### ৭.২ Baseline
 | Baseline | LLM | বিবরণ |
 |---|---|---|
@@ -431,6 +549,8 @@ CM থেকে বাদ: `mimesis` (random data generator — non-flaky test �
 | CoverUp (ablated) — RQ2 | GPT-4o | প্রায় একই prompt, কিন্তু coverage তথ্য নেই, line tag নেই, generated import নেই, `get_info` নেই, continued chat নেই; চায় "tests that execute all lines and branches" |
 
 SymPrompt তুলনা করা যায়নি — public নয়।
+
+**সহজ কথায়:** তুলনা ন্যায্য রাখতে authors CodaMosa আর MuTAP-কে GPT-4o দিয়েও চালিয়েছেন। আর নিজের tool-এর সরল রূপ (ablated) দিয়ে দেখেছেন লাভটা কোথা থেকে আসে।
 
 ### ৭.৩ RQ5-এর Ablation (Table 4)
 Table 4-এ পাঁচটা element: (১) কোন coverage missing তার উল্লেখ, (২) coverage না বাড়লে continued chat, (৩) generated import, (৪) `get_info`, (৫) error হলে continued chat। Variant: **no coverage**, **no code context**, **no error fixing**, আর সবগুলো ছাড়া **ablated [RQ2]**।
@@ -457,6 +577,8 @@ Table 4-এ পাঁচটা element: (১) কোন coverage missing তা�
 | Missing module | স্বয়ংক্রিয়ভাবে install |
 | CodaMosa | প্রতি module 10 মিনিট (মূল paper-এর setting) |
 
+**সহজ কথায়:** পুরো পরীক্ষা Docker-এর ভেতরে একই setting-এ চালানো হয়েছে, যাতে সব tool সমান অবস্থায় থাকে।
+
 ---
 
 ## ৮. Results — মূল ফলাফল
@@ -474,6 +596,8 @@ Table 4-এ পাঁচটা element: (১) কোন coverage missing তা�
 - Per-module improvement statistically significant: paired permutation test, $p = 2.0 \times 10^{-5}$ (দুটো baseline-এর বিরুদ্ধেই)।
 - **নতুন model মানেই ভালো নয়:** CodaMosa (gpt4o) CodaMosa (codex)-এর চেয়ে সামান্য খারাপ (overall মাপ 5%-এর মধ্যে)। কিন্তু per-module median branch-এ পার্থক্য বড়: 35.6% বনাম 19.0%।
 - Abstract-এর headline "80% vs. 47%" = CoverUp বনাম CodaMosa (gpt4o)-এর median L+B; "60% vs. 45%" = overall L+B।
+
+**সহজ কথায়:** সব সংখ্যায় CoverUp এগিয়ে। বিশেষ করে median branch coverage-এ 66.7% বনাম 19.0%। মানে CodaMosa (gpt4o) মাঝের module-এ ১০০টা branch-এর মধ্যে মাত্র প্রায় ১৯টা ধরেছে।
 
 ### ৮.২ RQ1 — Module-ভিত্তিক পার্থক্য ও ব্যর্থতার কারণ (Figure 13)
 Figure 13 প্রতিটা module-এ CoverUp − CodaMosa (L+B) দেখায়; বেশিরভাগ module সবুজ (CoverUp ভালো), কিন্তু কিছু module-এ CoverUp খারাপ। Paper-এর log বিশ্লেষণ:
@@ -498,6 +622,8 @@ CoverUp: overall line 97.0%, branch 99.2%, L+B 97.1%; median তিনটাই 
 - MT suite সহজ: function self-contained, কদাচিৎ শুধু standard library ব্যবহার, প্রায়ই type annotation আছে। CM-এর code-এ dependency বেশি, external code, annotation নেই।
 - **একটা ছোট অসঙ্গতি:** text বলছে overall branch "89% (vs. 73% to 0%)", কিন্তু Table 2-এ baseline-দের সর্বোচ্চ branch 74.5% (MuTAP gpt4o zero-shot)। Table-এর মানই এখানে নেওয়া হয়েছে।
 
+**সহজ কথায়:** ছোট function-এ CoverUp প্রায় সবকিছু ধরেছে। MuTAP (gpt4o few-shot) প্রায় কিছুই ধরেনি, কারণ উদাহরণ দেখে LLM ভুল function-এর test লিখেছে।
+
 ### ৮.৫ RQ2 — শুধু LLM বনাম CoverUp (Table 1, Figure 16)
 | Metric | CoverUp | CoverUp (ablated) | পার্থক্য (pp, আমার হিসাব) |
 |---|---|---|---|
@@ -510,8 +636,12 @@ CoverUp: overall line 97.0%, branch 99.2%, L+B 97.1%; median তিনটাই 
 
 **মূল বার্তা:** CoverUp-এর লাভ শুধু GPT-4o-র কারণে নয়; design (coverage তথ্য, context, feedback) বড় অবদান রাখে। Ablated version CodaMosa-র চেয়েও খারাপ (overall L+B 34.0% বনাম 45.2%)।
 
+**সহজ কথায়:** একই LLM, শুধু CoverUp-এর design যোগ করলে coverage প্রায় ২৬ percentage point বাড়ে। মানে design-ই আসল শক্তি।
+
 ### ৮.৬ RQ3 — Continued Dialogue
 CM suite-এর log: সফল test-এর **60.3%** প্রথম prompt-এ, **27.2%** দ্বিতীয়তে, **12.5%** তৃতীয়তে → প্রায় **40%** সাফল্য iteration থেকে।
+
+**সহজ কথায়:** প্রথমবারেই বেশিরভাগ test আসে। কিন্তু শেষ ৪০% আসে আবার চেষ্টা করে, তাই chat চালিয়ে যাওয়া দরকারি।
 
 ### ৮.৭ RQ4 — খরচ (Table 3)
 | Test Generator | Prompts | P. Tokens | Completions | C. Tokens | Time (h) | Cost (USD) |
@@ -522,6 +652,8 @@ CM suite-এর log: সফল test-এর **60.3%** প্রথম prompt-এ,
 
 - CoverUp ~**18 গুণ দ্রুত** (4 বনাম 71 ঘন্টা), কিন্তু **48% বেশি token**।
 - **আমার হিসাব:** টাকায় CoverUp CodaMosa-র চেয়ে $399/265 \approx 1.51$ গুণ — অর্থাৎ ~51% বেশি খরচ। Paper "18x faster"-কে headline করেছে, কিন্তু টাকার হিসাবে CoverUp বেশি দামি।
+
+**সহজ কথায়:** CoverUp সময়ে অনেক দ্রুত (৪ ঘন্টা বনাম ৭১ ঘন্টা), কিন্তু টাকায় প্রায় দেড় গুণ বেশি। দ্রুত হওয়া আর সস্তা হওয়া এক কথা নয়।
 - **সময়ের তুলনার সীমা (paper নিজেই বলেছে):** CoverUp parallel ও async, OpenAI-এর rate limit ও response time-এ আটকে থাকে; CodaMosa sequential, module প্রতি 10 মিনিট (configurable)। OpenAI-এর compute অজানা ও সময়ের সাথে বদলায়। তাই "18x" একটা deployment-নির্ভর সংখ্যা, algorithm-এর মৌলিক গুণ নয়।
 
 ### ৮.৮ RQ5 — Component Ablation (Table 4, Figure 17, Figure 18)
@@ -544,10 +676,14 @@ CM suite-এর log: সফল test-এর **60.3%** প্রথম prompt-এ,
 - **Bloat:** coverage-ablated prompt overall coverage-এ সামান্য পিছিয়ে থাকলেও 11,222টা function বানিয়েছে (CoverUp 7,366) — 50%-এর বেশি। Suite-এ রাখলে suite ধীর হয়; ফেলে দিলেও token-এর খরচ।
 - **আমার পর্যবেক্ষণ:** Figure 17-এ coverage তথ্যের অবদান মাত্র ~2% দেখালেও Figure 18 দেখায় এর আসল মূল্য **efficiency ও পরের run-এ** — একবারের coverage সংখ্যা দিয়ে component-এর মূল্য বিচার করলে ভুল হতে পারে।
 
+**সহজ কথায়:** Coverage তথ্য প্রথম run-এ কম কাজে লাগে। কিন্তু পরের run-এ যখন অনেক line আগেই covered, তখন সেটা LLM-কে বাকি জায়গা দেখিয়ে দেয়, আর এটাই আসল লাভ।
+
 ### ৮.৯ SymPrompt-এর সাথে মোটা দাগে তুলনা (Section 2)
 - SymPrompt: GPT-4 দিয়ে 897টা function-এর (অপ্রকাশিত subset, অন্তত 4,546টা থেকে) উপর 74% line coverage; নিজের baseline prompt-এর প্রায় 2 গুণ।
 - CoverUp: GPT-4o দিয়ে CodaMosa থেকে নেওয়া 4,116-function suite-এ median per-module line 82%, overall line 64%; ablated version-এর প্রায় 2 গুণ (**আমার হিসাব:** $82.4/43.8 \approx 1.88$)।
 - Function list না পাওয়ায় সরাসরি তুলনা সম্ভব হয়নি — authors নিজেরাই "coarse comparison" বলেছেন।
+
+**সহজ কথায়:** SymPrompt-এর সাথে সরাসরি তুলনা সম্ভব হয়নি। তাই এটা শুধু মোটামুটি আন্দাজ।
 
 ---
 
@@ -565,6 +701,8 @@ CM suite-এর log: সফল test-এর **60.3%** প্রথম prompt-এ,
 **আমাদের assurance lens থেকে যোগ (আমার পর্যবেক্ষণ):**
 9. **High coverage ≠ শক্ত oracle** — paper একবারও mutation score বা assertion-এর মান মাপেনি; acceptance শর্ত শুধু pass + coverage।
 10. **Error feedback = "test-কে code-এর সাথে মানিয়ে নাও"** — Figure 7-এ assertion fail করলে CoverUp LLM-কে test "correct" করতে বলে। Code ভুল হলে LLM সম্ভবত assertion বদলে code-এর ভুল আচরণকেই লিখে রাখবে। Regression test-এর জন্য ঠিক, কিন্তু patch যাচাইয়ের জন্য বিপজ্জনক।
+
+**সহজ কথায়:** CoverUp-এর কিছু লাভ আসলে ঝুঁকিও। Test ভুল হলে LLM test-কে code-এর সাথে মেলাতে পারে, code ভুল হলেও।
 
 ---
 
@@ -591,6 +729,8 @@ CM suite-এর log: সফল test-এর **60.3%** প্রথম prompt-এ,
 
 **দুর্বল দিক তুলনায়:** oracle-এর দিক থেকে MuTAP-এর approach (survived mutant-এর জন্য assertion) বেশি সরাসরি — CoverUp-এর তুলনা শুধু coverage-এ হওয়ায় MuTAP-এর এই শক্তি দেখা যায়নি।
 
+**সহজ কথায়:** CoverUp coverage-এ সেরা, কিন্তু oracle-এর শক্তিতে MuTAP-এর idea বেশি সরাসরি। এই দুই শক্তি এখনো এক জায়গায় আসেনি।
+
 ---
 
 ## ১১. কোন পরিস্থিতিতে এই Paper/Tool ভালো কাজ করে, কোথায় করে না
@@ -612,6 +752,8 @@ CM suite-এর log: সফল test-এর **60.3%** প্রথম prompt-এ,
 - **অন্য language** — শুধু Python।
 - **Windows** — `fork()`-ভিত্তিক isolation Unix-এর (paper Windows-এর কথা বলেনি; আমার পর্যবেক্ষণ)।
 - **কম বাজেট** — CM-এর জন্য 399 USD (GPT-4o)।
+
+**সহজ কথায়:** CoverUp তখন ভালো যখন code ঠিক ধরে নিয়ে regression test চাই। Bug খোঁজা বা patch যাচাইয়ের কাজে এটা এমনিই যথেষ্ট নয়।
 
 ---
 
@@ -641,6 +783,8 @@ CM suite-এর log: সফল test-এর **60.3%** প্রথম prompt-এ,
 11. **Test isolation evaluation-কে সহজ করে দেয়:** সব test isolation-এ চালিয়ে coverage মাপা হয়েছে। ব্যবহারকারী isolation ছাড়া (সাধারণ `pytest`) চালালে ফল ভিন্ন হতে পারে — coverage সংখ্যা এই setting-নির্ভর।
 12. **Missing module auto-install-এর নিরাপত্তা ঝুঁকি:** LLM যে module-এর নাম লেখে তা স্বয়ংক্রিয়ভাবে install করা — LLM ভুল বা অস্তিত্বহীন package নাম লিখলে (package hallucination) supply-chain ঝুঁকি। Paper এটা আলোচনা করেনি (CG5-এর সাথে যুক্ত)।
 
+**সহজ কথায়:** দুর্বলতা দুই ভাগে: authors যা নিজে বলেছেন (সৎ স্বীকারোক্তি), আর আমরা যা দেখছি। সবচেয়ে বড়টা: কোনো oracle মাপা হয়নি।
+
 ---
 
 ## ১৩. Research Gaps — কোথায় কাজ করার সুযোগ আছে
@@ -661,6 +805,8 @@ CM suite-এর log: সফল test-এর **60.3%** প্রথম prompt-এ,
 | G12 | **Test generator-এর নিজের validity** — generated test কতটা নির্ভরযোগ্য judge, তার version-সহ রেকর্ড | Verifier নিজেই ভুল হলে পুরো assurance ভুল | CG10, CG11 | Coding-Agent Evaluation & Reliability (monograph-এর verifier versioning) |
 | G13 | **"অনিশ্চিত" segment-এ abstention** — LLM যখন code-এর উদ্দেশ্য বোঝে না (randomness, conditional import), তখন test না লিখে জানানো | ভুল oracle লেখার চেয়ে "জানি না" ভালো | CG7 | Trustworthy AI for SE |
 
+**সহজ কথায়:** এই table-এ প্রতিটা সারি একটা সুযোগ। G1, G2, G3, G4 আমাদের assurance layer-এর সবচেয়ে কাছের, তাই এগুলো আগে ভাবা ভালো।
+
 ---
 
 ## ১৪. কী করলে আরও ভালো হবে — Improvement Ideas
@@ -675,6 +821,8 @@ CM suite-এর log: সফল test-এর **60.3%** প্রথম prompt-এ,
 8. **Open-weight model দিয়ে replication:** খরচ কমানো ও contamination নিয়ন্ত্রণ।
 9. **Install whitelist:** auto-install শুধু known package list থেকে।
 
+**সহজ কথায়:** মূল ধারণা: test-কে শুধু "চালানো"র বদলে "ভুল ধরা"-র দিকে ঠেলে দাও। Mutation score ও assertion audit এই কাজ করে।
+
 ---
 
 ## ১৫. কোন Gap-এ Research করলে ভালো Result ও Publication আসতে পারে
@@ -688,6 +836,8 @@ CM suite-এর log: সফল test-এর **60.3%** প্রথম prompt-এ,
 | **G4: Feedback loop-এ assertion বদলের হার ও bug "পাকা করা"** | ✅ হ্যাঁ — BugsInPy-এর buggy version-এ CoverUp চালিয়ে দেখা কত test bug-কে সঠিক ধরে | উচ্চ, কেউ সরাসরি মেপেছে বলে আমার জানা নেই (যাচাই করতে হবে) | ⭐⭐⭐⭐ |
 | G5: Run-to-run variance | ✅ হ্যাঁ, কিন্তু API খরচ k গুণ | মাঝারি | ⭐⭐⭐ |
 | G6: নতুন contamination-মুক্ত test-gen benchmark | ⚠️ কঠিন | মাঝারি | ⭐⭐ |
+
+**সহজ কথায়:** G2+G3 সবচেয়ে ভালো বাজি: আমাদের project-এর সাথে মেলে, আর কাজটা ছোট scale-এ করা যায়। G1 আর G4-ও করা সম্ভব।
 
 **সম্ভাব্য venue (general guidance):**
 - **Conference:** ICSE, FSE, ASE, ISSTA, ICST (testing-এর জন্য বিশেষভাবে উপযুক্ত); workshop — LLM4Code, AST (Automation of Software Test), SBFT tool competition।
@@ -720,6 +870,8 @@ CM suite-এর log: সফল test-এর **60.3%** প্রথম prompt-এ,
 - খরচ: CM-এর 425 module-এ GPT-4o দিয়ে 399 USD — তাই ছোট subset (যেমন 20 module) দিয়ে শুরু; বর্তমান model-এ খরচের হিসাব Section ২১.৪-এ।
 - Test timeout বাড়ানো (paper-এর 1 মিনিট কম ছিল)।
 
+**সহজ কথায়:** CoverUp নতুন করে লিখতে হবে না। তার উপর একটা পরীক্ষার স্তর (oracle auditor) বসানোই আমাদের কাজ।
+
 ---
 
 ## ১৭. পরবর্তী গবেষণায় এই Paper-এর প্রভাব (Context)
@@ -732,6 +884,8 @@ CM suite-এর log: সফল test-এর **60.3%** প্রথম prompt-এ,
 - **RePaCA (Sub-domain 2):** static judge; CoverUp dynamic signal — দুটো মিলিয়ে assurance report-এর দুই খুঁটি।
 - **Engineering Reliable Agents monograph (Sub-domain 3):** verifier-কেও version-সহ রেকর্ড করা আর optimizer verifier-কে ঠকাতে পারে — CoverUp-এর loop নিজেই coverage-কে optimize করে, তাই এখানেও প্রযোজ্য (CG11, CG12)।
 - **একই folder-এর অন্য paper (LLM Test Generation):** "An LLM Agent to Execute Tests of Arbitrary Projects" (CoverUp-এর dependency install সমস্যার সাথে সম্পর্কিত হতে পারে) ও "Oracle-Guided Program Selection from Large Language Models" (oracle দিক) — পড়ে মিলিয়ে দেখতে হবে।
+
+**সহজ কথায়:** এই paper আমাদের আগের analysis-গুলোর সাথে জুড়ে যায়: SWE-bench-এর test-এর অভাব, Agentless-এর reproduction test, আর VRpilot-এর feedback overfitting।
 
 ---
 
@@ -770,6 +924,9 @@ A: Per-module coverage-এ paired permutation test, দুই CodaMosa baseline-
 **Q11. MuTAP (gpt4o few-shot) এত খারাপ কেন?**
 A: Few-shot prompt-এর উদাহরণ দেখে GPT-4o আসল function-এর বদলে উদাহরণের function-এর test লিখেছে — test চলেছে কিন্তু coverage দেয়নি (overall L+B 10.4%)। এটা দেখায় prompt format model বদলালে ভেঙে যেতে পারে।
 
+
+**সহজ কথায়:** Viva-তে মূল তিনটা কথা মনে রাখলেই হবে: CoverUp কী করে, কেন CodaMosa-র চেয়ে ভালো, আর কেন coverage একা যথেষ্ট নয়।
+
 **Q12. তুমি এই paper থেকে কী implement করবে?**
 A: CoverUp-কে wrapper হিসেবে চালিয়ে দুটো mode — module mode (replication, ছোট CM subset) আর diff mode (agent patch-এর পরিবর্তিত অংশ)। তার উপর oracle auditor: mutation score, assertion-ছাড়া test, assertion বদলের হার। Output আলাদা আলাদা signal-এর assurance report।
 
@@ -801,6 +958,8 @@ A: CoverUp-কে wrapper হিসেবে চালিয়ে দুটো 
 | Permutation test | চিহ্ন এলোমেলো করে significance মাপা |
 | Leaky bucket | নির্দিষ্ট হারে request পাঠানোর rate limiter |
 | Feedback overfitting | Validator-এর feedback-কে "খুশি" করতে শেখা, আসল লক্ষ্য নয় |
+
+**সহজ কথায়:** এই glossary-র সবচেয়ে দরকারি শব্দ তিনটা: Oracle, Mutation score আর Regression test।
 
 ---
 
@@ -843,6 +1002,8 @@ A: CoverUp-কে wrapper হিসেবে চালিয়ে দুটো 
 | Scaffold-এর প্রভাব | RQ2: একই GPT-4o, scaffold বদলে 34.0% থেকে 60.3% | SWE-bench Verified-এ একই model-এ scaffold বদলালে **29.8 point** পর্যন্ত পার্থক্য — **independent** (ভিন্ন task: patch, test নয়) | "Coding Agents Have Converged", arXiv 2609.17394 |
 | খরচ | GPT-4o: 399 USD (CM) | API দাম per million token: GPT-6.1 Terra 1 input / 5 output USD (**vendor**); Opus 5.5 4 / 20 USD (**secondary, search-snippet only**); Fable 5.1 10 / 50 USD (**secondary, search-snippet only**) | Fact sheet §1 |
 
+**সহজ কথায়:** Paper-এর সময় আর এখনকার মধ্যে সবচেয়ে বড় পার্থক্য: model অনেক নতুন, কিন্তু coverage-guided test generation-এর কোনো নতুন সংখ্যা নেই।
+
 ### ২১.২ কোন Finding এখনো সত্য, কোনটা পুরনো হয়ে গেছে
 
 - **এখনো সত্য, আরও শক্ত প্রমাণসহ — "coverage ≠ শক্ত oracle" (আমাদের critique ১):** Paper নিজে মাপেনি, কিন্তু 2026-এ বাস্তব agent PR-এ 80.2% test patch-এ দুর্বল বা কোনো স্পষ্ট oracle নেই (independent), যদিও AI test-এর coverage gain মানুষের কাছাকাছি (search-snippet)। **আমার পর্যবেক্ষণ:** এই দুই তথ্য একসাথে ঠিক CoverUp-এর blind spot দেখায় — coverage-এ ভালো, oracle-এ দুর্বল।
@@ -851,6 +1012,8 @@ A: CoverUp-কে wrapper হিসেবে চালিয়ে দুটো 
 - **এখনো সত্য — LLM test-এ mock ও side effect-এর সমস্যা:** Paper-এর state pollution উদাহরণের পাশাপাশি এখন agent-রা বেশি mock করে (36% বনাম 26%, search-snippet)। অতিরিক্ত mock coverage বাড়ায় কিন্তু oracle দুর্বল করতে পারে (আমার পর্যবেক্ষণ)।
 - **সম্ভবত পুরনো — context window-এর চাপ:** Paper-এ segment ছোট রাখার একটা কারণ ছিল context limit। এখনকার কিছু model-এ 1M context (Kimi K3.1 Pro, fact sheet-এ secondary)। কিন্তু paper-এর অন্য দুই কারণ — লম্বা prompt-এ ভুল বাড়ে আর token-এ খরচ — এখনো প্রাসঙ্গিক; বর্তমান model-এ এ বিষয়ে test-gen-specific তথ্য **পাওয়া যায়নি**।
 - **অজানা — বর্তমান agent কি CoverUp ছাড়াই এমন coverage পায়?** Claude Code, Codex CLI-এর মতো agent এখন নিজেই file পড়ে, test চালায় (CoverUp-এর `get_info` + feedback loop-এর সাধারণ রূপ)। কিন্তু তারা CM-এর মতো suite-এ কত coverage পায় — **কোনো সংখ্যা নেই**। "Rethinking the Value of Agent-Generated Tests" (search-snippet) বলছে agent-রা প্রায়ই test না লিখে observation দিয়ে debug করে — অর্থাৎ test generation নিজে থেকে হয় না, CoverUp-এর মতো explicit loop এখনো মূল্যবান হতে পারে (আমার পর্যবেক্ষণ, প্রমাণ নয়)।
+
+**সহজ কথায়:** আজকের agent-রা নিজেই test লেখে ও চালায়। কিন্তু তারা কত coverage পায় আর test কতটা শক্ত, তা কেউ মাপেনি। এটাই খোলা সুযোগ।
 - **নতুন ঝুঁকি, paper-এ ছিল না — test নিয়ে reward hacking:** Vendor-রা এখন বলছে model "failing test disable" করে কম (Fable 5.1, vendor qualitative); Opus 5.5 "hidden tests" নিয়ে explicit reasoning করে (vendor)। CoverUp-এর loop LLM-কে test বদলাতে বলে — আধুনিক model এখানে কী করে, **independent audit নেই**।
 
 ### ২১.৩ এই Paper-এর Gap-গুলো আজও খোলা কিনা
@@ -871,6 +1034,8 @@ A: CoverUp-কে wrapper হিসেবে চালিয়ে দুটো 
 | G12: Generator/verifier-এর নিজের validity | CG10, CG11 | **খোলা** | LLM judge-এর দুর্বলতা (ComPass plain LLM 62.14%, search-snippet); DeepSWE: SWE-Bench Pro-র test-এর সাথে judge-এর অমিল 32.4% (independent) |
 | G13: Abstention | CG7 | **খোলা** | অসম্ভব/অস্পষ্ট task-এ reward hacking-এর চেষ্টা 3–6 গুণ বাড়ে (Opus 5.5 System Card, vendor) — test generation-এ "জানি না" বলার ক্ষমতা মাপা হয়নি |
 
+**সহজ কথায়:** ২০২৬-এ প্রায় সব gap এখনো খোলা। বিশেষ করে বর্তমান model দিয়ে test generation-এর কোনো মাপ নেই।
+
 ### ২১.৪ বর্তমান Model দিয়ে আবার পরীক্ষা করলে — SPL3 Idea (cost-aware)
 
 **খরচের ভিত্তি (আমার হিসাব):** Paper-এ CM-এর 425 module-এ CoverUp 58.08M input + 7.26M output token নিয়েছে। একই token ধরে (বর্তমান model বেশি বা কম token নিতে পারে — এটা অনুমান):
@@ -882,6 +1047,8 @@ A: CoverUp-কে wrapper হিসেবে চালিয়ে দুটো 
 3. **Diff-targeted differential test দিয়ে agent patch যাচাই (G2, G3):** SWE-rebench-এর সর্বশেষ window থেকে ~20টা task-এ একটা agent-এর resolved patch নিয়ে, patch-এর বদলানো line-কে gap ধরে original code-এ test generate, তারপর patched code-এ চালানো। **Gap:** PatchDiff-এর 29.6% বর্তমান agent-এ কত — কেউ আবার মাপেনি। Patch পাওয়ার খরচ: SWE-rebench-এ প্রতি problem 0.81–4.40 USD (independent), তাই 20 task-এ ≈ 16–88 USD (আমার হিসাব) — সস্তা model দিয়ে নিচের দিকে।
 4. **Variance (G5):** একই 20 module-এ 3টা run (temperature 0 ও একটা non-zero), coverage ও mutation score-এর SD। **Gap:** Noise Floor Audit-এর ফল test generation-এ খাটে কিনা। খরচ idea ১-এর 3 গুণ (Terra-তে ≈ 13 USD)।
 5. **Scaffold বনাম model (RQ2-এর 2026 version):** একই current model-এ CoverUp বনাম "plain agent" (যেমন mini-SWE-agent-কে শুধু 'এই module-এর test লেখো' বলা) — coverage ও mutation score। **Gap:** CoverUp-এর design-এর মূল্য আধুনিক agent-এর যুগে টিকে আছে কিনা — fact sheet-এ কোনো তথ্য নেই।
+
+**সহজ কথায়:** ২০২৬-এ করার মতো পরীক্ষাগুলো ছোট। কয়েক USD-তে ২০টা module-এ চালিয়ে সংখ্যা পাওয়া যায়।
 
 ### ২১.৫ Supervisor-এর সম্ভাব্য প্রশ্ন (2026 প্রসঙ্গে)
 

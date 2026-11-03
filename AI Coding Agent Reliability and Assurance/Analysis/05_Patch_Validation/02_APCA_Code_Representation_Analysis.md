@@ -18,9 +18,63 @@
 | Artifact | Replication package anonymous.4open.science/r/APCARepresentation (paper-এ দেওয়া) |
 | Funding | NSFC (61932012, 62141215, 62372228) |
 
+## ★ সহজ ভাষায় পুরো Paper (প্রথমবার পড়ার জন্য)
+
+### ক. Paper-টা কী নিয়ে?
+
+- এটি একটি **empirical study** (মানে নতুন tool বানানো নয়; অনেক পদ্ধতি পাশাপাশি চালিয়ে মেপে দেখা)।
+- লিখেছেন Nanjing University ও Nanjing Univ. of Science and Technology-র গবেষকরা, সাথে Swinburne University-র একজন।
+- বিষয়: AI যখন bug-এর fix (patch) লেখে, সেই fix সত্যিই ঠিক কি না, তা program নিজে নিজে বুঝবে কীভাবে।
+- এর জন্য patch-এর code-কে কম্পিউটারের বোঝার মতো রূপে সাজাতে হয়। এই সাজানোর নাম **code representation**।
+- Paper 15 রকম representation আর 11 রকম classifier মিলিয়ে প্রায় 600টি model চালিয়ে তুলনা করেছে।
+- Authors-দের দাবি: এটি এই বিষয়ে প্রথম systematic (সুশৃঙ্খল) তুলনা।
+
+### খ. সমস্যাটা কী ছিল?
+
+- Bug ঠিক করার automatic tool (APR) একটা patch লিখলে সেটা test দিয়ে যাচাই হয়। Test pass করলে patch-কে বলা হয় **plausible** (গ্রহণযোগ্য-দেখতে)।
+- কিন্তু test-গুলো দুর্বল হলে ভুল patch-ও pass করে যায়। এমন patch-কে বলে **overfitting patch**।
+- উদাহরণ: পরীক্ষায় ঠিক ১০টা প্রশ্ন আসবে জেনে কেউ শুধু সেই ১০টার উত্তর মুখস্থ করল। পরীক্ষায় 100% পেল, কিন্তু বিষয়টা শেখেনি। Overfitting patch ঠিক তেমন।
+- Developer-কে এগুলো হাতে হাতে বেছে ফেলতে হয়, যা সময়সাপেক্ষ।
+- আগে অনেকগুলো আলাদা পদ্ধতি ছিল। কিন্তু কোন representation কেন ভালো, তার ন্যায্য তুলনা ছিল না। বিশেষ করে graph-ধরনের representation প্রায় কেউ চেষ্টাই করেনি।
+
+### গ. Paper কী solve করেছে?
+
+- চার ধরনের representation (heuristic, sequence, tree, graph) এক dataset-এ একই নিয়মে তুলনা করেছে।
+- দেখিয়েছে graph-ভিত্তিক পদ্ধতি (CPG + GGNN) সবচেয়ে ভালো, কিন্তু ব্যবধান ছোট।
+- দুটো representation মিশিয়ে (fusion) আরও কিছুটা উন্নতি দেখিয়েছে। তিন-চারটি মেশালে লাভ হয়নি।
+- Node-এর লেখা তথ্য (textual) type-এর তথ্যের চেয়ে বেশি কাজের, তাও দেখিয়েছে।
+- গুরুত্বপূর্ণ সংখ্যা:
+  - GGNN+CPG-র accuracy **83.73%**। মানে ১০০টা patch-এর মধ্যে প্রায় ৮৪টির সঠিক রায় দিয়েছে।
+  - সবচেয়ে ভালো আর সবচেয়ে দুর্বল "ভালো" representation-এর ফারাক মাত্র **3.32 pp**। মানে পদ্ধতি বদলে খুব বেশি লাভ হয় না।
+  - Heu-Seq backend fusion-এর average **85.95%**। মানে দুটো সস্তা পদ্ধতি মেশানোই সবচেয়ে ভালো ফল দিয়েছে।
+
+### ঘ. কীভাবে solve করেছে?
+
+1. 39টি APR tool ও developer-এর লেখা মিলিয়ে 2,274টি patch জোগাড় করেছে (Defects4J থেকে)। এর 1,169টি correct, 1,105টি overfitting।
+2. প্রতিটি patch থেকে buggy code আর fixed code আলাদা করেছে।
+3. সেই code-কে 15 রকমে সাজিয়েছে: গণনার feature, token-এর ক্রম, tree (AST), আর পাঁচ রকম graph।
+4. প্রতিটির জন্য উপযুক্ত classifier (SVM, LSTM, TreeLSTM, GGNN ইত্যাদি) train করেছে।
+5. Data-কে ৫ ভাগ করে ঘুরিয়ে test করেছে (5-fold cross-validation)।
+6. পুরনো পদ্ধতি (ODS, Tian et al., CACHE, PATCH-SIM)-এর সাথে ফল মিলিয়েছে।
+7. সেরা representation-গুলো জোড়ায় জোড়ায় মিশিয়েছে (fusion)।
+8. শেষে node embedding আর CodeBERT/CodeT5 নিয়ে দুটো বাড়তি পরীক্ষা করেছে।
+
+### ঙ. এরপর কী করা যায়?
+
+- Authors বলছেন: cross-project test করা, আরও dataset ও representation আনা, নতুন tool-এর patch যোগ করা, LLM ব্যবহার করা।
+- খোলা প্রশ্ন: একই bug-এর patch train ও test দুই দিকেই পড়তে পারে। তাই ফল বাড়িয়ে দেখানো হয়ে থাকতে পারে।
+- আরেকটি খোলা প্রশ্ন: correct patch-এর প্রায় 82.5% developer-এর লেখা। Classifier হয়তো "কে লিখেছে" শিখছে, "ঠিক কি না" নয়।
+- আমরা SPL3-এ bug-অনুযায়ী ও tool-অনুযায়ী আলাদা split দিয়ে আবার মাপতে পারি।
+- আমরা specificity (correct patch-কে correct বলার হার) আর confidence interval যোগ করতে পারি।
+- আমরা এই সস্তা classifier-কে LLM judge-এর পাশে রেখে তুলনা করতে পারি।
+
+> **মনে রাখো:**
+> Patch ঠিক কি ভুল, তা বোঝার জন্য code-কে কীভাবে সাজানো হয় তার প্রথম বড় তুলনা এই paper। Graph সবচেয়ে ভালো, কিন্তু ব্যবধান ছোট।
+> তবে পরীক্ষা শুধু Defects4J (Java)-তে এবং random split-এ, তাই ফল কতটা সাধারণভাবে খাটে তা অজানা।
+
 ## ১. TL;DR
 
-**এক কথায়:** Patch-এর code-কে কীভাবে "represent" করলে overfitting patch সবচেয়ে ভালো ধরা যায়, তার প্রথম বড় তুলনামূলক পরীক্ষা। Graph-based (CPG + GGNN) সবচেয়ে ভালো, কিন্তু পার্থক্য ছোট।
+**এক কথায়:** Patch-এর code-কে কীভাবে "represent" (কম্পিউটারের বোঝার রূপে সাজানো) করলে overfitting patch সবচেয়ে ভালো ধরা যায়, তার প্রথম বড় তুলনামূলক পরীক্ষা। Graph-based (CPG + GGNN) সবচেয়ে ভালো, কিন্তু পার্থক্য ছোট।
 
 - চার ধরনের representation: heuristic (TF-IDF, ODS-এর hand-crafted feature), sequence (subword token), tree (AST), graph (CFG, CDG, DDG, PDG, CPG)।
 - Best-of-type accuracy (Table 6): TF-IDF+XGBoost 80.41%, Transformer 82.48%, TreeLSTM+AST 82.94%, GGNN+CPG 83.73%।
@@ -34,12 +88,17 @@
 2. সব পরীক্ষা শুধু Defects4J (Java, একটি benchmark), random 5-fold CV; cross-project / cross-dataset test নেই — authors নিজেরাই স্বীকার করেছেন (§৫.৩)।
 3. Correct class-এর 1,169-এর মধ্যে 965-টি (82.5%, আমার হিসাব) developer-এর লেখা patch — তাই classifier "developer-style vs tool-style" শিখছে কি না, প্রশ্ন থাকে।
 4. Specificity paper-এ report হয়নি; recall-heavy (recall 87.09%, precision 81.00%)। আমার হিসাবে specificity প্রায় 80.7%।
-5. আমাদের জন্য: এটি RePaCA (Sub-domain 2)-এর "learned-classifier বিকল্প" baseline; কিন্তু leakage-সংক্রান্ত evaluation design আমাদের CG10 আরও জোরালো করে।
+5. আমাদের জন্য: এটি RePaCA (Sub-domain 2)-এর "learned-classifier বিকল্প" baseline (তুলনার ভিত্তি)। আবার এর evaluation design-এ leakage (test-এর তথ্য train-এ ঢুকে পড়া) আছে। এতে আমাদের CG10 আরও জোরালো হয়।
+
+**সহজ কথায়:** Code সাজানোর পদ্ধতি বদলালে ফল খুব একটা বদলায় না (সবাই 80–84%-এর কাছে)। আর পরীক্ষার নকশায় কিছু দুর্বলতা আছে, তাই সংখ্যাগুলো একটু সাবধানে পড়তে হবে।
 
 ## ২. Background (এই project-এ নতুন concept)
 
-- **Patch overfitting:** test-suite pass করে (plausible) কিন্তু developer-এর patch-এর সাথে semantically সমান নয় (correct নয়)। CG1-এর সাথে সরাসরি যুক্ত।
-- **APCA:** একটি plausible patch correct না overfitting, তা automatic ঠিক করা। তিন শ্রেণি: static (code pattern/similarity), dynamic (নতুন test generate করে execute; যেমন PATCH-SIM), learning-based (classifier)।
+- **Patch overfitting:** Patch test-suite pass করে (এটাই plausible)। কিন্তু অর্থের দিক থেকে (semantically) developer-এর patch-এর সমান নয়, মানে correct নয়। CG1-এর সাথে সরাসরি যুক্ত।
+- **APCA:** একটি plausible patch আসলেই correct, না overfitting, তা automatic ঠিক করা। তিন শ্রেণি আছে:
+  - static: code-এর pattern বা similarity দেখে।
+  - dynamic: নতুন test বানিয়ে চালিয়ে দেখে (যেমন PATCH-SIM)।
+  - learning-based: একটি classifier (শেখা model) দিয়ে।
 - **PATCH-SIM:** Randoop দিয়ে extra test generate করে execution trace তুলনা করে; paper বলছে 139 patch classify করতে প্রায় 70 ঘণ্টা লাগে (§৪.২)।
 - **Code representation চার প্রকার:**
   - Heuristic: TF-IDF অথবা হাতে বানানো feature (ODS-এর 202 feature = code 50 + context + pattern 26)।
@@ -48,14 +107,20 @@
   - Graph: CFG (execution flow), CDG (control dependency), DDG (data dependency), PDG (CDG+DDG), CPG (CFG+CDG+DDG একত্রে)। Joern দিয়ে তৈরি, DGL দিয়ে চালানো।
 - **Models:** classic ML (SVM, Naive Bayes, XGBoost); sequence (LSTM, BiLSTM, Transformer encoder); tree (TreeLSTM, TBCNN); graph (GCN, GAT, GGNN)।
 - **Fusion:** intermediate (vector concatenate করে একটি classifier train) বনাম backend (আলাদা trained model-এর softmax probability-র গড়)।
-- **k-fold cross-validation:** data 5 ভাগ করে ঘুরিয়ে test করা; এখানে random split (bug বা project অনুযায়ী নয়)।
+- **k-fold cross-validation:** data 5 ভাগ করে ঘুরিয়ে test করা। প্রতিবার ৪ ভাগে শেখে, ১ ভাগে পরীক্ষা দেয়। এখানে ভাগ হয়েছে random-ভাবে (bug বা project অনুযায়ী নয়)।
+
+**সহজ কথায়:** Code-কে চারভাবে সাজানো যায়: হিসাবের সংখ্যা, শব্দের লাইন, গাছ, আর জালের মতো graph। Paper দেখেছে কোনটা overfitting patch ধরতে সেরা।
 
 ## ৩. Problem
 
-- APR-এর generate-and-validate ধাপে test-suite দুর্বল হলে plausible but incorrect (overfitting) patch আসে; developer-কে হাতে filter করতে সময় লাগে।
-- Static APCA-তে precision কম হওয়ার ঝুঁকি; dynamic APCA-তে runtime তথ্যের জন্য অনেক সময় লাগে।
+- APR-এর generate-and-validate ধাপে (patch বানাও, তারপর test দিয়ে যাচাই করো) test-suite দুর্বল হলে plausible but incorrect (overfitting) patch আসে।
+- Developer-কে এগুলো হাতে filter করতে সময় লাগে।
+- Static APCA-তে precision (যেগুলোকে overfitting বলল, তার কত অংশ সত্যিই overfitting) কম হওয়ার ঝুঁকি আছে।
+- Dynamic APCA-তে runtime তথ্য জোগাড় করতে অনেক সময় লাগে।
 - Learning-based APCA-তে অনেক আলাদা representation আছে (ODS heuristic, Tian et al. sequence/BERT, CACHE AST-path), কিন্তু কোনটি কেন ভালো — তার systematic তুলনা ছিল না। বিশেষ করে graph-based representation APCA-তে প্রায় অনাবিষ্কৃত।
 - তিনটি অমীমাংসিত প্রশ্ন: (১) কোন representation optimal; (২) graph কেমন; (৩) একাধিক representation মেলানো যায় কি।
+
+**সহজ কথায়:** অনেক পদ্ধতি ছিল, কিন্তু কেউ একই মাপে সবগুলো তুলনা করেনি। তাই "কোনটা সেরা?" প্রশ্নের উত্তর কারও জানা ছিল না।
 
 ## ৪. Goal & RQ
 
@@ -70,9 +135,11 @@
 
 **Contributions (paper অনুযায়ী):** 2,274-patch benchmark; 500+ model-এর empirical study; 22 fusion scenario (11 combination × 2 strategy); practical guideline।
 
+**সহজ কথায়:** Paper তিনটি প্রশ্নের উত্তর খুঁজেছে: কোন সাজানো সেরা, পুরনো পদ্ধতির চেয়ে ভালো কি না, আর মেশালে লাভ হয় কি না।
+
 ## ৫. Methodology
 
-**ধাপ ১ — Preprocessing (§৩.১):** plausible patch থেকে buggy code snippet ও patched code snippet বের করা।
+**ধাপ ১ — Preprocessing (§৩.১):** আগে data গুছিয়ে নেওয়া হয়। Plausible patch থেকে buggy code snippet (ভুল অংশ) ও patched code snippet (ঠিক করা অংশ) আলাদা করা হয়।
 
 **ধাপ ২ — Representation (§৩.৩), মোট 15টি:**
 1. Heuristic (8টি): TF-IDF; Code (Coming দিয়ে 50 feature: operator, variable, statement, AST operation); Context; Pattern (ADD দিয়ে 26 repair pattern, Sobreira-র 395 Defects4J patch-ভিত্তিক taxonomy, 5 category); এবং pairwise ও triple combination (Code&Context, Code&Pattern, Context&Pattern, Code&Context&Pattern)।
@@ -86,7 +153,7 @@
 - Learning rate 0.001 (Transformer 0.0005); max epoch 100; batch size 128 (TBCNN-এ 16); word embedding dim 128; dropout 0.2।
 - Random split → train/validation/test; 5-fold CV-তে report।
 - Hardware: Ubuntu 18.04.3, দুটি Tesla V100-SXM2-32GB।
-- Default hyper-parameter (prior work [49] অনুসরণ); কোনো আলাদা hyper-parameter tuning বর্ণিত নেই।
+- Default hyper-parameter (model-এর সেটিং-সংখ্যা) ব্যবহার হয়েছে (prior work [49] অনুসরণ)। আলাদা hyper-parameter tuning বর্ণিত নেই।
 
 **ধাপ ৫ — Dataset (§৩.৬):** Liu et al., Xiong et al., Ali et al., Tian et al., Lin et al. ইত্যাদির release থেকে patch সংগ্রহ; developer-এর correct patch যোগ (imbalance কমাতে, Tian et al. অনুসরণ); whitespace ও comment সরিয়ে buggy ও patched snippet হুবহু সমান হলে duplicate বাদ।
 
@@ -96,17 +163,27 @@
 
 **ধাপ ৮ — Node embedding (§৫.১):** type embedding (linear layer), textual embedding (node-এর প্রথম লাইন → BiLSTM-এর last hidden state), hybrid (concatenate → linear)।
 
-**ধাপ ৯ — Pre-trained (§৫.২):** CodeBERT (encoder-only), CodeT5 (encoder-decoder) token sequence-এ।
+**ধাপ ৯ — Pre-trained (§৫.২):** CodeBERT (encoder-only), CodeT5 (encoder-decoder) token sequence-এ। অর্থাৎ আগে থেকে বিশাল code-এ শেখা model এখানে কাজে লাগানো হয়েছে।
+
+**সহজ কথায়:** পুরো প্রক্রিয়া সহজ: patch জোগাড় করো, চার রকমে সাজাও, classifier শেখাও, ৫ ভাগে পরীক্ষা করো, পুরনো পদ্ধতির সাথে মেলাও, তারপর মিশিয়ে দেখো।
 
 ## ৬. Math
 
 Positive class = **overfitting** (আমাদের ধারণার "reject করা patch")। TP = overfitting ধরা পড়েছে; FP = correct patch-কে overfitting বলা; FN = overfitting patch-কে correct বলা; TN = correct patch correct বলা।
 
+Accuracy মানে মোট কয়টা patch-এর রায় ঠিক হলো, তার অনুপাত।
+
 $$\text{Accuracy} = \frac{TP + TN}{TP + FP + FN + TN}$$
+
+Recall মানে আসল overfitting patch-গুলোর কত অংশ ধরা পড়ল। Precision মানে যেগুলোকে overfitting বলা হলো, তার কত অংশ সত্যিই overfitting।
 
 $$\text{Recall} = \frac{TP}{TP + FN}, \qquad \text{Precision} = \frac{TP}{TP + FP}$$
 
+F1 হলো Precision ও Recall-এর একটি সুষম গড় (harmonic mean)। একটা কম হলে F1-ও কমে যায়।
+
 $$F1 = 2 \cdot \frac{\text{Precision} \cdot \text{Recall}}{\text{Precision} + \text{Recall}}$$
+
+AUC মাপে, random একটি overfitting patch-কে random একটি correct patch-এর চেয়ে বেশি "সন্দেহজনক" স্কোর দেওয়ার সম্ভাবনা কত।
 
 $$AUC = \frac{\sum_{i=1}^{M} \text{rank}_i - \frac{M(M+1)}{2}}{M \times N}$$
 
@@ -115,7 +192,11 @@ $$AUC = \frac{\sum_{i=1}^{M} \text{rank}_i - \frac{M(M+1)}{2}}{M \times N}$$
 
 **Paper-এ নেই, কিন্তু আমাদের জন্য জরুরি (আমার হিসাব):** Specificity (correct patch গ্রহণের হার)।
 
+Specificity মাপে, আসল correct patch-গুলোর কত অংশকে classifier correct বলে মেনে নিল।
+
 $$\text{Specificity} = \frac{TN}{TN + FP}$$
+
+**সহজ কথায়:** Accuracy, Recall, Precision, F1, AUC সবই "classifier কতটা ঠিক" মাপার ভিন্ন ভিন্ন উপায়। Specificity এই paper-এ নেই, অথচ ভালো patch ভুলে বাদ পড়ছে কি না তা বোঝার জন্য এটা জরুরি।
 
 **Worked example — GGNN+CPG (Table 6 / Table 5):** Table 1 অনুযায়ী correct = 1169, overfitting = 1105 (সূত্র: Table 1 total row; §৩.৬-এর লেখায় সংখ্যা উল্টো আছে, নিচে §১২ দেখো)। Recall = 87.09%, Precision = 81.00%।
 
@@ -135,9 +216,15 @@ $$\text{Specificity} = \frac{TN}{TN + FP}$$
 | TreeLSTM + AST | 86.73% | 80.01% | প্রায় 79.5% |
 | GGNN + CPG | 87.09% | 81.00% | প্রায় 80.7% |
 
+**সহজ কথায়:** সব approach overfitting patch ধরতে ভালো (recall 83–87%)। কিন্তু প্রতি পাঁচটা correct patch-এর প্রায় একটাকে ভুলে বাতিল করে দেয় (specificity প্রায় 78–81%)।
+
 **PATCH-SIM-এর 139-patch test set (আমার হিসাব, অনুমান-ভিত্তিক):** PATCH-SIM precision 100%, accuracy 66%, recall 57% থেকে সমীকরণ $0.57P + (139-P) = 0.66 \times 139$ সমাধান করলে $P \approx 110$ (overfitting), $N \approx 29$ (correct) আসে; RePaCA-র reported 109/30 split-এর সাথে মেলে (Sub-domain 2-এর RePaCA দেখো)। এই অনুমানে Tree model (recall 91%, precision 84%): TP ≈ 99.2, FP ≈ 18.9, TN ≈ 11.1, specificity ≈ 37% — অর্থাৎ correct patch-এর মাত্র প্রায় 37% গ্রহণ। এটি paper-এ নেই; split-টি আমার অনুমান।
 
+**সহজ কথায়:** PATCH-SIM-এর ছোট test set-এ Tree model দেখতে ভালো, কিন্তু অনুমান ঠিক হলে সে correct patch-এর দুই-তৃতীয়াংশই ভুলে বাদ দেয়।
+
 **"X% improvement" কীভাবে পড়তে হবে:** Paper-এর বেশিরভাগ "improvement" relative শতাংশ। উদাহরণ: TF-IDF বনাম ODS accuracy: (80.41 − 71.00) / 71.00 = 13.25% ✓ (আমার যাচাই)। কিন্তু §৫.২-এ AUC "5.20%" absolute pp (87.80 − 82.60)। মিশ্র ব্যবহার, পাঠককে সাবধান থাকতে হবে।
+
+**সহজ কথায়:** Relative মানে "আগের সংখ্যার তুলনায় কত শতাংশ বেশি"। Absolute pp মানে "দুই শতাংশের সরাসরি বিয়োগফল"। Paper দুটোই মিশিয়ে ব্যবহার করেছে, তাই প্রতিবার দেখে নিতে হবে কোনটা বলা হচ্ছে।
 
 ## ৭. Setup
 
@@ -156,6 +243,8 @@ $$\text{Specificity} = \frac{TN}{TN + FP}$$
 | Tool | Joern, DGL, Coming, ADD, PyTorch |
 | Seed / run | একাধিক seed বা variance (std, CI) report করা হয়নি; significance test নেই |
 
+**সহজ কথায়:** Setup ছোট ও পরিষ্কার: একটি Java dataset, ৫-ভাগ পরীক্ষা, পাঁচটি metric। কিন্তু একই পরীক্ষা বারবার চালিয়ে ফল কতটা স্থির, তা দেখানো হয়নি।
+
 ## ৮. Results
 
 ### ৮.১ Heuristic (Table 2)
@@ -172,6 +261,8 @@ $$\text{Specificity} = \frac{TN}{TN + FP}$$
 - SVM প্রায় সব feature-এ recall 90%+ কিন্তু accuracy প্রায় 50–61% — প্রায় সবকিছুকে overfitting বলছে (high recall, কম specificity-র চরম উদাহরণ)। Paper এটি আলাদাভাবে বিশ্লেষণ করেনি।
 - XGBoost সব feature গড়ে accuracy 73.03%, F1 72.61%।
 
+**সহজ কথায়:** সরল TF-IDF (শব্দ গোনা) আর XGBoost জুড়ি অবাক করা ভালো (80.41%)। অন্যদিকে SVM প্রায় সবকিছুকেই "overfitting" বলে দেয়, তাই তার recall বেশি কিন্তু accuracy কম।
+
 ### ৮.২ Sequence (Table 3)
 
 | Model | Accuracy | Precision | Recall | F1 | AUC | Average |
@@ -180,12 +271,16 @@ $$\text{Specificity} = \frac{TN}{TN + FP}$$
 | BiLSTM | 82.04% | 78.48% | 86.91% | 82.45% | 82.16% | 82.41% |
 | Transformer | 82.48% | 78.97% | 87.27% | 82.87% | 82.60% | 82.84% |
 
+**সহজ কথায়:** তিনটি sequence model-ই 81–83%-এর মধ্যে। Transformer সামান্য এগিয়ে।
+
 ### ৮.৩ Tree (Table 4)
 
 | Model | Accuracy | Precision | Recall | F1 | AUC | Average |
 |---|---|---|---|---|---|---|
 | TreeLSTM | 82.94% | 80.01% | 86.73% | 83.18% | 83.03% | 83.18% |
 | TBCNN | 81.72% | 79.24% | 84.62% | 81.84% | 81.79% | 81.84% |
+
+**সহজ কথায়:** Tree model-ও প্রায় একই স্তরে। TreeLSTM এখানে TBCNN-এর চেয়ে ভালো।
 
 ### ৮.৪ Graph (Table 5, প্রতি graph-এর average ও সেরা model)
 
@@ -202,6 +297,8 @@ $$\text{Specificity} = \frac{TN}{TN + FP}$$
 - GCN সবচেয়ে দুর্বল (CFG-তে 75.59%) কিন্তু CPG-তে 81.80% ও সর্বোচ্চ recall 88.63% (সব graph model-এর মধ্যে সর্বোচ্চ)।
 - CFG-তে accuracy 75.59% থেকে 83.15% — একই representation, model বদলে 7.6 pp ফারাক (§৫.৪ guideline-এ উল্লেখ)।
 - Cross-type: graph-এর সব graph ও classifier মিলিয়ে average accuracy 79.99%, precision 78.36%, recall 82.54%, F1 80.31%, AUC 80.00% (§৪.১)।
+
+**সহজ কথায়:** পাঁচ রকম graph-এর মধ্যে CPG (সব তথ্য একসাথে) সেরা। Classifier-এর মধ্যে GGNN প্রায় সব জায়গায় ভালো। একই graph-এ GCN আর GGNN-এর ফারাক অনেক, তাই classifier বাছাইও গুরুত্বপূর্ণ।
 
 ### ৮.৫ Best-of-type বনাম SOTA (Table 6, 5-fold CV, নিজের dataset-এ)
 
@@ -224,6 +321,8 @@ $$\text{Specificity} = \frac{TN}{TN + FP}$$
 |---|---|---|---|---|---|
 | PATCH-SIM | 66.00% | 100.00% | 57.00% | 73.00% | 74.00% |
 | Tree-based | 80.00% | 84.00% | 91.00% | 88.00% | 85.75% |
+
+**সহজ কথায়:** নিজেদের dataset-এ সব নতুন representation পুরনো পদ্ধতিগুলোকে ছাড়িয়েছে। PATCH-SIM-এর precision 100%, অর্থাৎ যা বলে তা প্রায় সবসময় ঠিক। কিন্তু সে অনেক overfitting patch (recall মাত্র 57%) ধরতেই পারে না।
 
 - Graph-এর average (83.81) বনাম Tian-SVM (76.98): 6.83 pp absolute; বনাম CACHE (78.50): 5.31 pp। Introduction-এ "CPG+GGNN, Tian et al. (BERT+SVM)-কে accuracy-তে 9.34% ইত্যাদি" লেখা আছে: (83.73−76.58)/76.58 = 9.34% ✓ (আমার যাচাই, relative)।
 - Baseline-এর অনেক সংখ্যা integer % (71.00, 75.00, 61.00 …) — CACHE/ODS মূল paper থেকে নেওয়া নাকি এই dataset-এ re-run, §৪.২ বলছে "executing them on our datasets" কিন্তু integer precision অন্য ইঙ্গিত দেয়।
@@ -248,6 +347,8 @@ $$\text{Specificity} = \frac{TN}{TN + FP}$$
 - তুলনা: single best (GGNN+CPG) average 83.81% (Table 6) — Heu-Seq backend 85.95% মাত্র 2.14 pp (absolute, আমার হিসাব) ভালো।
 - Heu-Tre intermediate accuracy 83.04%; Heu-Tre-Gra 83.54% ইত্যাদি — চারটি মেলালে (83.81%) best pair-এর (84.73%) নিচে।
 
+**সহজ কথায়:** দুটো সস্তা পদ্ধতি (heuristic + sequence) মিশিয়ে সবচেয়ে ভালো ফল পাওয়া গেছে। আরও বেশি মেশালে ফল বরং কমে গেছে। অর্থাৎ বেশি মেশানো মানেই ভালো নয়।
+
 ### ৮.৭ Node embedding (Table 8, নির্বাচিত row)
 
 | Model + Graph | Textual avg | Type avg | Hybrid avg |
@@ -262,6 +363,8 @@ $$\text{Specificity} = \frac{TN}{TN + FP}$$
 - Hybrid আরও ভালো GGNN+CPG-তে (+0.88% accuracy), কিন্তু TreeLSTM+AST-এ গড়ে 0.53% কমেছে।
 - Type-only অনেক model-এ খুব খারাপ: CFG+GAT 63.32% accuracy (Table 8)।
 
+**সহজ কথায়:** Graph-এর প্রতিটি node-এ "এটা কোন ধরনের node" (type) এর চেয়ে "node-এ আসলে কী লেখা" (text) বেশি কাজের। শুধু type দিয়ে শেখালে ফল অনেক খারাপ হয়।
+
 ### ৮.৮ Pre-trained (Table 9)
 
 | Model | Accuracy | Precision | Recall | F1 | AUC | Average |
@@ -271,6 +374,8 @@ $$\text{Specificity} = \frac{TN}{TN + FP}$$
 | Transformer | 82.48% | 78.97% | 87.27% | 82.87% | 82.60% | 82.84% |
 
 - CodeBERT-এর precision 82.48% (Transformer-এর চেয়ে 3.51 pp বেশি) কিন্তু recall 83.48% (3.79 pp কম, আমার হিসাব)। অর্থাৎ pre-trained model বেশি "সাবধানী"; trade-off ভিন্ন।
+
+**সহজ কথায়:** আগে থেকে শেখা model (CodeBERT, CodeT5) সামান্য ভালো, বড় কোনো লাফ নয়। তারা ভুল আপত্তি কম তোলে, কিন্তু কিছু overfitting patch ছেড়ে দেয়।
 
 ## ৯. Key findings
 
@@ -289,7 +394,9 @@ $$\text{Specificity} = \frac{TN}{TN + FP}$$
 - Tian et al. (BERT embedding + classic classifier): task-specific end-to-end train করা model embedding-কে "frozen" না রেখে সরাসরি শেখে; Transformer 82.48% বনাম Tian-SVM 76.58%।
 - CACHE: AST path-এর বদলে full tree/graph মডেল; graph 83.81% বনাম 78.50% (average)।
 - PATCH-SIM: execution ছাড়াই (static) দ্রুত; ঘণ্টার বদলে ইনফারেন্স — তবে precision-এ পিছিয়ে (84% বনাম 100%)।
-- Graph বনাম sequence: control/data-flow সরাসরি encode হয়, তবে লাভ মাত্র প্রায় 1.25 pp (accuracy 83.73 বনাম 82.48, আমার হিসাব)।
+- Graph বনাম sequence: control/data-flow (code কোন পথে চলে ও data কোথা থেকে কোথায় যায়) সরাসরি encode হয়। তবে লাভ মাত্র প্রায় 1.25 pp (accuracy 83.73 বনাম 82.48, আমার হিসাব)।
+
+**সহজ কথায়:** নতুন পদ্ধতিগুলো হাতে-বানানো feature-এর চেয়ে ভালো, কারণ model নিজেই শেখে। কিন্তু graph আর সাধারণ sequence-এর মধ্যে লাভ খুবই কম।
 
 ## ১১. When it works / fails
 
@@ -302,6 +409,8 @@ $$\text{Specificity} = \frac{TN}{TN + FP}$$
 - SVM-জাতীয় classifier সব patch-কে overfitting বলে (accuracy ~50%)।
 - Fusion-এ তিনটির বেশি মেলালে অবনতি।
 - Cross-project, cross-language, cross-tool, বা LLM-generated patch-এ কী হয়, তা অপরীক্ষিত।
+
+**সহজ কথায়:** চেনা ধরনের Java bug-এ ভালো কাজ করে। নতুন project, নতুন language বা নতুন ধরনের patch-এ কী হবে, কেউ জানে না।
 
 ## ১২. Limitations
 
@@ -333,6 +442,8 @@ $$\text{Specificity} = \frac{TN}{TN + FP}$$
    - Table 9: CodeBERT AUC 87.80% অন্য সব metric (প্রায় 83%) থেকে অনেক বেশি; অন্য model-এ AUC ≈ accuracy — আলাদা গণনা সন্দেহ।
    - §৪.৩ ও §৫.৪-এ "accuracy 13.58% / 82.21% for heu-seq-tre" — Table 7-এ Heu-Seq-Tre backend accuracy 82.21% ✓, কিন্তু §৪.৩ "82.10%" (intermediate)। দুই fusion-এর সংখ্যা মিশে আছে।
 
+**সহজ কথায়:** Paper-এ অনেক ছোট ছোট সংখ্যার গরমিল আছে (label উল্টো, row নকল, গণনা ভুল)। মূল সিদ্ধান্ত বদলায় না, কিন্তু সংখ্যা উদ্ধৃত করার আগে Table-এর সাথে মিলিয়ে নেওয়া ভালো।
+
 ## ১৩. Research gaps
 
 | ID | Gap | Evidence | Related CG / folder |
@@ -348,6 +459,8 @@ $$\text{Specificity} = \frac{TN}{TN + FP}$$
 | G-PV2-9 | Adversarial/gaming robustness (patch-এ TF-IDF-মতো surface token বদলে classifier ঠকানো) পরীক্ষিত নয় | সম্পূর্ণ অনুপস্থিত | CG12 |
 | G-PV2-10 | Classifier-এর version-bound validity (নতুন tool/model-এর patch distribution-এ drift) | §৫.৩ নতুন tool-এর patch ভবিষ্যৎ কাজ | CG11 |
 
+**সহজ কথায়:** মূল ফাঁক হলো ফলটা কতটা সত্যিকারের পরিস্থিতিতে খাটে তা অজানা: নতুন bug, নতুন tool, নতুন language, LLM-লেখা patch। আর স্থিরতা ও ভুল-ধরার হারের মাপও নেই।
+
 ## ১৪. Improvement ideas
 
 1. **Leakage-মুক্ত split:** bug-grouped ও tool-held-out split; ফলাফল random-CV-র সাথে পাশাপাশি দেখানো।
@@ -356,7 +469,9 @@ $$\text{Specificity} = \frac{TN}{TN + FP}$$
 4. **Representation + LLM:** CPG/AST-কে LLM-এর prompt-এ structured context হিসেবে দেওয়া; RePaCA-র reasoning-এর সাথে classifier-এর score মিলিয়ে ensemble।
 5. **Learned fusion:** gating/attention, meta-classifier (বর্তমান averaging-এর বদলে)।
 6. **Abstention:** দুই classifier (graph, sequence)-এর disagreement হলে "could not verify"।
-7. **Repeat runs + paired test:** McNemar, bootstrap CI।
+7. **Repeat runs + paired test:** McNemar (একই patch-এ দুই model-এর রায় মিলিয়ে পার্থক্যের যাচাই), bootstrap CI (বারবার নমুনা নিয়ে ফলের অনিশ্চয়তার সীমা)।
+
+**সহজ কথায়:** প্রথমে পরীক্ষাটা ন্যায্য করো (leakage সরাও, developer patch আলাদা করো)। তারপর সঠিক মাপ আর অনিশ্চয়তার হিসাব যোগ করো। শেষে LLM ও abstain-এর মতো নতুন জিনিস যোগ করো।
 
 ## ১৫. Publication potential (SPL3-feasible)
 
@@ -365,6 +480,8 @@ $$\text{Specificity} = \frac{TN}{TN + FP}$$
 - **Feasible কারণ:** dataset ছোট (2,274), model ছোট (V100-এ train হয়েছে), artifact open।
 - **Risk:** replication package-এ আমরা নিশ্চিত নই 2,274-patch ও split ID সবই আছে কি না; Joern-এর build ঝামেলা হতে পারে। প্রথমে sequence (CodeBERT) ও TF-IDF দিয়ে শুরু করা নিরাপদ।
 - **Strong claim:** যদি tool-held-out-এ accuracy উল্লেখযোগ্য কমে (যেমন 83% → ~65%), সেটাই মূল ফলাফল। কমার পূর্বানুমান আমার অনুমান, প্রমাণ নয়।
+
+**সহজ কথায়:** Paper-এর ফল ন্যায্য নিয়মে আবার চালিয়ে দেখলে ছোট paper হয়ে যায়। দেখা হবে accuracy সত্যিই কমে কি না। Dataset ছোট, তাই কাজটা SPL3-তে সম্ভব।
 
 ## ১৬. SPL3 implementation
 
@@ -383,6 +500,8 @@ $$\text{Specificity} = \frac{TN}{TN + FP}$$
 
 **সময় ও খরচ:** TF-IDF/XGBoost ও CodeBERT ছোট GPU-তে ঘণ্টার মধ্যে; Joern+GNN সবচেয়ে ভারী। আমার অনুমান — paper-এ খরচ/training সময় দেওয়া নেই।
 
+**সহজ কথায়:** সস্তা দিয়ে শুরু করো (TF-IDF, তারপর CodeBERT), ভারী graph পদ্ধতি শেষে। লাভ সামান্য, তাই খরচ বুঝে চলো। আর classifier ও LLM judge-এর সংকেত আলাদা রাখো।
+
 ## ১৭. Influence / link to our earlier sub-domains
 
 - **Sub-domain 2, RePaCA:** RePaCA (reasoning LLM + GRPO) Defects4J-তে 83.1% accuracy, 106/109 overfitting ধরেছিল কিন্তু 16/30 correct গ্রহণ করেছিল। এই paper-এর graph/sequence classifier-এর accuracy (83.73%/82.48%) প্রায় একই স্তরে — অর্থাৎ বিশাল reasoning model-এর accuracy সস্তা 128-dim embedding model-এর মতোই। (সতর্কতা: dataset ও split ভিন্ন হতে পারে; সরাসরি তুলনা নয়।) আমার হিসাবে PATCH-SIM subset-এ Tree model-এর specificity প্রায় 37%, RePaCA-র 16/30 = 53%; দুটোই কম specificity-র সমস্যা দেখায়, কিন্তু অনুমান-ভিত্তিক।
@@ -390,6 +509,8 @@ $$\text{Specificity} = \frac{TN}{TN + FP}$$
 - **Sub-domain 1, AutoCodeRover/Agentless:** agent patch-এর plausible ≠ correct (CG1) সমস্যা; এই paper দেখায় static classifier কী পারে (ও কী পারে না)।
 - **Sub-domain 3, SWE-rebench/Pro:** fresh task ও contamination-মুক্ত evaluation-এর ধারণা এই paper-এ নেই; আমরা সেটি আনতে পারি।
 - **Sub-domain 4, Oracle-Guided Selection:** distinguishing test (dynamic) এই paper-এর static score-এর পরিপূরক; একটি static, একটি dynamic signal আলাদা রাখা আমাদের assurance report-এর কাঠামোর সাথে মেলে।
+
+**সহজ কথায়:** এই paper আগের sub-domain-গুলোর সাথে জোড়া লাগে। সবখানে একই কথা: test pass করা মানেই ঠিক নয়। আর এখানকার সস্তা static সংকেত অন্য সংকেতের পরিপূরক।
 
 ## ১৮. Supervisor Q&A
 
@@ -417,6 +538,8 @@ $$\text{Specificity} = \frac{TN}{TN + FP}$$
 **প্রশ্ন ৮: Paper-এ কোনো সংখ্যার গরমিল আছে?**
 উত্তর: হ্যাঁ — class label উল্টো লেখা (§৩.৬ বনাম Table 1), abstract-এর 87.09% (TreeLSTM বলা, আসলে CPG+GGNN-এর recall), Table 2-এর duplicate row, model-সংখ্যা 45 বনাম আমার গণনা 44 (বিস্তারিত §১২)।
 
+**সহজ কথায়:** সুপারভাইজারের প্রশ্নের উত্তর মূলত একটাই: সংখ্যা ভালো, কিন্তু পরীক্ষার নকশায় দুর্বলতা আছে, তাই generalise করা যায় না।
+
 ## ১৯. Glossary
 
 | শব্দ | অর্থ |
@@ -433,6 +556,8 @@ $$\text{Specificity} = \frac{TN}{TN + FP}$$
 | Specificity | Correct patch-কে correct বলার হার |
 | PCM | Pre-trained code model |
 
+**সহজ কথায়:** এই তালিকা paper-এর শব্দকোষ। কোনো শব্দে আটকে গেলে এখানে দেখে নাও।
+
 ## ২০. Summary card
 
 | বিষয় | মান |
@@ -448,6 +573,8 @@ $$\text{Specificity} = \frac{TN}{TN + FP}$$
 | Main weakness | Random CV, developer-patch confound (82.5% of correct), no variance, Java-only |
 | আমাদের ব্যবহার | Cheap static signal; leakage-free re-evaluation = SPL3 publication angle |
 
+**সহজ কথায়:** Paper-টা কাজের, কিন্তু ফল নিজে যাচাই না করে বিশ্বাস করা যাবে না। আমাদের সুযোগ ঠিক এখানেই।
+
 ## ২১. বর্তমান (2026) প্রেক্ষাপট
 
 ### ২১.১ তখন বনাম এখন
@@ -459,6 +586,8 @@ $$\text{Specificity} = \frac{TN}{TN + FP}$$
 | Overfitting মাত্রা | Defects4J label | PatchDiff: 29.6% plausible patch gold-এর থেকে ভিন্ন আচরণ করে (I, পুরনো model) |
 | Benchmark | Defects4J | SWE-bench Verified saturated (Vals.ai 97.0%, I); SWE-Bench Pro Verified-এ leakage বন্ধ করলে GLM-5.2 78.80% → 57.32% (I) |
 | Test quality | Developer test-suite | 80.2% agent-লেখা test patch-এ weak/no oracle (I) |
+
+**সহজ কথায়:** তখন patch লিখত পুরনো tool। এখন লেখে বড় LLM agent। Judge-ও এখন classifier নয়, LLM। তাই পুরনো সংখ্যা সরাসরি আজকের সাথে মেলানো যায় না। (oracle মানে test-এর "সঠিক উত্তর কী" বলে দেওয়ার অংশ।)
 
 ### ২১.২ কী এখনও সত্য / কী পুরনো
 
@@ -482,12 +611,16 @@ $$\text{Specificity} = \frac{TN}{TN + FP}$$
 | Version-bound validity (নতুন model-এর patch drift) | অজানা | CG11 |
 | Security-sensitive patch-এ correctness classifier (SusVibes FuncPass 62–84% বনাম SecPass 7.8–17.3%, I) | কোনো APCA study নেই | CG5 |
 
+**সহজ কথায়:** আজকের agent-লেখা patch-এ এই পুরনো classifier কেমন চলে, কেউ মাপেনি। এটাই সবচেয়ে বড় খোলা জায়গা।
+
 ### ২১.৪ SPL3 idea (বর্তমান model, cost-aware)
 
 - **Cheap static triage:** TF-IDF+XGBoost বা CodeBERT classifier আগে চালানো (প্রায় শূন্য খরচ); যেগুলো "অনিশ্চিত", শুধু সেগুলোর জন্য LLM judge ডাকা। Cost reference: Vals Terminal-Bench 4.0-এ per-task খরচ Opus 5.5 13.20 USD, Kimi K3.1 Pro 4.57 USD, GPT-6.1 Sol 1.72 USD (I) — অর্থাৎ বড় model দিয়ে প্রতিটি patch judge করা ব্যয়বহুল।
 - **Evaluation:** fresh SWE-rebench task ও SWE-Bench Pro Verified subset-এ agent patch; bug-grouped ও model-held-out split; recall ও specificity দুটোই; multiple run (pass@1 বনাম pass@5-এর 12–18 pt ফারাক, I)।
 - **Report:** static score, LLM-judge score ও dynamic test-সংকেত আলাদা ও version-সহ; "could not verify" স্পষ্ট ফলাফল।
 - সতর্কতা: এই idea-র কোনো সংখ্যা আমরা এখনও মাপিনি; উপরের সব current-model সংখ্যা context.md-এর (V/I/S লেবেল সহ)।
+
+**সহজ কথায়:** আগে সস্তা classifier দিয়ে ছেঁকে নাও (triage)। যেগুলোতে সে নিশ্চিত নয়, শুধু সেগুলোতে দামি LLM judge ডাকো। এতে খরচ কমে।
 
 ### ২১.৫ তিনটি Q&A
 
@@ -499,3 +632,5 @@ $$\text{Specificity} = \frac{TN}{TN + FP}$$
 
 **প্রশ্ন ৩: এই paper-এর কোন অংশ আজও অবিতর্কিত?**
 উত্তর: "একটি representation সব সময় সেরা নয়, model-নির্বাচন গুরুত্বপূর্ণ" এবং "দুটির সরল fusion সস্তা উপকার দেয়" — তবে দুটোই Defects4J-random-CV-তে প্রমাণিত, নতুন প্রেক্ষাপটে নয়।
+
+**সহজ কথায়:** Paper-এর দুটি শিক্ষা এখনও খাটে: classifier বাছাই গুরুত্বপূর্ণ, আর দুটি পদ্ধতি মেশালে সস্তায় কিছু লাভ হয়। তবে নতুন প্রেক্ষাপটে তা যাচাই হয়নি।

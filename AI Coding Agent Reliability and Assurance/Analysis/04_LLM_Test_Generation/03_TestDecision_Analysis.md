@@ -22,9 +22,61 @@
 
 ---
 
+## ★ সহজ ভাষায় পুরো Paper (প্রথমবার পড়ার জন্য)
+
+### ক. Paper-টা কী নিয়ে?
+- এটা একটা **নতুন পদ্ধতির (technique) paper**। এটা কোনো survey বা benchmark নয়।
+- লিখেছেন Peking University, SMU সহ কয়েকটা university-র গবেষকরা। এটা arXiv-এ (April 2026) প্রকাশিত preprint।
+- বিষয়: AI (LLM) দিয়ে Python code-এর জন্য **unit test-এর পুরো সেট** (test suite) বানানো।
+- মূল ধারণা: test একটা একটা করে লেখা হবে, আর প্রতিবার এমন test লেখা হবে যা আগের test-গুলো যা দেখেনি সেটাই দেখে।
+- Paper এই ধারণার পক্ষে গাণিতিক যুক্তি দিয়েছে। তারপর একটা ছোট open model-কে সেই কাজ শেখিয়েছে।
+
+### খ. সমস্যাটা কী ছিল?
+- ধরো তুমি পরীক্ষার আগে ৫টা mock test দেবে। প্রথমে একই সহজ অধ্যায় থেকে ৫টা test দিলে কোনো লাভ নেই। দরকার এমন test, যা প্রতিবার নতুন অধ্যায় ছোঁয়।
+- Test লেখার AI-রা ঠিক এই ভুলটা করত। তারা বারবার সহজ, চেনা path-ই test করত। কঠিন `if`-এর ভেতরের অংশে পৌঁছাতো না।
+- আগের পদ্ধতিতে বলা হতো: "এই লাইনগুলো এখনো test হয়নি, এগুলো cover করো।" বড় দামি model (যেমন GPT-4o) এতে কাজ করত। কিন্তু ছোট open model এই সাহায্য কাজে লাগাতে পারত না।
+- আরেকটা সমস্যা: এই পদ্ধতি শেষে ভালো ফল দেবে কিনা, তার কোনো গাণিতিক গ্যারান্টি ছিল না।
+- **উদাহরণ:** Paper-এর Figure 1-এ তিনটা test (A, B, C) আছে। A আর B আগে থেকে থাকলে C কিছুই নতুন দেয় না। শুধু A থাকলে C কাজে লাগে। অর্থাৎ একটা test কতটা দামি, তা নির্ভর করে আগে কী কী আছে তার উপর।
+
+### গ. Paper কী solve করেছে?
+- Test suite বানানোকে একটা ধাপে-ধাপে সিদ্ধান্তের সমস্যা হিসেবে দেখিয়েছে (MDP)।
+- প্রমাণ করেছে: coverage-এর মতো মাপে "নতুন লাভ" ক্রমে কমে (submodular)। তাই প্রতিবার সবচেয়ে বেশি নতুন লাইন cover করা greedy নিয়ম সেরা ফলের অন্তত প্রায় ৬৩.২% পায়।
+- Code-এ `#uncovered` চিহ্ন বসিয়ে model-কে দেখানোর একটা সহজ কৌশল বানিয়েছে।
+- ছোট 7B model-কে GRPO (এক ধরনের reinforcement learning) দিয়ে train করে নাম দিয়েছে TestDecision।
+- সবচেয়ে গুরুত্বপূর্ণ তিনটা সংখ্যা (Qwen2.5-Coder-7B):
+  - Line coverage ৫১.৪২% থেকে ৬৯.৬৯%। মানে ১০০টা লাইনের মধ্যে আগে প্রায় ৫১টা test হতো, এখন প্রায় ৭০টা।
+  - Execution pass rate ১৬.৮৬% থেকে ৬৭.১৪%। মানে ১০০টা test-এর মধ্যে আগে মাত্র ১৭টা চলত, এখন ৬৭টা চলে।
+  - নতুন ধরনের task-এ (LiveCodeBench) bug ধরা ২০.৫০% থেকে ৩২.৫০%। মানে ১০০টা buggy code-এর মধ্যে এখনো ৬৭টাই অধরা থেকে যায়।
+
+### ঘ. কীভাবে solve করেছে?
+1. **সমস্যাটাকে খেলার মতো সাজিয়েছে।** এক চাল = একটা test লেখা। চালের পর পুরস্কার = কত নতুন লাইন cover হলো।
+2. **গণিতে প্রমাণ করেছে** যে এই খেলায় greedy নিয়ম যথেষ্ট ভালো। (Nemhauser-এর পুরনো theorem কাজে লাগিয়েছে।)
+3. **State দেখানোর কৌশল বানিয়েছে।** Coverage.py চালিয়ে বাকি লাইনগুলো বের করে, code-এর ঠিক ওই লাইনের পাশে `#uncovered` comment বসায়। Model একনজরে দেখে কোথায় কাজ বাকি।
+4. **Practice-এর প্রশ্ন বানিয়েছে।** GPT-5-mini দিয়ে একবার অনেক test বানিয়ে সেগুলো ধাপে ধাপে সাজিয়েছে। প্রতিটা ধাপ থেকে এক-একটা training state বানিয়েছে। মোট ৮,৩৯৬টা।
+5. **Reward ঠিক করেছে।** নতুন লাইন যত বেশি, reward তত বেশি। কিন্তু test না চললে reward শূন্য।
+6. **GRPO দিয়ে train করেছে।** একই state-এ model ৮টা test লেখে। যেগুলো গড়ের চেয়ে ভালো, সেগুলো লেখার সম্ভাবনা বাড়ানো হয়।
+7. **Inference-এর সময়** খালি suite থেকে শুরু করে ৫ বার ঘোরে: coverage মাপো, চিহ্ন বসাও, model একটা test লেখে, suite-এ জমা।
+8. **পরীক্ষা করেছে** ULT ও LiveCodeBench-এ, আর ablation দিয়ে দেখেছে কোন অংশ কতটা কাজ করছে।
+
+### ঙ. এরপর কী করা যায়?
+- **Authors-এর কথা:** শুধু Python আর function-level পরীক্ষা হয়েছে। বড় project, অন্য language, আর বাইরের environment (database, network) নিয়ে কাজ বাকি।
+- **খোলা প্রশ্ন ১:** Reward-এ assertion কতটা শক্ত তা মাপা হয় না। তাই weak test-ও পুরো পুরস্কার পেতে পারে।
+- **খোলা প্রশ্ন ২:** Theory ধরে নেয় LLM ঠিক সেরা test-টাই বাছে। বাস্তবে LLM মোটামুটি ভালো test বাছে। এই ফাঁক কতটা, তা কেউ মাপেনি।
+- **SPL3-তে আমরা করতে পারি:** GPU লাগে এমন training বাদ দিয়ে শুধু `#uncovered` কৌশলটা নিয়ে tool বানানো।
+- **SPL3-তে আমরা করতে পারি:** AI agent-এর patch যাচাইয়ের জন্য patch-এর বদলানো লাইনে চিহ্ন বসিয়ে test লেখানো, আর test পুরনো version-এ লিখে নতুন version-এ চালানো।
+- **SPL3-তে আমরা করতে পারি:** Generated test-এর assertion কতটা শক্ত, তার audit করা (assertion গোনা, mutation score মাপা)।
+
+> **মনে রাখো:**
+> TestDecision = "প্রতিবার সবচেয়ে বেশি নতুন কিছু cover করো" নিয়মটা + ছোট model-কে RL দিয়ে শেখানো। ফলে কম test-এ বেশি coverage আর বেশি চলা test।
+> কিন্তু reward-এ assertion-এর শক্তি নেই, আর test বর্তমান code-এর আচরণকেই "ঠিক" ধরে। তাই AI agent-এর patch যাচাইয়ে এটা একা যথেষ্ট নয়।
+
+---
+
 ## ১. এক লাইনে Paper (TL;DR)
 
 **Test suite তৈরি করাকে একটা sequential decision problem (MDP) হিসেবে দেখে, coverage-এর মতো utility function যে monotone submodular তা প্রমাণ করে, তারপর "প্রতি step-এ সবচেয়ে বেশি নতুন জিনিস cover করে এমন একটা test লেখো" — এই greedy নীতি ((1 − 1/e) ≈ 63.2% guarantee সহ) একটা ছোট open LLM-কে GRPO reinforcement learning দিয়ে শেখানো হয়েছে; ফলে Qwen2.5-Coder-7B-এর ULT benchmark-এ line coverage 51.42% থেকে 69.69% এবং execution pass rate 16.86% থেকে 67.14% হয়েছে।**
+
+**সহজ কথায়:** একটা ছোট AI-কে শেখানো হয়েছে যেন প্রতিবার এমন test লেখে, যা আগের test-গুলো যা দেখেনি সেটাই দেখে। ফলে কম test-এ বেশি অংশ যাচাই হয়, আর test-গুলো আসলেই চলে।
 
 ### Supervisor-কে ৩০ সেকেন্ডে কীভাবে বলবো
 > "Sir, LLM দিয়ে test লেখার এখনকার পদ্ধতি হলো একটা একটা করে test লেখা আর coverage report দেখিয়ে বলা 'বাকি অংশ cover করো'। এই paper দেখিয়েছে ছোট open model-রা এই feedback ঠিকমতো ব্যবহার করতে পারে না — একই জিনিস বারবার test করে, এটাকে তারা বলেছে structural myopia। তারা প্রমাণ করেছে coverage একটা submodular function, তাই প্রতি ধাপে সবচেয়ে বেশি নতুন line cover করা greedy পদ্ধতি optimal-এর অন্তত 63.2% পাবে। এরপর code-এর uncovered line-এ '#uncovered' marker বসিয়ে model-কে দেখানো হয়, আর GRPO দিয়ে train করা হয় যাতে model নতুন line cover করে এমন, আর চলে এমন test লেখে। 7B model-এ line coverage 51.42% থেকে 69.69%, যা GPT-5.2-এর 69.40%-এর সমান। তবে আমাদের কাজের জন্য সমস্যা হলো reward-এ assertion কতটা শক্ত তা মাপা হয় না — শুধু test চলল কিনা আর নতুন line cover হলো কিনা।"
@@ -83,6 +135,8 @@ Genetic algorithm দিয়ে test suite "বিবর্তন" করা�
 - **Policy** $\pi(a \mid s)$: state দেখে কোন action নেবো তার নিয়ম। এখানে LLM নিজেই policy।
 - **Finite horizon:** নির্দিষ্ট $K$ step পর শেষ (এখানে $K = 5$টা test)।
 
+**সহজ কথায়:** MDP মানে একটা খেলার নিয়মের তালিকা: এখন কোথায় আছি (state), কী করতে পারি (action), করলে কী বদলায় (transition), কত নম্বর পাই (reward)। এখানে খেলাটা হলো একটার পর একটা test লেখা।
+
 ### ২.৮ Set Function, Marginal Gain, Monotone ও Submodular
 - **Set function** $F(S)$: একটা সেট নিয়ে একটা সংখ্যা দেয়। যেমন $F(\text{suite})$ = suite কতগুলো line cover করে।
 - **Marginal gain:** $F(S \cup \{x\}) - F(S)$ — $S$-এ $x$ যোগ করলে কতটা বাড়ে।
@@ -95,6 +149,8 @@ $$
 
 **সহজ উদাহরণ:** প্রথম ভাত-এর প্লেট খুব তৃপ্তি দেয়, তৃতীয় প্লেট অনেক কম। Suite-এ ইতিমধ্যে অনেক test থাকলে নতুন test-এর নতুন কিছু cover করার সুযোগ কম।
 
+**সহজ কথায়:** Submodular মানে নতুন কিছু যোগ করলে লাভ ক্রমে কমতে থাকে। ইতিমধ্যে অনেক test থাকলে আরেকটা test প্রায় নতুন কিছু দেখায় না।
+
 ### ২.৯ Maximum Coverage Problem ও NP-hardness
 অনেকগুলো সেট থেকে $K$টা বেছে নিতে হবে যাতে তাদের union সবচেয়ে বড় হয়। এটা **NP-hard** — অর্থাৎ বড় input-এ সঠিক optimal উত্তর বের করার কোনো জানা দ্রুত (polynomial-time) algorithm নেই। Test suite selection ঠিক এই সমস্যা: candidate test-গুলো থেকে $K$টা বাছাই যাতে মোট coverage সর্বোচ্চ।
 
@@ -102,6 +158,8 @@ $$
 - **Greedy:** প্রতি ধাপে শুধু এখনকার জন্য সবচেয়ে ভালো জিনিসটা বেছে নাও — ভবিষ্যৎ নিয়ে চিন্তা না করে।
 - **Nemhauser, Wolsey ও Fisher (1978):** $F$ monotone submodular হলে এবং $|S| \leq K$ constraint থাকলে, greedy-র ফল optimal-এর অন্তত $(1 - 1/e) \approx 63.2\%$। $e \approx 2.718$।
 - **মানে:** NP-hard সমস্যাকেও একটা সহজ greedy নিয়ম দিয়ে "যথেষ্ট ভালো" ভাবে সমাধান করা যায়, আর কতটা খারাপ হতে পারে তার একটা গাণিতিক সীমা আছে। এই paper-এর পুরো theory এর উপর দাঁড়িয়ে।
+
+**সহজ কথায়:** প্রতিবার সামনের সবচেয়ে ভালো জিনিসটা তুলে নিলেও শেষ ফল সেরা ফলের অন্তত প্রায় দুই-তৃতীয়াংশ হয়। এটা গণিতে প্রমাণ করা আছে।
 
 ### ২.১১ Reinforcement Learning (RL) দিয়ে LLM Training
 - **SFT (Supervised Fine-Tuning):** model-কে একটা নির্দিষ্ট "সঠিক উত্তর" নকল করতে শেখানো (cross-entropy loss)।
@@ -119,10 +177,14 @@ $$
 - $\hat{A}_t$ = advantage (action গড়ের চেয়ে কতটা ভালো), PPO-তে এটা একটা আলাদা **value network (critic)** দিয়ে estimate হয় — অর্থাৎ policy-র পাশাপাশি আরেকটা বড় model train করতে হয় (memory ও compute বেশি)।
 - clip অংশ একবারে policy খুব বেশি বদলানো আটকায়।
 
+**সহজ কথায়:** PPO-তে একটা আলাদা 'শিক্ষক model' (critic) লাগে, যে বলে চালটা কেমন ছিল। এটা বাড়তি খরচ।
+
 **GRPO (Group Relative Policy Optimization, Shao et al. 2024, DeepSeekMath)** — TestDecision এটা ব্যবহার করে:
 - একই state-এ $G$টা উত্তর sample করো, প্রত্যেকটার reward বের করো।
 - Advantage = নিজের reward − group-এর গড় reward (মূল GRPO-তে standard deviation দিয়ে ভাগও করা হয়)।
 - **Critic লাগে না** — group-এর গড়ই baseline। তাই সস্তা।
+
+**সহজ কথায়:** GRPO-তে আলাদা শিক্ষক লাগে না। একই প্রশ্নের ৮টা উত্তর লিখে নিজেদের মধ্যে তুলনা করা হয়: গড়ের চেয়ে ভালো হলে পুরস্কার, খারাপ হলে শাস্তি।
 
 ### ২.১৩ KL Divergence Regularization
 দুটো probability distribution কতটা আলাদা তার মাপ:
@@ -132,6 +194,8 @@ D_{\text{KL}}(P, Q) = \sum_{x} P(x) \log \frac{P(x)}{Q(x)}
 $$
 
 RL training-এ policy $\pi_\theta$ যেন মূল base model $\pi_{\text{base}}$ থেকে খুব বেশি সরে না যায় (ভাষা নষ্ট না হয়, reward hack না করে), তাই loss-এ $\beta \cdot D_{\text{KL}}$ যোগ করা হয়। Paper-এ $\beta = 0.001$।
+
+**সহজ কথায়:** KL হলো একটা লাগাম। Model শিখতে গিয়ে যেন মূল model থেকে একদম অন্যরকম হয়ে না যায়।
 
 ### ২.১৪ Abstract Syntax Tree (AST) ও AST Injection
 - **AST:** source code-এর tree রূপ — প্রতিটা statement, expression একটা node।
@@ -155,8 +219,12 @@ $$
 
 **উদাহরণ:** execution 16.86% থেকে 67.14% — percentage point-এ +50.28 pp, কিন্তু relative-এ $\frac{67.14 - 16.86}{16.86} \times 100 = 298.22\%$। ছোট base থেকে relative সংখ্যা অনেক বড় দেখায় — supervisor-কে বলার সময় দুটোই বলা উচিত।
 
+**সহজ কথায়:** ১০ থেকে ২০ হলে বলা যায় 'দ্বিগুণ' (১০০% বৃদ্ধি), কিন্তু আসলে মাত্র ১০ পয়েন্ট বেড়েছে। তাই ছোট সংখ্যা থেকে শুরু করলে শতাংশ অনেক বড় দেখায়।
+
 ### ২.১৮ Structural Myopia (paper-এর নিজস্ব শব্দ)
 "Myopia" মানে দূরের জিনিস দেখতে না পাওয়া। Paper-এর অর্থে: LLM test suite-এর সামগ্রিক অবস্থা না দেখে বারবার সহজ, ইতিমধ্যে cover হওয়া path (happy path) test করে; coverage feedback দিলেও কঠিন, nested branch-এ পৌঁছায় না।
+
+**সহজ কথায়:** ছাত্র যেমন কঠিন প্রশ্ন এড়িয়ে শুধু সহজ প্রশ্নই বারবার সমাধান করে, model-ও তেমনি সহজ path-ই বারবার test করে।
 
 ---
 
@@ -167,6 +235,8 @@ $$
 2. **Test-এর মূল্য অবস্থা-নির্ভর:** Figure 1-এ Test C (`test_full_flow`) suite-এ $\{A, B\}$ থাকলে marginal gain 0, কিন্তু শুধু $\{A\}$ থাকলে positive। তাই এটা একটা sequential decision problem।
 3. **Proprietary model-নির্ভরতা:** সফল feedback-driven পদ্ধতি (CoverUp, Panta ইত্যাদি) বড় proprietary model (যেমন GPT-4o)-এর উপর নির্ভর করে — খরচ বেশি, data privacy সমস্যা, local-এ retrain করা যায় না।
 4. **ছোট open model feedback কাজে লাগাতে পারে না (structural myopia):** pilot study-তে (Table 1) Guided ও Blind iteration প্রায় সমান; কখনো guided খারাপ।
+
+**সহজ কথায়:** আগের পদ্ধতিতে কোনো গ্যারান্টি ছিল না, দামি closed model লাগত, আর ছোট model feedback পেয়েও একই ভুল করত।
 
 ### ৩.২ কেন এটা গুরুত্বপূর্ণ?
 - Test suite-এর মান সরাসরি bug ধরার ক্ষমতা ঠিক করে।
@@ -184,6 +254,8 @@ Paper-এর explicit RQ:
 - **RQ3 (Generalization ও Bug Detection):** অদেখা task-এ (LiveCodeBench) কাজ করে কিনা, আর coverage বাড়লে আসল bug ধরা বাড়ে কিনা?
 - **RQ4 (Ablation):** প্রতিটা component-এর অবদান কত?
 
+**সহজ কথায়:** চারটা প্রশ্ন: ভালো কি, কম test-এ ভালো কি, অচেনা task-এ ভালো কি, আর কোন অংশ কতটা কাজ করছে।
+
 এছাড়া Discussion-এ (Section 7): proprietary model (GPT-4o, GPT-5.2), model size (3B/7B/14B) ও SBST (CODAMOSA)-এর সাথে তুলনা।
 
 ---
@@ -198,6 +270,8 @@ Paper-এর explicit RQ:
 - **Metric:** line coverage, branch coverage, mutation score, syntax correctness, execution correctness।
 - **ফল:** Table 1 (Section ৮.১) — guided feedback কোনো ধারাবাহিক উন্নতি দেয় না।
 
+**সহজ কথায়:** আগে দেখানো হলো সমস্যাটা সত্যিই আছে: coverage feedback দিয়েও ছোট model-এর উন্নতি হয় না।
+
 ### ৫.২ Theory (Section 3) — MDP ও Relaxation
 1. Test suite generation-কে finite-horizon MDP হিসেবে লেখা (Definition 1)।
 2. Assumption 1: determinism ও permutation invariance।
@@ -206,6 +280,8 @@ Paper-এর explicit RQ:
 5. তাই greedy policy optimal-এর অন্তত $(1 - 1/e)$ পায় (Theorem 1)।
 বিস্তারিত সূত্র Section ৬-এ।
 
+**সহজ কথায়:** আগে প্রমাণ করা হলো কাজটা কঠিন, কিন্তু একটা সহজ নিয়মে (greedy) মোটামুটি ভালো সমাধান পাওয়া যায়।
+
 ### ৫.৩ Instantiation (Section 4.1)
 | ধারণা | Test generation-এ অর্থ |
 |---|---|
@@ -213,11 +289,15 @@ Paper-এর explicit RQ:
 | Testing state | বর্তমান suite চালিয়ে program-এর কোন অংশ checked, কোনটা unchecked |
 | Marginal gain | নতুন test suite-এ কতটা অতিরিক্ত checked value যোগ করে (Section 4.3.3-এ সংজ্ঞা) |
 
+**সহজ কথায়:** এক ধাপ = একটা test লেখা। State = এখন পর্যন্ত কোন অংশ যাচাই হয়েছে। Gain = নতুন test কতটা নতুন অংশ যাচাই করল।
+
 ### ৫.৪ Inference Procedure (Section 4.2, Figure 3)
 শুরু খালি suite $S_0 = \{\}$ দিয়ে, $K$টা step:
 1. **State Summarization (Perception):** বর্তমান suite $S_{t-1}$ চালিয়ে Coverage.py দিয়ে uncovered line number-এর সেট বের করা। তারপর **AST injection** — code parse করে প্রতিটা uncovered node-এ trailing comment `#uncovered` বসানো, তারপর আবার source code বানানো। এতে raw coverage report-এর বদলে একটা ছোট, code-এর সাথে মেলানো state summary পাওয়া যায় ("in-context coverage projection")।
 2. **Greedy Action:** LLM-কে stochastic policy $\pi_\theta(a \mid s_t)$ হিসেবে ব্যবহার করে একটা পূর্ণ test case $a_t$ তৈরি — prompt-এ নির্দেশ থাকে uncovered অংশ cover করতে আর সংশ্লিষ্ট আচরণ assert করতে।
 3. **Update:** $S_t = S_{t-1} \cup \{a_t\}$, আবার execute করে পরের state।
+
+**সহজ কথায়:** দেখো কোন লাইন এখনো test হয়নি, code-এ সেগুলোতে চিহ্ন দিয়ে model-কে দেখাও, model একটা test লেখে, সেটা suite-এ জমা হয়। এভাবে ৫ বার।
 
 **আমার পুনর্গঠন (pseudocode, paper-এ এভাবে দেওয়া নেই):**
 ```python
@@ -230,6 +310,8 @@ for t in range(1, K + 1):              # K = 5
 return suite
 ```
 
+**সহজ কথায়:** উপরের code-এ খালি তালিকা দিয়ে শুরু, ৫ বার ঘুরে প্রতিবার uncovered লাইন বের করে চিহ্ন বসানো code দেখিয়ে একটা করে test জমা হয়।
+
 ### ৫.৫ Policy Training (Section 4.3)
 **৫.৫.১ Training objective:** "ভালো test লেখা" নয়, বরং **একটা decision policy শেখা** — বর্তমান state-এ কোন test লিখলে marginal gain সবচেয়ে বেশি।
 
@@ -241,6 +323,8 @@ return suite
 - **Validity gate:** test compile/execute না হলে reward **0** — coverage যতই হোক।
 - চূড়ান্ত reward = coverage gain × validity indicator (Eq. 5)।
 
+**সহজ কথায়:** পুরস্কার = নতুন লাইন কতটা cover হলো। কিন্তু test যদি চলেই না, তাহলে পুরস্কার শূন্য।
+
 **৫.৫.৪ GRPO training:** একই state-এ $G = 8$টা candidate test sample, প্রত্যেকটা execute করে reward, group-গড় থেকে advantage, KL-regularized objective (Eq. 6–7)।
 
 ### ৫.৬ Training Data Construction (Section 4.4)
@@ -251,6 +335,8 @@ RL-এর জন্য দরকার **বাস্তব, পৌঁছান�
 4. **Filtering:** শুধু সেই task রাখা যার চূড়ান্ত suite **> 90% line coverage** পায়।
 5. **Decomposition:** দৈর্ঘ্য $K$-এর প্রতিটা trajectory থেকে $K$টা আলাদা state $s_0, \ldots, s_{K-1}$।
 6. **মোট training data: 8,396 piece।**
+
+**সহজ কথায়:** GPT-5-mini দিয়ে একবার অনেক test বানিয়ে ভালো ক্রমে সাজানো হয়েছে। সেই ক্রমের প্রতিটা ধাপ এক-একটা অনুশীলনের প্রশ্ন (state)। মোট ৮,৩৯৬টা।
 
 ### ৫.৭ Implementation Details (Section 5.5)
 | Setting | মান |
@@ -269,6 +355,8 @@ RL-এর জন্য দরকার **বাস্তব, পৌঁছান�
 | Significance | Wilcoxon signed-rank, $p < 0.01$ |
 | **Paper-এ নেই** | Epoch/step সংখ্যা, batch size, max generation length, sampling temperature, মোট GPU-ঘণ্টা, inference token/খরচ, GPT-4o/GPT-5.2 কোন pipeline-এ চালানো হয়েছে |
 
+**সহজ কথায়:** ৮টা A100 GPU দিয়ে train হয়েছে, যা আমাদের মতো ছাত্রের পক্ষে করা কঠিন। আর epoch, খরচ ইত্যাদি অনেক তথ্য paper-এ নেই।
+
 ---
 
 ## ৬. Mathematical Formulation — সূত্র ও ব্যাখ্যা
@@ -278,6 +366,8 @@ RL-এর জন্য দরকার **বাস্তব, পৌঁছান�
 $$
 \mathcal{M} = (S,\; A,\; T,\; R,\; \gamma)
 $$
+
+**এই সূত্র কী বলছে:** এটা খেলার পাঁচটা অংশের তালিকা মাত্র: অবস্থা, কাজ, পরিবর্তন, পুরস্কার, আর ভবিষ্যতের গুরুত্ব।
 
 - **State** $s_t \in S$: static program semantics $C$ + এ পর্যন্ত জমা suite $S_{t-1}$-এর checked status। Formally $s_t$ = এ পর্যন্ত যাচাই হওয়া logical unit-এর সেট (line, branch বা latent bug)।
 - **Action** $a_t \in A$: সব সম্ভাব্য valid test-এর universe $U$ থেকে একটা নতুন valid test তৈরি — একটা atomic action।
@@ -297,6 +387,8 @@ $$
 F : 2^{U} \to \mathbb{R}_{\geq 0}
 $$
 
+**এই সূত্র কী বলছে:** $F$ হলো একটা নম্বর দেওয়ার যন্ত্র। যেকোনো test-এর সেট দিলে সে একটা অঋণাত্মক নম্বর (যেমন coverage) বলে দেয়।
+
 ($2^{U}$ = $U$-এর সব subset-এর সেট; $F$ প্রতিটা suite-কে একটা অঋণাত্মক সংখ্যা দেয় — coverage, mutation score ইত্যাদি।)
 1. **Determinism:** যেকোনো test $a \in U$-এর execution ফল ও utility নির্দিষ্ট ও সময়-নিরপেক্ষ।
 2. **Permutation invariance:** utility শুধু test-এর সেটের উপর নির্ভর করে, ক্রমের উপর নয়:
@@ -305,6 +397,8 @@ $$
 F([a_1, \ldots, a_K]) = F(\{a_1, \ldots, a_K\})
 $$
 
+**এই সূত্র কী বলছে:** Test-গুলো কোন ক্রমে লেখা হলো তাতে কিছু আসে-যায় না। শুধু কোন কোন test আছে সেটাই ধরা হয়।
+
 **আমার পর্যবেক্ষণ:** বাস্তবে flaky test (সময়, random, network-নির্ভর) আর test-এর মধ্যে shared state (একটা test global variable বদলালে পরেরটার আচরণ বদলায়) এই দুটো assumption ভাঙে। Paper 3s timeout ও sandbox দিয়ে কিছুটা নিয়ন্ত্রণ করে, কিন্তু assumption ভাঙার হার মাপেনি।
 
 ### ৬.৩ Global Objective (Eq. 1)
@@ -312,6 +406,8 @@ $$
 $$
 \pi^{\star} = \arg\max_{\pi} F(S_K), \quad \text{যেখানে } |S_K| \leq K
 $$
+
+**এই সূত্র কী বলছে:** এমন policy বেছে নাও, যার $K$টা test-এর suite সবচেয়ে বেশি নম্বর পায়।
 
 - $\pi^{\star}$ = optimal policy, $S_K$ = $K$ step পরের suite, $K$ = test budget।
 - **মানে:** এমন policy খোঁজো যার $K$টা test-এর suite-এর utility সর্বোচ্চ।
@@ -332,11 +428,15 @@ $$
 F(S_K^{\text{greedy}}) \geq \left(1 - \frac{1}{e}\right) F(S_K^{\star}) \approx 0.632 \cdot F(S_K^{\star})
 $$
 
+**এই সূত্র কী বলছে:** প্রতিবার সবচেয়ে বেশি নতুন লাভ দেয় এমন test নিলে শেষ নম্বর সেরা সম্ভাব্য নম্বরের অন্তত ৬৩.২% হবে।
+
 **Proof Step 1 — Monotone submodularity:** $E$ = যাচাই করার সব structural element-এর universe (line/branch)। প্রতিটা test $t$-এর জন্য $\text{Check}(t) \subseteq E$ = $t$ যে element-গুলো cover করে। Utility:
 
 $$
 F(S) = | \cup_{t \in S} \text{Check}(t) |
 $$
+
+**এই সূত্র কী বলছে:** Suite-এর নম্বর = সব test মিলে মোট কয়টা আলাদা লাইন বা branch cover হলো (union-এর আকার)।
 
 দুটো suite $A \subseteq B \subseteq U$ আর নতুন test $x \in U$, $x \notin B$। যেহেতু $A \subseteq B$, $A$-এর covered element $B$-এর covered element-এর subset। তাই $x$-এর যে element $B$-এর কাছে নতুন, তা $A$-এর কাছেও নতুন (Eq. 2):
 
@@ -344,11 +444,15 @@ $$
 \text{Check}(x) - \cup_{t \in B} \text{Check}(t) \;\subseteq\; \text{Check}(x) - \cup_{t \in A} \text{Check}(t)
 $$
 
+**এই সূত্র কী বলছে:** বড় suite-এর কাছে যা নতুন, তা ছোট suite-এর কাছেও নতুন। কারণ ছোট suite কম জিনিস দেখেছে।
+
 (এখানে "−" মানে set difference — বাম সেট থেকে ডান সেটের element বাদ।) দুই দিকের cardinality নিলে submodularity (Eq. 3):
 
 $$
 F(B \cup \{x\}) - F(B) \leq F(A \cup \{x\}) - F(A)
 $$
+
+**এই সূত্র কী বলছে:** ছোট suite-এ test যোগ করার লাভ, বড় suite-এ যোগ করার লাভের চেয়ে কম নয়।
 
 আর test যোগ করলে coverage কখনো কমে না, তাই $F$ monotone।
 
@@ -373,11 +477,15 @@ Submodularity দেখা যাক, $x = C$:
 
 Greedy খালি suite থেকে শুরু করলে প্রথমেই C বেছে নেবে (gain 5, A ও B-এর 4) এবং এক test-এই 5/5 line। অর্থাৎ greedy "সবচেয়ে বেশি backbone cover করা" test আগে লেখে — RQ2-এ paper ঠিক এই আচরণ দাবি করেছে (Section ৮.৩)।
 
+**সহজ কথায়:** এই ছোট উদাহরণে দেখা গেল: A ও B আগে থেকে থাকলে C কিছুই নতুন দেয় না, কিন্তু শুধু A থাকলে C একটা লাইন যোগ করে। এটাই diminishing returns।
+
 **Worked example ২ — bound-এর সংখ্যা (আমার হিসাব):** ধরি কোনো function-এর optimal 5-test suite 100টা line cover করে। Theorem 1 অনুযায়ী exact greedy অন্তত $100 \times 0.632 \approx 63.2$টা line cover করবে। আসলে Nemhauser-এর মূল ফল finite $K$-এর জন্য আরও শক্ত:
 
 $$
 F(S_K^{\text{greedy}}) \geq \left(1 - \left(1 - \frac{1}{K}\right)^{K}\right) F(S_K^{\star})
 $$
+
+**এই সূত্র কী বলছে:** $K$ ছোট হলে গ্যারান্টি একটু বেশি পাওয়া যায়। ৫টা test-এ সেটা ৬৭.২%।
 
 $K = 5$ হলে $1 - 0.8^{5} = 1 - 0.32768 = 0.672$ — অর্থাৎ 67.2%। $K \to \infty$ হলে এটা $1 - 1/e$-তে নামে। (Paper শুধু অসীম-সীমার 63.2% বলেছে।)
 
@@ -388,6 +496,8 @@ $$
 F(S_K) \geq \left(1 - e^{-\alpha}\right) F(S_K^{\star})
 $$
 
+**এই সূত্র কী বলছে:** LLM যদি সেরা test-এর লাভের মাত্র $\alpha$ অংশ পায়, তাহলে গ্যারান্টিও কমে যায়।
+
 **উদাহরণ:** $\alpha = 0.5$ হলে $1 - e^{-0.5} \approx 0.393$ — মাত্র 39.3%। অর্থাৎ guarantee-টা LLM-এর "greedy কতটা ভালো করে" তার উপর নির্ভর করে, আর paper সেটা ($\alpha$ বা আসল approximation ratio) কখনো মাপেনি। Theory তাই একটা **design motivation**, measured guarantee নয়।
 
 ### ৬.৭ Reward — Marginal Gain (Eq. 4)
@@ -396,12 +506,16 @@ $$
 r(s_t, a_t) = F(S_{t-1} \cup \{a_t\}) - F(S_{t-1})
 $$
 
+**এই সূত্র কী বলছে:** পুরস্কার = test যোগ করার পর নম্বর যতটা বাড়ল।
+
 ### ৬.৮ Normalized Coverage Gain
 Program-এ মোট $L_A$টা line, বর্তমান suite $S_{t-1}$ cover করে $L_S$টা, নতুন test $a_t$ যোগ করার পর cover করে $L_N$টা ($L_N \geq L_S$):
 
 $$
 \Delta_{\text{cov}}(a_t) = \frac{L_N - L_S}{L_A - L_S}
 $$
+
+**এই সূত্র কী বলছে:** যে লাইনগুলো এখনো বাকি ছিল, তার কত ভাগ এই test cover করল। ১ মানে বাকি সব শেষ।
 
 - লব = নতুন cover হওয়া line; হর = যত line এখনো বাকি ছিল।
 - মান $[0, 1]$-এ — বাকি uncovered অংশের কত ভাগ দূর হলো।
@@ -418,6 +532,8 @@ $$
 r(s_t, a_t) = \Delta_{\text{cov}}(a_t) \cdot \mathbb{I}(\text{Valid}(a_t))
 $$
 
+**এই সূত্র কী বলছে:** পুরস্কার = নতুন লাইনের ভাগ। কিন্তু test না চললে শূন্য দিয়ে গুণ হয়ে পুরস্কার মুছে যায়।
+
 - $\mathbb{I}(\cdot)$ = indicator function — শর্ত সত্য হলে 1, না হলে 0।
 - $\text{Valid}(a_t)$ = test compile ও execute সফল (assertion সহ)।
 - Paper নিজে প্রথম অংশকে "Coverage Gain" আর দ্বিতীয় অংশকে "Assertion Validity" বলেছে।
@@ -430,7 +546,7 @@ r(s_t, a_t) =
 \end{cases}
 $$
 
-**আমাদের lens থেকে খুব গুরুত্বপূর্ণ (আমার পর্যবেক্ষণ):** "Valid" মানে **বর্তমান program-এ** assertion pass করে। তাই reward model-কে শেখায় program এখন যা করে তাই assert করতে — এটা একটা **regression oracle**। Program under test-এ যদি নিজেই bug থাকে, test সেই bug-কে "সঠিক" হিসেবে লিখবে। আর `assert True` বা কোনো assertion ছাড়াই শুধু function call করা একটা test-ও valid ও coverage পায় — reward-এ oracle-এর শক্তির কোনো অংশ নেই।
+**আমাদের lens থেকে খুব গুরুত্বপূর্ণ (আমার পর্যবেক্ষণ):** "Valid" মানে **বর্তমান program-এ** assertion pass করে। তাই reward model-কে শেখায় program এখন যা করে তাই assert করতে — এটা একটা **regression oracle** (যা এখন হচ্ছে তাকেই ঠিক ধরে নেওয়া assertion)। Program under test-এ যদি নিজেই bug থাকে, test সেই bug-কে "সঠিক" হিসেবে লিখবে। আর `assert True` বা কোনো assertion ছাড়াই শুধু function call করা একটা test-ও valid ও coverage পায় — reward-এ oracle-এর শক্তির কোনো অংশ নেই।
 
 ### ৬.১০ GRPO Advantage (Eq. 6)
 একই state $s_t$-এ $G$টা candidate $\{a_t^{(1)}, \ldots, a_t^{(G)}\}$, reward $r_t^{(i)}$:
@@ -438,6 +554,8 @@ $$
 $$
 A_t^{(i)} = r_t^{(i)} - \frac{1}{G} \sum_{j=1}^{G} r_t^{(j)}
 $$
+
+**এই সূত্র কী বলছে:** প্রতিটা উত্তরের পুরস্কার থেকে group-এর গড় বাদ দিলে advantage পাওয়া যায়। গড়ের উপরে হলে ধনাত্মক, নিচে হলে ঋণাত্মক।
 
 **Worked example (আমার উদাহরণ, সংখ্যাগুলো কাল্পনিক):** $G = 8$, reward = $[0, 0, 0.5, 0.25, 0, 1.0, 0.5, 0.25]$ (তিনটা test চলেনি বলে 0)। গড় $= \frac{2.5}{8} = 0.3125$। Advantage: 1.0-এর test পায় $+0.6875$ (জোরালোভাবে উৎসাহিত); 0-এর test পায় $-0.3125$ (নিরুৎসাহিত); 0.25-এর test পায় $-0.0625$ (সামান্য নিরুৎসাহিত — যদিও সে valid ছিল)।
 
@@ -448,6 +566,8 @@ $$
 $$
 \mathcal{L}_{\text{GRPO}}(\theta) = -\mathbb{E}_{s_t,\, \{a_t^{(i)}\}}\left[ \frac{1}{G} \sum_{i=1}^{G} A_t^{(i)} \cdot \log \pi_\theta\left(a_t^{(i)} \mid s_t\right) \right] + \beta \, D_{\text{KL}}\left(\pi_\theta, \pi_{\text{base}}\right)
 $$
+
+**এই সূত্র কী বলছে:** ভালো test লেখার সম্ভাবনা বাড়াও, খারাপ test-এর কমাও। আর মূল model থেকে বেশি দূরে যেও না।
 
 | Symbol | মানে |
 |---|---|
@@ -473,12 +593,16 @@ $$
 \text{BugDet} = \frac{\text{detected buggy solution-এর সংখ্যা}}{\text{মোট buggy solution}} \times 100
 $$
 
+**এই সূত্র কী বলছে:** Buggy solution ধরা পড়েছে, যদি এমন একটা test থাকে যা সঠিক solution-এ pass করে কিন্তু buggy-তে fail করে। শতাংশ = কতগুলো buggy ধরা পড়ল।
+
 **Coverage@k (RQ2):** suite-এর প্রথম $k$টা test ($k = 1, \ldots, 5$) মিলে কত coverage।
 
-**আমার পর্যবেক্ষণ — এটা আমাদের patch assurance-এর সাথে সরাসরি মেলে:** Bug Detection-এর এই সংজ্ঞা আসলে **differential testing** — reference version-এ pass, অন্য version-এ fail। Agent patch যাচাইয়ে reference হতে পারে developer-এর gold patch বা আরেকটা candidate patch।
+**আমার পর্যবেক্ষণ — এটা আমাদের patch assurance-এর সাথে সরাসরি মেলে:** Bug Detection-এর এই সংজ্ঞা আসলে **differential testing** (দুই version-এর আচরণ তুলনা) — reference version-এ pass, অন্য version-এ fail। Agent patch যাচাইয়ে reference হতে পারে developer-এর gold patch বা আরেকটা candidate patch।
 
 ### ৬.১৩ Paper-এর সংখ্যা যাচাই — Relative Improvement (আমার হিসাব)
 Qwen, ULT: line $\frac{69.69 - 51.42}{51.42} = 35.53\%$; branch $\frac{65.87 - 43.23}{43.23} = 52.37\%$; execution $\frac{67.14 - 16.86}{16.86} = 298.22\%$ — paper-এর সংখ্যার সাথে হুবহু মেলে। RQ2: $\frac{2.6}{0.3} \approx 8.67$ — paper বলেছে "nearly 9×"।
+
+**সহজ কথায়:** Paper-এর সংখ্যাগুলো আমি নিজে হিসাব করে মিলিয়ে দেখেছি। প্রায় সব মিলেছে।
 
 ---
 
@@ -495,6 +619,8 @@ Qwen, ULT: line $\frac{69.69 - 51.42}{51.42} = 35.53\%$; branch $\frac{65.87 - 4
 | **বাদ দেওয়া baseline** | CoverUp, Panta, TELPA — authors বলেছেন এগুলো অন্য language-এর সাথে বেশি বাঁধা বা migration artifact-এর ঝুঁকি; **আমার পর্যবেক্ষণ:** CoverUp (FSE 2025) আসলে Python-এর জন্য বানানো ("Effective High Coverage Test Generation for Python" — আমাদের folder-এই আছে), তাই এই বাদ দেওয়ার যুক্তি দুর্বল |
 | **Metric** | Syntactic correctness, execution pass rate, line ও branch coverage, Coverage@k, mutation score (Cosmic-Ray), bug detection rate (LCB) |
 | **Statistics** | 3 seed-এর গড়, Wilcoxon $p < 0.01$; standard deviation বা confidence interval report করা হয়নি |
+
+**সহজ কথায়:** দুই ধরনের পরীক্ষা: চেনা ধরনের task (ULT) আর একদম নতুন ধরনের task (LiveCodeBench)। তুলনা করা হয়েছে সাধারণ model, prompting-এর পদ্ধতি আর আরেকটা RL পদ্ধতির সাথে।
 
 ---
 
@@ -515,6 +641,8 @@ Qwen, ULT: line $\frac{69.69 - 51.42}{51.42} = 35.53\%$; branch $\frac{65.87 - 4
 | Llama-3.1-8B | Iter-Guided | 40.05 | 41.05 | 27.06 | 90.51 | 13.48 |
 
 (সব সংখ্যা %)
+
+**সহজ কথায়:** Feedback দিলেও ফল Blind-এর প্রায় সমান। মানে ছোট model coverage report থেকে কিছু শেখে না।
 
 - **Guided ≈ Blind:** Qwen-এ line 52.34 বনাম 52.43; mutation দুটোতেই ঠিক 33.81।
 - **Feedback ক্ষতিও করে:** CodeLlama-তে line 40.34 → 38.17।
@@ -538,6 +666,8 @@ Qwen, ULT: line $\frac{69.69 - 51.42}{51.42} = 35.53\%$; branch $\frac{65.87 - 4
 
 (সব সংখ্যা %; SymPrompt, ChatTester, TestCTRL-এর backbone Qwen2.5-Coder-7B)
 
+**সহজ কথায়:** একই 7B model-এ আগে ১০০টা test-এর মধ্যে প্রায় ১৭টা চলত, এখন ৬৭টা চলে। আর line coverage প্রায় ১৮ পয়েন্ট বেড়েছে।
+
 **Relative improvement, base → TestDecision (আমার হিসাব, paper-এর যেগুলো বলা সেগুলোর সাথে মিলিয়ে):**
 
 | Backbone | Line | Branch | Mutation | Execution |
@@ -546,11 +676,15 @@ Qwen, ULT: line $\frac{69.69 - 51.42}{51.42} = 35.53\%$; branch $\frac{65.87 - 4
 | CodeLlama-7B | +66.31% (paper: 66.31) | +48.37% | +69.62% | +558.88% |
 | Llama-3.1-8B | +56.60% (paper: 56.60) | +38.15% | +69.97% | +332.20% |
 
+**সহজ কথায়:** তিন model-এই উন্নতি হয়েছে। শতাংশ বড় দেখায় কারণ execution-এর পুরনো সংখ্যা খুব ছোট ছিল।
+
 - Abstract-এর "branch 38.15–52.37%, execution 298.22–558.88%" এই table থেকে আসে — মিলেছে।
 - **TestDecision বনাম TestCTRL (একই Qwen backbone):** line +61.54%, branch +17.73% (paper-এর সংখ্যা; আমার হিসাবেও মেলে)। Mutation-এ আমার হিসাবে +61.98%।
 - **Prompting baseline base model-এর চেয়েও খারাপ:** SymPrompt line 34.50% (base 51.42%); ChatTester execution 6.14%।
 - **আমার পর্যবেক্ষণ:** TestCTRL-এর branch (55.95%) তার line (43.14%)-এর চেয়ে অনেক বেশি — সাধারণত branch coverage line-এর চেয়ে কম বা কাছাকাছি হয়। Paper এই অস্বাভাবিকতা ব্যাখ্যা করেনি; measurement pipeline-এ পার্থক্য থাকতে পারে।
 - **আরেকটা লক্ষণীয় বিষয় (আমার হিসাব):** তিন backbone-এই mutation-এ relative gain প্রায় একই (69.02–69.97%), অথচ line ও execution-এ অনেক আলাদা।
+
+**সহজ কথায়:** TestDecision বাকি সবার চেয়ে ভালো। এমনকি prompting-এর পদ্ধতিগুলো সাধারণ model-এর চেয়েও খারাপ করেছে।
 
 ### ৮.৩ RQ2 — Optimization in Sequence (Figure 4)
 - $k = 1$-এ TestDecision-Qwen-এর line coverage **58.27%**, base Qwen2.5-Coder-এর **47.31%**।
@@ -558,6 +692,8 @@ Qwen, ULT: line $\frac{69.69 - 51.42}{51.42} = 35.53\%$; branch $\frac{65.87 - 4
 - Baseline-রা $k = 3$-এর পর সমতল। $k = 3$ থেকে $k = 5$: base Qwen মাত্র **0.3%** coverage যোগ করে, TestDecision **2.6%** — "nearly 9×" (আমার হিসাব 8.67×)।
 - Paper-এর ব্যাখ্যা: model "backbone logic" আগে test করতে শিখেছে, আর পরের step-এ `#uncovered` marker দেখে বাকি অংশ লক্ষ্য করে।
 - **আমার পর্যবেক্ষণ:** Figure 4-এর পুরো curve-এর সংখ্যা text-এ নেই, শুধু উপরের কয়েকটা; $k = 5$-এর পরে কী হয় (budget বাড়ালে) পরীক্ষা হয়নি।
+
+**সহজ কথায়:** প্রথম test-ই এত ভালো যে base model-এর ৫টা test-এর সমান। পরের test-গুলোতেও TestDecision বেশি যোগ করে।
 
 ### ৮.৪ RQ3 — LiveCodeBench Generalization ও Bug Detection (Table 3)
 
@@ -573,6 +709,8 @@ Qwen, ULT: line $\frac{69.69 - 51.42}{51.42} = 35.53\%$; branch $\frac{65.87 - 4
 | TestDecision-Llama | 43.62 | 52.90 | 34.26 | 100.00 | 39.80 | 21.50 |
 | **TestDecision-Qwen** | **62.47** | **63.51** | **54.35** | 100.00 | **57.73** | **32.50** |
 
+**সহজ কথায়:** একদম নতুন task-এও TestDecision সেরা, কিন্তু সেরা model-ও ১০০টা buggy code-এর মধ্যে মাত্র ৩২-৩৩টা ধরে।
+
 - **Qwen:** line +25.92%, branch +25.71%, execution +58.77% (36.36 → 57.73) — paper ও আমার হিসাব মেলে।
 - **CodeLlama:** line +249.51% (12.24 → 42.78), execution +502.08% (5.78 → 34.80)।
 - **Llama:** line +57.99%।
@@ -580,6 +718,8 @@ Qwen, ULT: line $\frac{69.69 - 51.42}{51.42} = 35.53\%$; branch $\frac{65.87 - 4
 - **আমার পর্যবেক্ষণ:** Abstract বলে bug detection-এ উন্নতি "58.43–95.45%"; Table 3 থেকে আমার হিসাব 58.54–95.45%। নিচের সীমায় ছোট অমিল আছে।
 - **আমার পর্যবেক্ষণ — absolute সংখ্যার দিকে তাকাও:** সেরা model-ও LCB-এর buggy solution-এর মাত্র **32.50%** ধরে — অর্থাৎ দুই-তৃতীয়াংশের বেশি bug ধরা পড়ে না। Patch assurance-এ এটাকে "নির্ভরযোগ্য" signal বলা যাবে না, একটা সহায়ক signal মাত্র।
 - TestCTRL-এর LCB branch (53.85) TestDecision-Llama (52.90)-এর চেয়ে বেশি — TestDecision সব cell-এ সেরা নয়, Qwen version-ই সেরা।
+
+**সহজ কথায়:** Bug ধরার সংখ্যা বেড়েছে, কিন্তু এখনো দুই-তৃতীয়াংশের বেশি bug অধরা।
 
 ### ৮.৫ RQ4 — Ablation (Table 4, Qwen2.5-Coder-7B)
 
@@ -589,6 +729,8 @@ Qwen, ULT: line $\frac{69.69 - 51.42}{51.42} = 35.53\%$; branch $\frac{65.87 - 4
 | w/o RL (SFT on same data) | 54.14 | 45.42 | 37.26 | 99.85 | 23.98 |
 | w/o Greedy Inference | 63.27 | 57.19 | 51.23 | 99.28 | 62.59 |
 | vanilla LLM (framework on frozen base) | 59.29 | 51.72 | 41.17 | 99.97 | 25.05 |
+
+**সহজ কথায়:** RL বাদ দিলে সবচেয়ে বেশি ক্ষতি, বিশেষ করে test চলার হারে। Greedy নিয়ম বাদ দিলেও কিছু কমে।
 
 - **RL বনাম SFT:** execution 23.98 → 67.14 — paper-এর "180% relative improvement" (আমার হিসাব 179.98%)।
 - **Greedy inference সরালে:** line 69.69 → 63.27, mutation 57.13 → 51.23।
@@ -603,6 +745,8 @@ Qwen, ULT: line $\frac{69.69 - 51.42}{51.42} = 35.53\%$; branch $\frac{65.87 - 4
 | Mutation | 33.80 | +7.37 | +17.43 | +24.80 | +23.33 |
 
 দুটো component একসাথে প্রতিটার আলাদা অবদানের যোগফলের চেয়ে **সামান্য কম** দেয় — অর্থাৎ এরা complementary, কিন্তু কঠোর অর্থে super-additive "synergy" নয়। Execution-এর প্রায় পুরো উন্নতি RL থেকে আসে।
+
+**সহজ কথায়:** দুটো অংশ মিলে প্রায় সব লাভ দেয়, কিন্তু একটা অন্যটাকে 'বাড়িয়ে' দেয় না। শুধু একটা অন্যটার পরিপূরক।
 
 **আরেকটা লক্ষণীয় বিষয় (আমার পর্যবেক্ষণ):** "w/o RL" (SFT) variant যদি greedy framework-সহ চলে থাকে, তাহলে SFT frozen model-এর চেয়েও খারাপ করেছে (line 54.14 বনাম 59.29, mutation 37.26 বনাম 41.17)। অর্থাৎ GPT-5-mini-এর test নকল করা আসলে ক্ষতিকর। Paper এই variant-এর inference setting স্পষ্ট করেনি।
 
@@ -628,6 +772,8 @@ Qwen, ULT: line $\frac{69.69 - 51.42}{51.42} = 35.53\%$; branch $\frac{65.87 - 4
 - Paper নিজেই স্বীকার করেছে এই তুলনা fair নয় (proprietary model অনেক বড়; SBST অনেক candidate তৈরি করে)।
 - Table 5-এ Qwen2.5-7B-Base execution 16.85, Table 2-এ 16.86 — ছোট অমিল।
 
+**সহজ কথায়:** 7B model coverage-এ GPT-5.2-এর সমান, কিন্তু bug ধরার মাপ (mutation score)-এ পিছিয়ে। আর 7B থেকে 14B-তে লাভ আর বাড়ে না।
+
 ---
 
 ## ৯. Key Findings / Insights (Supervisor-কে বলার মতো ৮টা পয়েন্ট)
@@ -640,6 +786,8 @@ Qwen, ULT: line $\frac{69.69 - 51.42}{51.42} = 35.53\%$; branch $\frac{65.87 - 4
 6. **Critic-free GRPO + greedy step reward > PPO + critic (TestCTRL)** — ULT line +61.54%, LCB bug detection +8.5 point।
 7. **প্রথম test-ই সবচেয়ে মূল্যবান** — $k = 1$-এ 58.27%, base-এর $k = 5$ (51.42%)-কে ছাড়িয়ে যায়।
 8. **Coverage উন্নতি fault detection-এ কিছুটা রূপান্তরিত হয়, কিন্তু সীমিতভাবে** — LCB bug detection 20.50 → 32.50%, তবুও দুই-তৃতীয়াংশ bug ধরা পড়ে না; আর GPT-5.2 mutation-এ এখনো এগিয়ে।
+
+**সহজ কথায়:** আট পয়েন্টের সার কথা: ধাপে ধাপে ভাবো, শুধু prompt যথেষ্ট না, RL লাগে, কিন্তু bug ধরার ব্যাপারে এখনো অনেক পথ বাকি।
 
 ---
 
@@ -656,12 +804,16 @@ Qwen, ULT: line $\frac{69.69 - 51.42}{51.42} = 35.53\%$; branch $\frac{65.87 - 4
 | ছোট open model-এ চলে | হ্যাঁ | দুর্বল | হ্যাঁ | **হ্যাঁ, 7B** |
 | Feedback উপস্থাপন | — | Raw coverage report | CoT | **AST-injected `#uncovered` marker** |
 
+**সহজ কথায়:** অন্য পদ্ধতির তুলনায় TestDecision-এ গ্যারান্টির যুক্তি আছে, critic লাগে না, আর test সবচেয়ে বেশি চলে।
+
 **মূল শক্তি:**
 1. **Theory থেকে design:** কেন greedy step reward যুক্তিসঙ্গত তার একটা নীতিগত ব্যাখ্যা।
 2. **সস্তা ও local:** 7B model, GRPO-তে critic নেই, deploy করা যায় privacy-সহ।
 3. **কম test-এ বেশি coverage:** budget-দক্ষ (RQ2)।
 4. **Execution validity প্রায় চারগুণ** — base-এর অনেক test আসলে চলেই না, RL সেটা ঠিক করে।
 5. **Code-grounded state representation:** `#uncovered` marker একটা সহজ, পুনর্ব্যবহারযোগ্য কৌশল — training ছাড়াও কাজ করে (vanilla 51.42 → 59.29)।
+
+**সহজ কথায়:** শক্তির জায়গা: যুক্তি আছে, সস্তা, কম test-এ বেশি কাজ, আর test সত্যিই চলে।
 
 ---
 
@@ -682,6 +834,8 @@ Qwen, ULT: line $\frac{69.69 - 51.42}{51.42} = 35.53\%$; branch $\frac{65.87 - 4
 - **বড় budget** — $K > 5$-এ আচরণ অজানা।
 - **খুব ছোট model** (3B) — gain সীমিত (+5.79 point)।
 
+**সহজ কথায়:** যেখানে code-এ আগে থেকেই bug আছে, বা project ভারী, বা অন্য language, সেখানে সরাসরি ব্যবহার করা ঠিক নয়।
+
 ---
 
 ## ১২. Limitations — দুর্বলতা
@@ -693,8 +847,10 @@ Qwen, ULT: line $\frac{69.69 - 51.42}{51.42} = 35.53\%$; branch $\frac{65.87 - 4
 4. **Mutation reward বাদ:** online mutation testing ধীর (76.53 s), তাই execution validity proxy।
 5. **Proprietary ও SBST তুলনা fair নয়** (Section 7-এর শুরুতে)।
 
+**সহজ কথায়:** লেখকরা নিজেরাই বলেছেন: শুধু Python, তুলনা পুরো ন্যায্য নয়, আর mutation-কে reward বানানো যায়নি কারণ সেটা ধীর।
+
 ### ১২.২ আমার Critical Analysis (Professor-level observation)
-1. **Oracle শক্তি reward-এ নেই (আমাদের জন্য সবচেয়ে গুরুত্বপূর্ণ):** Reward = নতুন line coverage × "test চললো কিনা"। কোনো assertion ছাড়া বা `assert True`-ধরনের test-ও পূর্ণ reward পেতে পারে। Paper mutation score-এ উন্নতি দেখিয়েছে (33.80 → 57.13), তাই বাস্তবে assertion কিছুটা আছে, কিন্তু reward নিজে এটা নিশ্চিত করে না — এটা একটা **reward hacking-এর পথ** (CG12)। Generated test-এর কত শতাংশে weak/no assertion তা paper মাপেনি।
+1. **Oracle শক্তি reward-এ নেই (আমাদের জন্য সবচেয়ে গুরুত্বপূর্ণ):** Reward = নতুন line coverage × "test চললো কিনা"। কোনো assertion ছাড়া বা `assert True`-ধরনের test-ও পূর্ণ reward পেতে পারে। Paper mutation score-এ উন্নতি দেখিয়েছে (33.80 → 57.13), তাই বাস্তবে assertion কিছুটা আছে, কিন্তু reward নিজে এটা নিশ্চিত করে না — এটা একটা **reward hacking-এর পথ** (model আসল কাজ না করে শুধু পুরস্কার বাগানোর শর্ট-কাট) (CG12)। Generated test-এর কত শতাংশে weak/no assertion তা paper মাপেনি।
 2. **Regression oracle সমস্যা:** "Valid" = বর্তমান program-এ pass। তাই test program-এর বর্তমান আচরণ (bug সহ) encode করে। LCB-তে এটা কাজ করে কারণ test canonical (সঠিক) solution-এর উপর লেখা হয়। কিন্তু agent-এর patched code-এর উপর লিখলে test patch-এর bug-কেই "সঠিক" ধরবে — overfitting detection-এ (CG1) সরাসরি ব্যবহার করা যাবে না।
 3. **Theory আর practice-এর ফাঁক:** Theorem 1 exact argmax ধরে; LLM approximate greedy। আসল approximation ratio বা greedy-গুণমান ($\alpha$) কোথাও মাপা হয়নি (Section ৬.৬)। এমনকি training pool-এর 20 candidate-এ exact greedy-র সাথে model-এর পছন্দ মেলানো যেত — করা হয়নি।
 4. **Utility-র অসামঞ্জস্য:** Theory-র $F$ হলো line/branch/mutant coverage-এর cardinality; reward-এ normalized line gain (হর বদলায়) আর validity gate; headline metric branch coverage ও mutation score। Branch বা mutation-এর জন্য submodularity আলাদাভাবে প্রমাণ করা হয়নি (mutant kill-ও set-coverage, তাই সম্ভবত প্রযোজ্য, কিন্তু validity gate-সহ reward function-টা theory-র $F$ নয়)।
@@ -709,6 +865,8 @@ Qwen, ULT: line $\frac{69.69 - 51.42}{51.42} = 35.53\%$; branch $\frac{65.87 - 4
 13. **Artifact নেই:** paper-এ code/model release-এর link পাইনি — reproducibility দুর্বল।
 14. **Readability দাবি অপরিমাপিত:** CODAMOSA-র test "very unacceptable" বলা হয়েছে কোনো metric বা human study ছাড়া।
 15. **শুধু function-level, $K = 5$:** AI coding agent-এর patch সাধারণত repository-level, একাধিক function জুড়ে।
+
+**সহজ কথায়:** সবচেয়ে বড় দুর্বলতা: test-এর assertion কতটা শক্ত তা reward-এ নেই, আর theory ও বাস্তবের মধ্যে ফাঁক কেউ মাপেনি।
 
 ---
 
@@ -728,6 +886,8 @@ Qwen, ULT: line $\frac{69.69 - 51.42}{51.42} = 35.53\%$; branch $\frac{65.87 - 4
 | G10 | **Generated test-এর confidence/uncertainty নেই** — কোন test-এর assertion বিশ্বাসযোগ্য তা বলে না | Assurance report-এ প্রতিটা signal-এর uncertainty দরকার (CG7, CG11) | Trustworthy AI for SE |
 | G11 | **Training data selection bias ও teacher leakage** (> 90% filter, GPT-5-mini pool) | কঠিন code-এ policy দুর্বল হতে পারে (CG6, CG10) | Coding-Agent Evaluation & Reliability (SWE-rebench-এর contamination পদ্ধতি) |
 
+**সহজ কথায়:** গবেষণার ফাঁকগুলোর মূল কথা: assertion-এর শক্তি, patch-এর bug, বাস্তব মাপ, খরচ, আর নিরাপত্তা।
+
 ---
 
 ## ১৪. কী করলে আরও ভালো হবে — Improvement Ideas
@@ -738,6 +898,8 @@ Qwen, ULT: line $\frac{69.69 - 51.42}{51.42} = 35.53\%$; branch $\frac{65.87 - 4
 4. **Approximation ratio মাপা:** ছোট candidate pool-এ exact greedy ও brute-force optimal বের করে LLM policy-র suite-এর ratio report করা — theory-কে measured দাবি বানানো।
 5. **Variance ও cost report:** প্রতি configuration-এ seed-ভেদে SD, CI, আর inference token ও GPU-ঘণ্টা।
 6. **Weak-oracle audit:** generated test-এ assertion নেই, trivial assertion, over-mocking — এগুলো গোনা।
+
+**সহজ কথায়:** উন্নতির ধারণা: assertion-এর শক্তি reward-এ আনা, patch-এর সাথে তুলনা করে test চালানো, আর খরচ ও variance মাপা।
 
 ---
 
@@ -752,6 +914,8 @@ Qwen, ULT: line $\frac{69.69 - 51.42}{51.42} = 35.53\%$; branch $\frac{65.87 - 4
 | **G3: Approximate greedy ratio-র empirical পরিমাপ** | ✅ হ্যাঁ — ছোট pool-এ brute force সম্ভব ($\binom{20}{5} = 15{,}504$ subset) | মাঝারি — theory paper-এর empirical validation | ⭐⭐⭐ |
 | **G5: Generated suite-এর run-to-run stability** | ✅ হ্যাঁ, কিন্তু একাধিক run-এর খরচ | মাঝারি | ⭐⭐⭐ |
 | G7: Mutation-aware RL reward | ⚠️ কঠিন — GPU training লাগে (paper: 8 × A100) | উচ্চ | ⭐⭐⭐ (resource-সীমিত) |
+
+**সহজ কথায়:** সবচেয়ে সম্ভাবনাময় পথ: training ছাড়া, API model দিয়ে patch-এর জন্য test generation।
 
 **সম্ভাব্য venue (general guidance):**
 - **Conference:** ICSE, FSE, ASE, ISSTA (top SE); ICST (testing-বিশেষ); workshop: LLM4Code, DeepTest (paper-এর উদ্ধৃত RLSQM DeepTest 2025-এ)।
@@ -771,10 +935,14 @@ Qwen, ULT: line $\frac{69.69 - 51.42}{51.42} = 35.53\%$; branch $\frac{65.87 - 4
 5. **Patch mode (assurance layer-এর জন্য আমার যোগ):** marker বসবে patch-এর বদলানো line-এ; test original/reference version-এ লেখা হবে; তারপর patched version-এ চালিয়ে আচরণ-পার্থক্য রিপোর্ট।
 6. **Report:** প্রতিটা signal আলাদা — coverage, mutation, oracle strength, behaviour diff — সাথে run-সংখ্যা ও SD, tool ও model version (sub-domain 3-এর "assurance report" format)।
 
+**সহজ কথায়:** ছোট একটা tool বানাবো: কোন লাইন বাকি তা বের করা, test লেখানো, নিরাপদে চালানো, মাপা, আর রিপোর্ট দেওয়া।
+
 **Practical সতর্কতা:**
 - ULT benchmark-এর data public কিনা আর কীভাবে পাওয়া যায় তা যাচাই করতে হবে; না পেলে LiveCodeBench-এর June 2024-পরের task (canonical + buggy solution আছে) সহজ বিকল্প।
 - Mutation testing ধীর — paper-এর হিসাবে গড়ে 76.53 s প্রতি mutation score; 100 task-এ শুধু একবার মাপতেই প্রায় 2 ঘণ্টা (আমার হিসাব: $100 \times 76.53 \approx 7{,}653$ s)।
 - Windows-এ sandboxing-এর জন্য Docker বা WSL2 লাগবে।
+
+**সহজ কথায়:** Mutation testing ধীর, আর Windows-এ Docker বা WSL2 লাগবে। এটা আগে থেকে ভেবে রাখতে হবে।
 
 ---
 
@@ -786,6 +954,8 @@ Qwen, ULT: line $\frac{69.69 - 51.42}{51.42} = 35.53\%$; branch $\frac{65.87 - 4
 - **Submodularity-র অন্য ব্যবহার (paper-এর উদ্ধৃত):** social network-এ influence maximization (Kempe et al.), sensor placement (Krause & Guestrin), data subset selection, document summarization।
 - **আমাদের folder-এর সাথে সংযোগ:** একই folder-এ CoverUp ("Effective High Coverage Test Generation for Python") আছে — TestDecision যে coverage-feedback prompting-কে "structural myopia"-আক্রান্ত বলেছে, CoverUp সেই ধারার প্রধান Python উদাহরণ, অথচ baseline-এ নেই। দুটো paper একসাথে পড়লে "prompting বনাম training" বিতর্ক স্পষ্ট হবে। SWE-bench analysis-এর CG1/CG3 আর এই paper-এর G1/G2 সরাসরি যুক্ত।
 - **বড় প্রবণতা (আমার পর্যবেক্ষণ):** Test generation-এর প্রশ্ন "কত coverage" থেকে সরে "test কতটা আসলে bug ধরে আর কতটা বিশ্বাসযোগ্য" — 2026-এর agent-test গবেষণা (Section ২১) ঠিক এই দিকে।
+
+**সহজ কথায়:** Paper নতুন, আর এই ধারার গবেষণা 'কত coverage' থেকে 'test কতটা বিশ্বাসযোগ্য'-র দিকে যাচ্ছে।
 
 ---
 
@@ -862,6 +1032,8 @@ A: Training নয়, inference framework — Coverage.py + AST `#uncovered` ma
 | **Main limitation** | Reward-এ oracle strength নেই; regression oracle; theory-practice ফাঁক অপরিমাপিত; Python function-level; variance, খরচ, artifact নেই |
 | **আমাদের জন্য gap** | Generated test-কে বিশ্বাসযোগ্য **dynamic assurance signal** বানানো — differential, patch-targeted, oracle-strength-সহ |
 
+**সহজ কথায়:** পুরো paper এক নিঃশ্বাসে: ছোট model + greedy নিয়ম + RL = ভালো test suite, কিন্তু assertion-এর শক্তি অনিশ্চিত।
+
 ---
 
 ## ২১. বর্তমান (2026) প্রেক্ষাপট — আজকের Model ও Agent-দের সাথে তুলনা
@@ -887,6 +1059,8 @@ A: Training নয়, inference framework — Coverage.py + AST `#uncovered` ma
 | Vendor দাবি | — | Fable 5.1 "can write its own tests to check its work"; "less likely to disable a failing test to pass" — **vendor-reported, qualitative** | anthropic.com/claude/fable; AWS blog (2026-09-01) |
 | RL-এ reward hacking | Paper reward gaming আলোচনা করেনি | Opus 5.5 training-এ সফল reward hack "well under 1%" (excluding one sub-class 0.046%) — **vendor-reported**; METR: 8 ঘণ্টার বেশি task-এ সফল run-এর ≥16% প্রতারণা (পুরনো প্রজন্ম) — **independent** | Opus 5.5 System Card §6.2; METR 2026-05-19 |
 | খরচ | Training 8 × A100 (GPU-ঘণ্টা বলা নেই); inference খরচ বলা নেই | GPT-6.1 Terra API USD 1 input / USD 5 output per million token (**vendor-reported**); Opus 5.5 USD 4 / USD 20 (**search-snippet only**); Fable 5.1 USD 10 / USD 50 (**search-snippet only**) | Fact sheet §1 |
+
+**সহজ কথায়:** ছয় মাসে model-এর প্রজন্ম বদলে গেছে, কিন্তু নতুন model-এ test generation-এর সংখ্যা পাওয়া যায়নি। তাই paper-এর দাবিগুলো নতুন model-এ যাচাই হয়নি।
 
 **আমার পর্যবেক্ষণ:** Paper-এর মূল দাবি ছিল "ছোট open model + RL ≈ frontier proprietary"। তুলনার frontier (GPT-5.2) এখন দুই প্রজন্ম পিছনে, আর বর্তমান open model (Qwen3.8-27B, DeepSeek V4) অনেক বড় ও নতুন। তারা training ছাড়াই structural myopia-তে ভোগে কিনা — fact sheet-এ কোনো তথ্য নেই। তাই paper-এর মূল motivation ("open model feedback কাজে লাগাতে পারে না") বর্তমান model-এ **অপরীক্ষিত**।
 
@@ -916,6 +1090,8 @@ A: Training নয়, inference framework — Coverage.py + AST `#uncovered` ma
 | G10 / CG7, CG11: Test-এর confidence/uncertainty | **খোলা** | LLM judge নিজেই অবিশ্বস্ত — ComPass-এ plain LLM baseline 62.14% (snippet); over-fix flag-এর precision 5–10% (snippet) |
 | G11 / CG6: Training data bias ও teacher leakage | **খোলা, সাধারণভাবে স্বীকৃত** | OpenAI Verified ছেড়েছে contamination-এর কারণে (snippet); LiveCodeBench-ধরনের সময়-ভিত্তিক বিভাজন এখনো প্রধান প্রতিরক্ষা |
 | CG2: Candidate re-ranking | **খোলা — এখানে সুযোগ** | SWE-rebench-এ pass@1 বনাম pass@5-এর 12–18 point ফাঁক (independent) — differential generated test candidate patch বাছাইয়ে কাজে লাগতে পারে (আমার পর্যবেক্ষণ) |
+
+**সহজ কথায়:** প্রায় সব gap এখনো খোলা। বিশেষ করে assertion-এর শক্তি আর patch-এর bug।
 
 ### ২১.৪ বর্তমান Model দিয়ে আবার পরীক্ষা করলে — SPL3 Idea (cost-aware)
 

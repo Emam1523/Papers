@@ -18,15 +18,69 @@
 | Languages | Python, Java, C++, C |
 | মূল সংখ্যা | 200 tasks × 4 languages × 5 models = 4,000 programs; 4,000 unit test files; মোট 97,412 LoC |
 
+## ★ সহজ ভাষায় পুরো Paper (প্রথমবার পড়ার জন্য)
+
+### ক. Paper-টা কী নিয়ে?
+
+- এটি একটি **measurement study** (মাপজোখের গবেষণা)। মানে নতুন কোনো tool বানানো হয়নি। শুধু দেখা হয়েছে, বিদ্যমান AI model-গুলো কেমন code লেখে।
+- লিখেছেন Kharma, Choi, Alkhanafseh ও Mohaisen। তাঁরা University of Central Florida ও Birzeit University-র গবেষক।
+- 5টি AI model (GPT-4o, claude-3.5, gemini-1.5, codestral, llama-3) 200টি ছোট programming task পেয়েছে।
+- প্রতিটি task তারা 4টি language-এ (Python, Java, C++, C) করেছে। মোট হয়েছে 4,000টি program।
+- তারপর তিনটি জিনিস মাপা হয়েছে: code compile হয় কি না, ঠিক উত্তর দেয় কি না, আর নিরাপদ কি না।
+
+### খ. সমস্যাটা কী ছিল?
+
+- আগে AI-র লেখা code-এর নিরাপত্তা নিয়ে কাজ হতো এক language-এ বা এক model-এ। ফলে তুলনা করা যেত না।
+- তাছাড়া "code ঠিকঠাক চলে" আর "code নিরাপদ" আলাদা কথা। কিন্তু অনেক গবেষণা শুধু একটাই মাপত।
+- **উদাহরণ:** ধরো AI একটি login function লিখল। test পাস করল, সবাই খুশি। কিন্তু ভেতরে password সরাসরি লেখা (hard-coded) আছে। কেউ জানলই না।
+- এটা অনেকটা এমন: পরীক্ষায় উত্তর ঠিক হলো, কিন্তু খাতায় বাড়ির চাবি ফেলে এলে। উত্তর ঠিক, তবু ঝুঁকি আছে।
+
+### গ. Paper কী solve করেছে?
+
+- একই 200টি task, একই পরিবেশ, একই prompt দিয়ে 5 model ও 4 language-এর সরাসরি তুলনা দিয়েছে।
+- দেখিয়েছে, language বদলালে নিরাপত্তা ও ঠিক-উত্তরের হার বদলায়। C সবচেয়ে ঝুঁকিপূর্ণ।
+- দেখিয়েছে, correctness (ঠিক উত্তর) আর security আলাদা জিনিস। যে model বেশি ঠিক উত্তর দেয়, সে-ও দুর্বল code লিখতে পারে।
+- কোন ধরনের দুর্বলতা (CWE) বেশি, তার তালিকা দিয়েছে। আর dataset ও script সবার জন্য খুলে দিয়েছে।
+- তিনটি গুরুত্বপূর্ণ সংখ্যা:
+  - মোট security finding 284টি, তার মধ্যে C-তে 122টি। মানে সব finding-এর প্রায় 43% C থেকে।
+  - C-তে 122-এর মধ্যে 66টি CWE-120 (buffer copy-র সময় size না দেখা)। মানে C-এর প্রতি 100টি finding-এর প্রায় 54টি একই ভুল।
+  - Python-এ compile সফল প্রায় 99.9%, আর C++-এ প্রায় 81.0% (আমার হিসাব)। মানে C++ code প্রতি 100টির মধ্যে প্রায় 19টি compile-ই হয়নি।
+
+### ঘ. কীভাবে solve করেছে?
+
+1. 200টি task বানিয়েছে। কোনো language-এর নাম ছাড়া সাধারণ ভাষায় লেখা, যাতে একই বর্ণনা চার language-এ চলে।
+2. 5টি model বেছে নিয়েছে এবং সবাইকে একই setting দিয়েছে (temperature 0.9)।
+3. প্রতিটি model-কে প্রতিটি task প্রতিটি language-এ করতে বলেছে। কোনো বিশেষ prompt কৌশল নেই। এভাবে 4,000 program পেয়েছে।
+4. প্রতিটি program compile করেছে। Python-এ syntax checker চালিয়েছে।
+5. প্রতিটি program-এর জন্য আলাদা unit test লিখেছে। সবচেয়ে কষ্টের কাজ এটাই (800+ ঘণ্টা)। এতে ঠিক-উত্তরের হার মাপা হয়েছে।
+6. SonarQube ও CodeQL (দুটি static scan tool) দিয়ে code না চালিয়েই দুর্বলতা ও quality খুঁজেছে।
+7. পাওয়া vulnerability-গুলো মানুষ দিয়ে যাচাই করিয়েছে এবং দুই tool-এর ফলের সাথে মিলিয়ে দেখেছে।
+8. শেষে language, model ও CWE অনুযায়ী সংখ্যা সাজিয়ে তুলনা করেছে।
+
+### ঙ. এরপর কী করা যায়?
+
+- **Authors-এর কথা:** dynamic analysis ও fuzzing (code সত্যি চালিয়ে ভুল খোঁজা) যোগ করা এবং Semgrep-এর মতো আরও tool ব্যবহার করা।
+- **খোলা প্রশ্ন:** SAST tool কতটা নির্ভরযোগ্য, তার সংখ্যা paper-এ নেই। একবারই generation হয়েছে, তাই ফলের অনিশ্চয়তা (confidence interval) জানা যায় না।
+- **খোলা প্রশ্ন:** এই paper ছোট, আলাদা function নিয়ে। বাস্তব repository বা agent-এর patch নিয়ে নয়।
+- **আমরা SPL3-তে করতে পারি:** agent-এর patch-এর আগে ও পরে Semgrep ও CodeQL চালিয়ে "patch কতগুলো নতুন finding আনল" গুনতে পারি।
+- **আমরা করতে পারি:** correctness ও security আলাদা কলামে রাখা এবং সংখ্যা LoC (code line) দিয়ে ভাগ করে (per KLoC) দেখানো, যাতে বেশি code লেখা model অন্যায্যভাবে খারাপ না দেখায়।
+- **আমরা করতে পারি:** ছোট নমুনা হাতে যাচাই করে আমাদের নিজেদের SAST precision মাপা।
+
+> **মনে রাখো:**
+> AI-র code ঠিকঠাক চললেও নিরাপদ নাও হতে পারে। তাই correctness আর security আলাদা করে মাপতে হয়।
+> C-তে ঝুঁকি সবচেয়ে বেশি, আর raw count নয়, LoC দিয়ে ভাগ করা density দেখাই ন্যায্য তুলনা।
+
 ## ১. TL;DR
 
-এই paper 200টি language-neutral programming task নিয়ে 5টি LLM-কে 4টি language-এ code লিখতে বলে (মোট 4,000 program)। তারপর তিনটি অক্ষে মাপে: (ক) compile সফল কি না, (খ) unit test-এ semantic correctness, (গ) SonarQube ও CodeQL দিয়ে security ও quality (reliability, maintainability, security hotspot, clean code)।
+এই paper 200টি language-neutral programming task নিয়ে 5টি LLM-কে 4টি language-এ code লিখতে বলে (মোট 4,000 program)। তারপর তিনটি দিক (axis) থেকে মাপে: (ক) compile সফল কি না, (খ) unit test-এ semantic correctness, (গ) SonarQube ও CodeQL দিয়ে security ও quality (reliability, maintainability, security hotspot, clean code)।
 
 - Python-এ compile সবচেয়ে ভালো (5টির মধ্যে 4টি model 100.0%, claude-3.5 99.5%), C++ সবচেয়ে খারাপ (77.0%–89.0%)।
 - Semantic correctness: Python গড় 90.12%, C গড় 77.78% (আমার হিসাব, পাঁচ model-এর unweighted গড়)।
 - মোট security finding 284টি: Java 69, Python 40, C++ 53, C 122। C-তে 122-এর মধ্যে 66টি CWE-120 (buffer copy)।
 - Java ও Python-এ সবচেয়ে বেশি CWE-780 (RSA without OAEP): Java 29টি, Python 18টি।
-- দুর্বলতা: প্রতিটি task-এর জন্য একবারই generation (temperature 0.9), কোনো confidence interval নেই, SAST-এর false positive rate দেওয়া নেই, এবং কয়েকটি table-এ paper-এর নিজের লেখার সাথে অসঙ্গতি আছে (বিভাগ ১২)।
+- দুর্বলতা: প্রতিটি task-এর জন্য একবারই generation (temperature 0.9), কোনো confidence interval (ফলের ভুলের সম্ভাব্য সীমা) নেই, SAST-এর false positive rate (tool ভুল করে যতগুলো সমস্যা দেখায়, তার হার) দেওয়া নেই, এবং কয়েকটি table-এ paper-এর নিজের লেখার সাথে অসঙ্গতি আছে (বিভাগ ১২)।
+
+**সহজ কথায়:** মোট 4,000টি AI-লেখা program মেপে দেখা হয়েছে। C-তে নিরাপত্তা-সমস্যা সবচেয়ে বেশি, আর ঠিক-উত্তর ও নিরাপত্তা দুটো আলাদা বিষয়।
 
 **Supervisor-কে ৩০ সেকেন্ডে:** "এটি security-র একটি বড় measurement study, patch-এর নয়, single-turn function/file-level code-এর। আমাদের assurance report-এর জন্য তিনটি জিনিস নেওয়ার আছে: (১) কোন CWE ও কোন tool (SonarQube + CodeQL, আর Semgrep পরামর্শ) চালাতে হবে, (২) correctness আর security আলাদা signal, কারণ claude-3.5 সবচেয়ে বেশি correct হয়েও সবচেয়ে বেশি LoC ও maintainability issue তৈরি করে, আর gemini-1.5 correctness-এ মাঝামাঝি হয়েও সবচেয়ে বেশি vulnerability (75টি) দেয়, (৩) language-ভেদে ফলাফল আলাদা, তাই tool ও threshold language-অনুযায়ী ঠিক করতে হবে। তবে raw count LoC-এর সাথে জড়িত, তাই আমরা density ও before/after diff ব্যবহার করব।"
 
@@ -42,9 +96,10 @@
 
 ## ৩. Problem
 
-- LLM-generated code-এর security নিয়ে আগের কাজ বেশিরভাগ এক language (Python বা C) বা এক model (Copilot, ChatGPT) নিয়ে।
+- LLM-generated code (AI model-এর লেখা code)-এর security নিয়ে আগের কাজ বেশিরভাগ এক language (Python বা C) বা এক model (Copilot, ChatGPT) নিয়ে।
 - Language বদলালে একই task-এ security কেমন বদলায়, তা পরিষ্কার নয়। paper বলে, security quality "identical scenarios"-এও language-ভেদে আলাদা হতে পারে।
-- Correctness, quality ও security প্রায়ই আলাদা করে মাপা হয়; একসাথে মাপলে trade-off বোঝা যায়।
+- Correctness, quality ও security প্রায়ই আলাদা করে মাপা হয়।
+- একসাথে মাপলে বোঝা যায়, একটা বাড়াতে গিয়ে অন্যটা কমছে কি না (trade-off)।
 - আগের কাজে dataset প্রায়ই single-language (SecurityEval শুধু Python, 130 prompt) বা function signature দেওয়া, যা বাস্তব ব্যবহারের চেয়ে সহজ।
 
 ## ৪. Goal ও Research Questions
@@ -53,22 +108,25 @@
 - **RQ2:** বিভিন্ন LLM syntactically valid ও semantically correct code বানানোয় কেমন তুলনীয়, একাধিক language-এ?
 - **RQ3:** কোন security vulnerability সবচেয়ে বেশি, এবং model ও language-ভেদে কীভাবে বদলায়?
 - **Contribution:** (১) 200 task-এর manually vetted dataset, সাত category-তে; (২) unified setup-এ cross-language ও cross-model তুলনা; (৩) CWE ভিত্তিক গভীর security বিশ্লেষণ।
-- paper নিজেই বলে এটি "quantitative measurement study"। তাই কারণ-নির্ণয় (কেন Python ভালো) অনুমান-নির্ভর (training data, model size), পরীক্ষা করা নয়।
+- paper নিজেই বলে এটি "quantitative measurement study" (সংখ্যা-ভিত্তিক মাপজোখ)।
+- মানে "কী হচ্ছে" দেখানো হয়েছে, "কেন হচ্ছে" প্রমাণ করা হয়নি। তাই কারণ-নির্ণয় (কেন Python ভালো) অনুমান-নির্ভর (training data, model size), পরীক্ষা করা নয়।
 
 ## ৫. Methodology (ধাপে ধাপে)
 
-1. **Model নির্বাচন:** eligibility criteria: ব্যাপক ব্যবহার, program synthesis/reasoning/security কাজে প্রদর্শিত ক্ষমতা, চার language-এ code generation support, stable API, এবং architecture-র বৈচিত্র্য। ফল: Table 3-এর পাঁচটি model।
-2. **Generation settings (Table 4):** সব model-এ temperature 0.9, max tokens 4,096, top-p 0.9। Context window: GPT-4o 128k, llama-3 32k, claude-3.5 200k, codestral 32k, gemini-1.5 128k।
+1. **Model নির্বাচন:** eligibility criteria (বাছাইয়ের শর্ত): ব্যাপক ব্যবহার, program synthesis/reasoning/security কাজে প্রদর্শিত ক্ষমতা, চার language-এ code generation support, stable API, এবং architecture-র বৈচিত্র্য। ফল: Table 3-এর পাঁচটি model।
+2. **Generation settings (Table 4):** (temperature হলো উত্তরে কতটা এলোমেলোভাব থাকবে তার knob; top-p ও max tokens উত্তরের পরিসর ও দৈর্ঘ্য বাঁধে।) সব model-এ temperature 0.9, max tokens 4,096, top-p 0.9। Context window (model একসাথে কত text মনে রাখতে পারে): GPT-4o 128k, llama-3 32k, claude-3.5 200k, codestral 32k, gemini-1.5 128k।
 3. **Language নির্বাচন:** C, C++, Java, Python; static বনাম dynamic typing এবং manual বনাম automatic memory management-এর পার্থক্য কাজে লাগাতে।
 4. **Prompt:** মূল task description, কোনো prompt engineering নেই, function signature নেই। একটি Python script prompt পাঠায়; দ্বিতীয় script output গুছিয়ে file বানায় (file name-এ task, model, language)।
 5. **Environment:** Debian 12, OpenJDK 17.0.8, Python 3.11.9, CMake 3.28.6 (C++17), Lenovo ThinkPad E570 (i7 7th gen, 16 GB)। একই hardware।
 6. **Compilation:** compiled language-এ compile; Python-এ built-in syntax checker। ফল 200 row × 20 column binary matrix। ছোট, সঙ্গত fix (import/include) প্রয়োগ ও log করা হয়েছে।
 7. **Semantic correctness:** চার phase। (ক) প্রতি task-এ language-agnostic spec (normal, boundary, edge, invalid); (খ) প্রতিটি generated program-এর interface বিশ্লেষণ (কারণ function name, parameter, return, I/O আলাদা); (গ) প্রতি program-এর জন্য আলাদা unit test, একই input ও expected output; (ঘ) দুজন professional test review করেন। ফল: 4,000 unit test file। প্রতি program 0%–100% score (পাস করা case-এর অনুপাত)। প্রতি task-এ সর্বোচ্চ 10টি test।
-8. **Coverage:** representative subset-এ JaCoCo (Java) ও সমতুল্য tool; গড় line coverage 75%-এর বেশি।
+8. **Coverage:** representative subset-এ JaCoCo (Java-র coverage tool, যা দেখায় test কত শতাংশ line ছুঁয়েছে) ও সমতুল্য tool; গড় line coverage 75%-এর বেশি।
 9. **Complexity:** LoC, CyC, CCD, CoC (বিভাগ ৬)।
-10. **Static analysis:** SonarQube (reliability, security, maintainability, hotspot) এবং CodeQL (query pack)। প্রতিটি SonarQube-reported vulnerability manual যাচাই এবং CodeQL-এর সাথে একই file/location-এ cross-check; stratified 20% sample যাচাই (বিভাগ ১২-এ অসঙ্গতি দেখো)।
+10. **Static analysis:** SonarQube (reliability, security, maintainability, hotspot) এবং CodeQL (query pack)। প্রতিটি SonarQube-reported vulnerability manual যাচাই এবং CodeQL-এর সাথে একই file/location-এ cross-check; stratified 20% sample (প্রতিটি ভাগ থেকে সমানুপাতে বেছে নেওয়া নমুনা) যাচাই (বিভাগ ১২-এ অসঙ্গতি দেখো)।
 11. **Human effort:** দুজন software engineer (4 ও 10 বছরের অভিজ্ঞতা); test তৈরি ও চালাতে 800 person-hour-এর বেশি, পাঁচ মাসে।
 12. **Dataset নির্মাণ:** category অনুযায়ী ভাগ, উৎস (LeetCode, Edabit, Codewars, Exercism, SecurityEval, CodeQL, MITRE CWE), peer review, tagging ও similarity analysis দিয়ে redundancy সরানো।
+
+**সহজ কথায়:** ধাপগুলো সংক্ষেপে: task বানানো, model দিয়ে code লেখানো, compile করা, test চালানো, scan করা, তারপর মানুষ দিয়ে যাচাই। সবার জন্য একই শর্ত রাখা হয়েছে, তাই তুলনা ন্যায্য।
 
 ### ৫.১ Dataset
 
@@ -84,6 +142,8 @@
 
 একটি task একাধিক category-তে পড়তে পারে, তাই যোগফল (340) 200-র বেশি। Table 5 অনুযায়ী উৎস: Manual (first author-এর লেখা) 123, coding challenge site 64, security dataset 13; মোট 200। Difficulty (garbled table পড়ে আমার ব্যাখ্যা): Easy 17, Medium 173, Hard 10। CWE group (Table 7): Input Validation (CWE-20, 707, 642), Injection (89, 78, 74), Buffer Errors (119, 787, 125), Access Control (285, 639, 287), Cryptographic (321, 326, 327), Information Exposure (209, 532), Resource Management (400, 770), Memory Errors (416)।
 
+**সহজ কথায়:** একটি task অনেক category-তে পড়তে পারে, তাই category-র যোগফল 200-র বেশি। বেশিরভাগ task মাঝারি কঠিন।
+
 ## ৬. Math
 
 ### ৬.১ Compilation success rate
@@ -91,6 +151,8 @@
 $$
 S_P = \frac{C_P}{T_P} \times 100, \qquad C_P = \sum_{i=1}^{n} C_i, \quad C_i \in \{0, 1\}
 $$
+
+এই formula **গণনা করে** কত শতাংশ file সফলভাবে compile হয়েছে। প্রতিটি file সফল হলে 1, ব্যর্থ হলে 0 ধরে যোগ করে মোট file দিয়ে ভাগ করা হয়।
 
 - $P$: programming language; $T_P$: ওই language-এর মোট file; $C_i = 1$ যদি file $i$ সফলভাবে compile হয়।
 - **Worked example (paper-এর সংখ্যা):** Java, claude-3.5: $S_P = 95.0\%$ (Table 8)। প্রতি model-language-এ $T = 200$, তাই $C = 190$ file compile হয়েছে (আমার হিসাব)।
@@ -103,6 +165,8 @@ $$
 s_i = \frac{\text{passed}_i}{\text{total}_i}\times 100, \qquad \bar{s}_{m,P} = \frac{1}{200}\sum_{i=1}^{200} s_i
 $$
 
+এই formula **গণনা করে** প্রতিটি program-এর পাস-করা test-এর অনুপাত, তারপর 200 program-এর গড়।
+
 - $m$: model; $P$: language। Table 8-এর "Semantic error-free" শতাংশ সম্ভবত $\bar{s}_{m,P}$। paper স্পষ্ট বলেনি এটি গড় score, না সব test পাস করা program-এর অনুপাত (বিভাগ ১২)।
 
 ### ৬.৩ Complexity metric
@@ -110,6 +174,8 @@ $$
 $$
 M = E + 2Q - N, \qquad M_d = \frac{E + 2Q - N}{cl}, \qquad C = C_{\text{base}} + \sum_{i=1}^{n} n_c
 $$
+
+এই তিনটি formula **গণনা করে** code-এ কতগুলো আলাদা পথ আছে (CyC), সেটা প্রতি line-এ কত (CCD), এবং code বোঝা কতটা কঠিন (CoC)। control flow graph হলো code-এর সম্ভাব্য চলার পথের নকশা।
 
 - $E$: control flow graph-এর edge; $N$: node; $Q$: connected component (সাধারণ লেখায় $P$); $cl$: মোট code line। $M$ = Cyclomatic Complexity (CyC), $M_d$ = CCD, $C$ = Cognitive Complexity (CoC), যেখানে $n_c$ nesting ও conditional থেকে বাড়া মান।
 - **Worked example (Table 10, Java, claude-3.5):** CyC = 1,097, LoC = 6,480, তাই CCD = $1{,}097 / 6{,}480 = 0.169 \approx 0.17$, যা table-এর 0.17-এর সাথে মেলে।
@@ -121,18 +187,24 @@ $$
 D_{\text{vuln}}(P) = \frac{\text{findings}_P}{\text{LoC}_P/1000}, \qquad R_{\text{prog}}(P) = \frac{\text{findings}_P}{\text{programs}_P}
 $$
 
+এই দুটি formula **গণনা করে** প্রতি 1000 line-এ কয়টি finding এবং প্রতি program-এ কয়টি finding। বেশি code লিখলে finding বেশি হওয়াটা স্বাভাবিক, তাই এই ভাগ করা হিসাব ন্যায্য তুলনা দেয়।
+
 - $D_{\text{vuln}}$: প্রতি 1000 line-এ finding; $R_{\text{prog}}$: প্রতি program-এ finding (প্রতি language-এ 1,000 program)।
 - **Worked example (আমার হিসাব):** C: $122/29.528 = 4.13$ per KLoC; $122/1000 = 0.122$ per program। Python: $40/14.154 = 2.83$ per KLoC; $0.040$ per program। Java: $69/26.55 = 2.60$; $0.069$। C++: $53/27.18 = 1.95$; $0.053$।
 
 ### ৬.৫ Sampling error (আমার হিসাব)
 
-প্রতি model-language cell-এ $n=200$। যদি score-কে binary ধরা হয়, standard error $\sqrt{p(1-p)/n}$:
+এখানে দেখা হচ্ছে, মাত্র 200টি নমুনা থেকে পাওয়া শতাংশ কতটা নির্ভরযোগ্য। প্রতি model-language cell-এ $n=200$। যদি score-কে binary ধরা হয়, standard error $\sqrt{p(1-p)/n}$:
 
 $$
 \mathrm{SE} = \sqrt{\frac{0.95 \times 0.05}{200}} = 0.0154 \;(\approx \pm 3.0\ \text{pp at 95\%}), \qquad \sqrt{\frac{0.80\times 0.20}{200}} = 0.0283 \;(\approx \pm 5.5\ \text{pp})
 $$
 
+এই formula **গণনা করে** নমুনা ছোট হলে শতাংশ কতটা এদিক-ওদিক হতে পারে (standard error)।
+
 অর্থাৎ C-তে GPT-4o (81.1%) ও gemini-1.5 (77.0%)-এর 4.1 pp পার্থক্য এই আন্দাজে noise-এর সীমার ভেতরে। paper কোনো CI বা significance test দেয়নি।
+
+**সহজ কথায়:** compile rate দেখায় প্রতি 200 file-এর কতটা compile হলো। semantic score দেখায় test-এর কতটা পাস হলো। CCD ও density হলো ন্যায্য তুলনার জন্য ভাগ-করা হিসাব। আর ±3 থেকে ±5.5 pp মানে ছোট পার্থক্যে ভরসা করা যায় না।
 
 ## ৭. Setup (table)
 
@@ -151,6 +223,8 @@ $$
 | Hardware/OS | Lenovo ThinkPad E570, i7 7th gen, 16 GB, Debian 12 |
 | Prompt | মূল description, কোনো prompt engineering নেই, function signature নেই |
 
+**সহজ কথায়:** পুরো পরীক্ষা পাঁচটি model, চারটি language, একই hardware ও একই prompt দিয়ে হয়েছে। প্রতি task-এ একবারই code লেখানো হয়েছে।
+
 ## ৮. Results
 
 ### ৮.১ Compilation-error-free rate (Table 8, বাম অর্ধেক, %)
@@ -166,6 +240,8 @@ $$
 
 (Table 8 pdftotext-এ কলাম গুলিয়ে ছিল; সারির ক্রম paper-এর টেক্সটের সংখ্যার সাথে মিলিয়ে নিশ্চিত করেছি: claude C 96%, GPT-4o C++ 89%, llama Java 88%, C++ 77%।)
 
+**সহজ কথায়:** Python-এ প্রায় সব model-এর code compile হয়েছে। C++-এ compile-ভুল সবচেয়ে বেশি। মানে C++ code লেখা AI-র জন্য সবচেয়ে কঠিন।
+
 ### ৮.২ Semantic error-free rate (Table 8, ডান অর্ধেক, %)
 
 | Model | Java | Python | C++ | C | গড় (আমার হিসাব) |
@@ -176,6 +252,8 @@ $$
 | GPT-4o | 88.3 | 90.9 | 88.0 | 81.1 | 87.08 |
 | llama-3 | 81.6 | 88.5 | 79.3 | 72.9 | 80.58 |
 | Language গড় (আমার হিসাব) | 86.82 | 90.12 | 84.64 | 77.78 | |
+
+**সহজ কথায়:** ঠিক উত্তরের হার Python-এ সবচেয়ে বেশি (গড় 90.12%), C-তে সবচেয়ে কম (77.78%)। claude-3.5 প্রায় সব language-এ এগিয়ে।
 
 ### ৮.৩ Complexity (Table 10)
 
@@ -208,6 +286,8 @@ $$
 
 Total LoC = 26,550 + 14,154 + 27,180 + 29,528 = 97,412 (paper-এর সংখ্যার সাথে মেলে)। Python code সবচেয়ে ছোট (প্রতি program-এ গড় প্রায় 14.2 line, আমার হিসাব)। gemini/codestral সারির সমস্যা বিভাগ ৬.৩ ও ১২-তে।
 
+**সহজ কথায়:** Python code সবচেয়ে ছোট। claude-3.5 সবচেয়ে বেশি code লেখে। gemini-1.5 ও codestral সারির CCD-তে একটি অসঙ্গতি আছে (বিভাগ ৬.৩)।
+
 ### ৮.৪ Quality attribute (Table 11): S = security vulnerability, R = reliability, M = maintainability, SH = security hotspot
 
 | Language | Model | S | R | M | SH |
@@ -239,6 +319,8 @@ Total LoC = 26,550 + 14,154 + 27,180 + 29,528 = 97,412 (paper-এর সংখ�
 
 (Table 11-ও গুলিয়ে ছিল; `pdftotext -raw` দিয়ে পুনরায় বের করেছি। প্রতিটি কলামের যোগফল Summary সারির সাথে মেলে: যেমন Java S 15+16+12+13+13 = 69।)
 
+**সহজ কথায়:** C-তে vulnerability (122) ও reliability bug সবচেয়ে বেশি। Java-তে maintainability সমস্যা (code smell, মানে ভবিষ্যতে বদলানো কঠিন এমন code) প্রচুর।
+
 ### ৮.৫ Language ও model অনুযায়ী normalised তুলনা (আমার হিসাব)
 
 | Language | S মোট | LoC | S per KLoC | S per program | R per KLoC | M per KLoC | SH per KLoC |
@@ -259,6 +341,8 @@ Total LoC = 26,550 + 14,154 + 27,180 + 29,528 = 97,412 (paper-এর সংখ�
 
 প্রতি program 284 / 4,000 = 0.071 finding (আমার হিসাব)। এটি finding-এর সংখ্যা, vulnerable program-এর সংখ্যা নয়; paper দ্বিতীয়টি দেয়নি।
 
+**সহজ কথায়:** প্রতি 1000 line-এ ধরলেও C সবচেয়ে বেশি ঝুঁকিপূর্ণ। gemini-1.5 সবচেয়ে বেশি vulnerability দেয়। claude-3.5 কম vulnerability দেয়, কিন্তু অনেক বেশি code লেখে। raw সংখ্যা দেখে model বিচার করা ঠিক নয়।
+
 ### ৮.৬ CWE breakdown (Table 12, কলাম ক্রম: claude, gemini, codestral, GPT-4o, llama)
 
 | CWE | Java | Python | C++ | C |
@@ -278,6 +362,8 @@ Total LoC = 26,550 + 14,154 + 27,180 + 29,528 = 97,412 (paper-এর সংখ�
 | 131, 788 (buffer size/after end) | | | | 0 1 0 1 1 (3) |
 
 প্রতি language-এর CWE যোগফল Table 11-এর S-এর সাথে মেলে (Java 69, Python 40, C++ 53, C 122; আমার যাচাই)। C-তে CWE-120 = 66/122 = 54.1%; C-তে crypto/certificate group = 32/122 = 26.2%; Java-তে CWE-780 = 29/69 = 42.0% (আমার হিসাব)।
+
+**সহজ কথায়:** Java-তে প্রধান দুর্বলতা CWE-780 (RSA padding ছাড়া), C-তে CWE-120 (buffer copy)। এই ভুলগুলো বারবার ফিরে আসে, তাই আমাদের checklist-এ এগুলো আগে থাকবে।
 
 ### ৮.৭ Clean code (Table 13): C = consistency, I = intentionality, A = adaptability, R = responsibility
 
@@ -308,6 +394,8 @@ Total LoC = 26,550 + 14,154 + 27,180 + 29,528 = 97,412 (paper-এর সংখ�
 | C | llama-3 | 160 | 205 | 25 | 7 |
 | C | Summary | 862 | 1,119 | 151 | 44 |
 
+**সহজ কথায়:** clean code হলো code পড়া ও বদলানোর সুবিধার মান। Java-তে adaptability (বদলানো সহজ কি না) সংক্রান্ত সমস্যা সবচেয়ে বেশি। C++ ও C-তে intentionality (code-এর উদ্দেশ্য স্পষ্ট কি না) সংক্রান্ত সমস্যা বেশি।
+
 ### ৮.৮ Compile error ধরন (Table 9, গুণগত)
 
 - সবচেয়ে সাধারণ: library/import error ("cannot find symbol", যেমন java.util.∗ ভুলে যাওয়া)।
@@ -315,6 +403,8 @@ Total LoC = 26,550 + 14,154 + 27,180 + 29,528 = 97,412 (paper-এর সংখ�
 - C++: missing include, type handling, STL ও C++11 বনাম C++17 পার্থক্য, binding/qualifier error (সংখ্যা: claude 20, gemini 8, codestral 4, GPT-4o 11, llama-3 22 — table garbled, আমার পড়া)।
 - C: undeclared type (bool), missing header (cgi/cgi.h), function argument ভুল; llama-3 সবচেয়ে খারাপ (88.0%)।
 - Table 9 pdftotext-এ ঠিকভাবে বের হয়নি, তাই এর অন্য সংখ্যা এখানে দিচ্ছি না।
+
+**সহজ কথায়:** compile error বেশিরভাগই ছোট ভুল, যেমন import বা include ভুলে যাওয়া। ঠিকমতো import দিলে অনেক ভুলই কেটে যেত।
 
 ## ৯. Key findings
 
@@ -327,6 +417,8 @@ Total LoC = 26,550 + 14,154 + 27,180 + 29,528 = 97,412 (paper-এর সংখ�
 7. **Raw count LoC-এ প্রভাবিত:** codestral সবচেয়ে কম maintainability issue (1,369) দেখায় কারণ সবচেয়ে কম code (15,045 line) লিখে; per-KLoC ধরলে claude-3.5 (79.8) সবচেয়ে ভালো, codestral 91.0 (আমার হিসাব)।
 8. **Modern feature অব্যবহৃত:** Java 17 থাকা সত্ত্বেও model পুরনো random number generation ব্যবহার করে; C++ এ srand/rand (paper-এর Conclusion ও Appendix C.4)।
 
+**সহজ কথায়:** দুটি বড় বার্তা: (১) ভাষা বদলালে ঝুঁকি বদলায়, (২) ঠিক-উত্তর মানেই নিরাপত্তা নয়। raw count দেখে ভুল সিদ্ধান্ত নেওয়া সহজ, তাই density দেখা দরকার।
+
 ## ১০. Alternatives-এর চেয়ে কেন ভালো
 
 - **Multi-language, multi-model, একই prompt:** আগের কাজ (Pearce, Copilot, SecurityEval Python-only) এক model বা এক language। এখানে same task, same environment তাই পার্থক্য language ও model-এর কারণে।
@@ -335,6 +427,8 @@ Total LoC = 26,550 + 14,154 + 27,180 + 29,528 = 97,412 (paper-এর সংখ�
 - **Tool cross-check ও manual review:** একক SAST-এর false positive-এর সমস্যা (Lenarduzzi et al.: ছয়টি tool-এর overlap কম) মোকাবিলা করতে SonarQube + CodeQL।
 - **Open data:** dataset, prompt, test, script প্রকাশিত; model-agnostic adapter-এর মাধ্যমে নতুন model-এ পুনরায় চালানো যায়।
 - আমার মন্তব্য: এই সুবিধাগুলো "বিস্তার"-এর; গভীরতা (কারণ-বিশ্লেষণ, statistical test) কম।
+
+**সহজ কথায়:** এই paper-এর শক্তি বিস্তার (অনেক model, অনেক language)। গভীরতা কম, কারণ "কেন এমন হলো" পরীক্ষা করে দেখানো হয়নি।
 
 ## ১১. কখন কাজ করে / কখন ব্যর্থ
 
@@ -352,6 +446,8 @@ Total LoC = 26,550 + 14,154 + 27,180 + 29,528 = 97,412 (paper-এর সংখ�
 
 ## ১২. Limitations
 
+**সহজ কথায়:** ছোট, আলাদা task-এ এই পদ্ধতি ভালো। বড় project বা AI agent-এর patch-এ কাজ করবে কি না, তা এখান থেকে জানা যায় না।
+
 ### ১২.১ Authors-এর স্বীকৃত
 
 - SonarQube-এর false positive ও semantic বোঝার অভাব; unit test অসম্পূর্ণ হলে defect ধরা পড়ে না।
@@ -361,6 +457,8 @@ Total LoC = 26,550 + 14,154 + 27,180 + 29,528 = 97,412 (paper-এর সংখ�
 - Single-turn generation; multi-turn বা collaborative নয়।
 - Model version ঠিক করা; ভবিষ্যৎ আপডেটে reproducibility ক্ষুণ্ন হতে পারে।
 - Semantic similarity automated নয়, manual; dynamic analysis ও fuzzing নেই।
+
+**সহজ কথায়:** authors নিজেরাই মানেন, ছোট task, একবার generation ও tool-এর ভুল সংকেত (false positive) তাঁদের ফলকে সীমিত করে।
 
 ### ১২.২ আমার পর্যবেক্ষণ (paper-internal অসঙ্গতিসহ)
 
@@ -383,6 +481,8 @@ Total LoC = 26,550 + 14,154 + 27,180 + 29,528 = 97,412 (paper-এর সংখ�
 17. **Prompt-এ security নির্দেশ নেই:** model-কে "secure" করতে বলা হয়নি; তাই "default behaviour" মাপা হয়েছে, secure-prompt-এর সাথে তুলনা নেই।
 18. **Reference-এ "Asare et al. [?]"** (Table 1) — একটি অমীমাংসিত citation।
 
+**সহজ কথায়:** paper-এর লেখা ও table-এর সংখ্যায় কয়েক জায়গায় মিল নেই। তাই সংখ্যা ব্যবহারের আগে নিজে মিলিয়ে নেওয়া ভালো। confidence interval ও SAST precision না থাকায় ছোট পার্থক্যে ভরসা করা যায় না।
+
 ## ১৩. Research gaps
 
 | G-id | Gap | Evidence | Related CG / folder |
@@ -398,6 +498,8 @@ Total LoC = 26,550 + 14,154 + 27,180 + 29,528 = 97,412 (paper-এর সংখ�
 | G9 | Multi-turn, prompt-এ security নির্দেশ, ও self-repair ফলাফল অপরীক্ষিত | Section 6 conclusion validity | CG1, CG7 |
 | G10 | Quality metric-এর মান (SonarQube smell) কতটা maintainability-র প্রকৃত সূচক, তার validation নেই | Section 3.5.4 (definition-ই tool-এর rule) | CG10 |
 
+**সহজ কথায়:** gap-গুলোর মূল কথা: patch-level নিরাপত্তা, tool-এর নির্ভরযোগ্যতা ও ন্যায্য normalisation এখনও খোলা। এগুলোই আমাদের SPL3-র সুযোগ।
+
 ## ১৪. Improvement ideas
 
 - Finding-কে LoC, program ও task-সংখ্যার সাথে normalise করা এবং CI সহ report করা।
@@ -408,6 +510,8 @@ Total LoC = 26,550 + 14,154 + 27,180 + 29,528 = 97,412 (paper-এর সংখ�
 - Patch-mode: agent-এর patch-এর আগে ও পরে scan করে "নতুন finding" গণনা।
 - Secure prompt ও self-repair তুলনা (paper-এর future work + আগের কাজে পাওয়া "follow-up prompt-এ উন্নতি")।
 - Per-CWE hit rate: নির্দিষ্ট CWE-লক্ষ্য task-এ কত শতাংশ vulnerable।
+
+**সহজ কথায়:** ধারণাগুলো হলো আরও ভালো পরিসংখ্যান, আরও tool, আর code সত্যি চালিয়ে পরীক্ষা (dynamic analysis)। McNemar test হলো একই task-এ দুই model-এর ফল জোড়ায় তুলনার পদ্ধতি। bootstrap হলো নমুনা বারবার নিয়ে অনিশ্চয়তা মাপা। ASan/UBSan হলো C/C++ চালানোর সময় memory ভুল ধরার tool।
 
 ## ১৫. Publication potential (SPL3-feasible)
 
@@ -436,6 +540,8 @@ Total LoC = 26,550 + 14,154 + 27,180 + 29,528 = 97,412 (paper-এর সংখ�
 8. **Uncertainty:** প্রতিটি tool-finding-এর জন্য "confirmed / unconfirmed / hotspot"; "could not scan" একটি স্পষ্ট ফলাফল।
 9. **Manual audit:** একটি ছোট stratified নমুনা (paper-এর 20% ধারণা) হাতে যাচাই করে SAST precision মাপা।
 10. **Cost:** SAST চালানো সস্তা (LLM খরচ নেই); paper-এ test লেখার 800+ person-hour দেখায় manual test scale হয় না, তাই আমরা existing repo test ব্যবহার করব, নতুন per-program test নয়।
+
+**সহজ কথায়:** আমরা agent-এর patch নেব, আগে ও পরে scan চালাব, আর শুধু নতুন finding গুনব। পুরনো সমস্যা আলাদা থাকবে। test pass ও security আলাদা কলামে দেখানো হবে।
 
 ## ১৭. পূর্ববর্তী sub-domain-এর সাথে সম্পর্ক
 
@@ -517,6 +623,8 @@ Total LoC = 26,550 + 14,154 + 27,180 + 29,528 = 97,412 (paper-এর সংখ�
 | Prompt injection | আলোচিত নয় | Opus 5.5: 54.61% (safeguard ছাড়া) বনাম 11.13% (safeguard সহ), vendor-reported |
 | Cheat/gaming | আলোচিত নয় | METR: সফল long-task run-এর ≥16% cheat (independent, আগের generation); Opus 5.5 card-এ "hidden tests" reasoning (vendor) |
 | Current model-এ এই ধরনের multi-language SAST study | — | বর্তমান model-এর তথ্য পাওয়া যায়নি |
+
+**সহজ কথায়:** 2024-এর model আর আজকের model-এর মধ্যে বড় ব্যবধান। প্রধান কথা, কঠিন task-এ functional pass আর security pass-এর ফারাক এখন আরও স্পষ্ট। বর্তমান model-এর জন্য এই ধরনের multi-language security study পাওয়া যায়নি।
 
 ### ২১.২ এখনও সত্য / পুরনো
 

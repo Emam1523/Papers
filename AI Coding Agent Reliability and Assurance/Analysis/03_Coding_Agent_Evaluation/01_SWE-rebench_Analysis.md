@@ -22,9 +22,61 @@
 
 ---
 
+## ★ সহজ ভাষায় পুরো Paper (প্রথমবার পড়ার জন্য)
+
+### ক. Paper-টা কী নিয়ে?
+- এটা কোনো নতুন AI agent-এর paper নয়। এটা একটা **benchmark আর data বানানোর কারখানার** paper। (Benchmark মানে AI-কে পরীক্ষা করার প্রশ্নপত্র।)
+- বানিয়েছে Nebius কোম্পানির ৯ জন গবেষক। Paper ছাপা হয়েছে NeurIPS 2025 নামের বড় AI conference-এর Datasets and Benchmarks track-এ।
+- তারা GitHub থেকে নিজে নিজে (মানুষ ছাড়া) ২১,৩৩৬টা "bug ঠিক করার কাজ" বানিয়েছে। প্রতিটা কাজ চালিয়ে দেখা যায়।
+- এই কাজ থেকে ২৯৪টা একদম তাজা কাজ নিয়ে একটা leaderboard (র‍্যাঙ্কিং তালিকা) চালায়। সেখানে সব AI model একই নিয়মে পরীক্ষা দেয়।
+- উপমা: SWE-bench হলো পুরনো বছরের প্রশ্নপত্র, যেটা সবাই মুখস্থ করে ফেলেছে। SWE-rebench হলো প্রতি মাসে নতুন প্রশ্ন বানানোর একটা প্রশ্নপত্র-কারখানা, আর একই হলে সবাই একসাথে পরীক্ষা দেয়।
+
+### খ. সমস্যাটা কী ছিল?
+- আগে SWE-bench ছিল AI-এর coding ক্ষমতা মাপার প্রধান পরীক্ষা। কিন্তু ২০২৩ থেকে এর প্রশ্ন (task) ইন্টারনেটে খোলা। পরের model-গুলো training-এর সময় হয়তো উত্তরসহ এগুলো দেখে ফেলেছে। তাহলে ভালো score মানে মুখস্থ, বুদ্ধি নয়। এটাকে বলে **contamination** (পরীক্ষার প্রশ্ন আগে থেকে ফাঁস হওয়া)।
+- প্রতিটা দল নিজের মতো করে চালায়: কেউ ৫ বার চালিয়ে সেরাটা দেখায়, কেউ বিশেষ scaffold (AI-র চারপাশের সাজানো software) ব্যবহার করে। তাই দুই দলের সংখ্যা তুলনা করা যায় না।
+- আবার একই agent একই কাজ দুইবার চালালে দুই রকম ফল দিতে পারে। একবারের score তাই ভরসাযোগ্য নয়।
+- নতুন AI শেখানোর (RL) জন্য হাজার হাজার repository-র চালানো যায় এমন task লাগে। কিন্তু প্রতিটার জন্য environment (Python version, library) হাতে সাজানো অসম্ভব।
+- উদাহরণ: DeepSeek-V3-0324 model SWE-bench Verified-এ পায় 39.7%। কিন্তু একদম তাজা task-এ পায় মাত্র 21.3%। প্রশ্ন ওঠে: প্রথম সংখ্যাটা কি ফোলানো?
+
+### গ. Paper কী solve করেছে?
+- একটা **পুরোপুরি automatic pipeline** বানিয়েছে। এটা GitHub থেকে task তুলে, environment বানিয়ে, test চালিয়ে যাচাই করে।
+- ফলাফল: **২১,৩৩৬টা task, ৩,৪৬৮টা repository** — সব public, নতুন AI শেখানোর কাজে লাগে।
+- ২৯৪টা তাজা task (২০২৫ সালের issue) নিয়ে একটা **decontaminated leaderboard** বানিয়েছে। Model-এর release-এর আগের task-এ পাওয়া score-এ "সম্ভাব্য contaminated" চিহ্ন বসে।
+- সব model একই scaffold-এ, ৫ বার করে চলে। তাই score-এর সাথে SEM (গড়ের অনিশ্চয়তার মাপ) আর pass@5 (৫ বারে অন্তত একবার সফল) দেওয়া হয়।
+- গুরুত্বপূর্ণ সংখ্যা ১: DeepSeek-V3-0324 Verified-এ 39.7%, তাজা task-এ 21.3%। মানে পুরনো পরীক্ষায় প্রায় ১০০টার মধ্যে ৪০টা পারে, কিন্তু নতুন পরীক্ষায় ২১টা।
+- গুরুত্বপূর্ণ সংখ্যা ২: ৪,৫০,০০০ candidate থেকে শেষে ২১,৩৩৬টা টিকেছে (প্রায় 4.7%)। মানে ১০০টা ধরলে মাত্র ৫টার মতো পুরো যাচাই পার হয়। কঠিনতম ধাপ environment বানানো।
+- গুরুত্বপূর্ণ সংখ্যা ৩: Table 1-এর সবচেয়ে বড় SEM 1.81। মানে একই model-এর একটা run গড় থেকে প্রায় ৪ শতাংশ-পয়েন্ট সরে যেতে পারে।
+
+### ঘ. কীভাবে solve করেছে?
+1. **GitHub থেকে ভাণ্ডার তোলা।** GH Archive আর repository clone থেকে প্রায় ৪,৫০,০০০টা "issue + যে PR ওটা ঠিক করেছে" জোড়া নেওয়া হয়।
+2. **সাতটা ছাঁকনি।** শুধু Python repository, merged PR, test আছে, ১–১৫টা file বদলেছে — এমন ~১,৫৩,৪০০টা থাকে। PR-কে দুই ভাগ করা হয়: আসল fix (solution patch) আর test অংশ (test patch)।
+3. **LLM দিয়ে install রেসিপি লেখানো।** Qwen2.5-72B model repository-র README, setup.py ইত্যাদি পড়ে JSON রেসিপি লেখে (কোন Python, কোন command)। ব্যর্থ হলে error log দেখে ঠিক করে। সর্বোচ্চ ৩টা চেষ্টা।
+4. **Test চালিয়ে যাচাই।** Container-এ install করে দেখা হয়: fix ছাড়া অন্তত একটা test fail করে কিনা, fix দিলে pass করে কিনা, আগের pass করা test ভাঙে কিনা। সব ঠিক হলে task বৈধ।
+5. **LLM দিয়ে মান-নম্বর।** মানুষের দেওয়া SWE-bench Verified-এর label দিয়ে একটা LLM শেখানো হয়, যেটা প্রতিটা task-কে তিন দিকে নম্বর দেয়: issue পরিষ্কার কিনা, কাজ কত কঠিন, test ঠিক কিনা।
+6. **তাজা benchmark বাছা।** ২০২৫-এর issue থেকে ৮টা শর্তে ২৯৪টা task বাছা হয়।
+7. **একই নিয়মে পরীক্ষা।** সব model একই ReAct scaffold, একই prompt, ১২৮K context-এ ৫ বার করে চলে।
+8. **Contamination চিহ্নিত করা।** Task-এর তৈরির তারিখ আর model-এর release-এর তারিখ মিলিয়ে দেখা হয়। Task আগের হলে চিহ্ন বসে।
+
+### ঙ. এরপর কী করা যায়?
+- **Authors বলেছে:** issue ছাড়া শুধু PR থেকে task বানানো, আরও Python-এর বাইরের language (Go, Java, Rust ইত্যাদি), filter ভালো করা, benchmark নিয়মিত update।
+- **যা এখনো খোলা:** "পাস করা" মানেই কি "সঠিক"? Paper test-pass-কেই সঠিক ধরে। অথচ অনেক task-এ মাত্র ১–২টা test, তাই ভুল patch-ও পাস করে যেতে পারে।
+- **যা খোলা:** quality label-এর Issue Clarity অংশটা প্রায় অকেজো (সবসময় "পরিষ্কার" বললেও সমান accuracy)। আর SEM শুধু run-এর এলোমেলোতা ধরে, কোন task বাছা হলো তার অনিশ্চয়তা ধরে না।
+- **SPL3-তে আমরা করতে পারি:** তাজা task-এ agent-এর resolved patch-এর কত অংশ আসলে সঠিক তা মাপা (gold patch দিয়ে আলাদা test আর হাতে review)।
+- **SPL3-তে আরও:** ৫ run-এর data থেকে pass^5 আর flip rate (কোন task কখনো পারে, কখনো পারে না) বের করা — বাড়তি খরচ প্রায় শূন্য।
+- **SPL3-তে আরও:** আমাদের assurance layer-কে judge আর agent-এর cutoff-এর পরের task-এ যাচাই করা, যাতে leakage না থাকে।
+
+> **মনে রাখো:**
+> SWE-rebench = তাজা task বানানোর automatic কারখানা + সবার জন্য একই নিয়মের পরীক্ষা (৫ বার চালিয়ে)।
+> সে contamination আর scaffold-ভেদ কমায়, কিন্তু "পাস করা patch আসলে ঠিক কিনা" প্রশ্নটা খোলা রেখে দেয়।
+> ওই খোলা প্রশ্নটাই আমাদের SPL3-এর কাজের জায়গা।
+
+---
+
 ## ১. এক লাইনে Paper (TL;DR)
 
 **SWE-rebench হলো একটা সম্পূর্ণ automated pipeline, যেটা GitHub থেকে নিয়মিত নতুন issue-PR জোড়া তুলে, LLM দিয়ে environment install করে, test চালিয়ে যাচাই করে 21,336টা executable SWE task-এর dataset বানায়; আর সেই "তাজা" task দিয়ে একটা centralized leaderboard চালায় যেখানে সব model একই scaffold-এ 5 বার চলে, SEM ও pass@5 report হয়, এবং model release-এর আগের task-এ পাওয়া score "সম্ভাব্য contaminated" হিসেবে চিহ্নিত হয়।**
+
+**সহজ কথায়:** একটা machine আছে যেটা নিজে নিজে হাজার হাজার bug-ঠিক-করার প্রশ্ন বানায়। তারপর সব AI-কে একই নিয়মে, ৫ বার করে পরীক্ষা দেওয়ায়। যে প্রশ্ন AI আগে দেখে ফেলতে পারে, সেটা আলাদা করে চিহ্নিত করে।
 
 ### Supervisor-কে ৩০ সেকেন্ডে কীভাবে বলবো
 > "Sir, SWE-bench 2023 থেকে public, তাই নতুন model-রা হয়তো এর task training-এ দেখে ফেলেছে — score মুখস্থ না দক্ষতা, বোঝা যায় না। তাছাড়া প্রতিটা দল নিজের scaffold, retry, best-of-N দিয়ে নিজের score report করে, তাই তুলনা ন্যায্য নয়। SWE-rebench এই দুই সমস্যার সমাধান দেয়: একটা automated pipeline প্রায় 4,50,000 issue-linked PR থেকে শুরু করে LLM দিয়ে install recipe বানায়, test চালিয়ে যাচাই করে 21,336টা task তৈরি করে। তারপর 2025-এর issue থেকে 294টা task নিয়ে একই ReAct scaffold-এ প্রতিটা model 5 বার চালায়। ফলাফল: DeepSeek-V3-0324 SWE-bench Verified-এ 39.7% কিন্তু তাজা SWE-rebench task-এ 21.3% — অর্থাৎ পুরনো benchmark-এর score কিছু model-এর ক্ষেত্রে ফোলানো হতে পারে। তবে এটা এখনো test-pass-ভিত্তিক — patch আসলে সঠিক কিনা (আমাদের CG1) সেটা এই paper দেখে না।"
@@ -150,6 +202,8 @@ Temperature > 0 হলে LLM-এর output random; ভিন্ন **random see
 - **H200:** NVIDIA-র data-center GPU। প্রতিটা open model 2টা node-এ, প্রতি node-এ 8টা H200।
 - **Context length 128K token:** model একবারে কতটা history পড়তে পারে; agent-এর লম্বা trajectory-র জন্য গুরুত্বপূর্ণ।
 
+**সহজ কথায়:** এই table-এর বাঁ দিকে আগের paper-এর যে ধারণাগুলো লাগবে, ডান দিকে সেগুলো এই paper-এ কোথায় কাজে আসছে। নতুন কিছু বুঝতে না পারলে আগের paper-এর ওই section-এ ফিরে যাও।
+
 ---
 
 ## ৩. Problem Statement — কী সমস্যা ছিল?
@@ -165,6 +219,8 @@ Temperature > 0 হলে LLM-এর output random; ভিন্ন **random see
 2. **Scaffolding variability:** engineered prompt, multi-agent framework, retry, best-of-N, validation loop — model-এর raw ক্ষমতা আলাদা করা যায় না; scaffold SWE-bench subset-এ tune হয়ে implicit overfitting।
 3. **Standardized ও verifiable evaluation-এর অভাব:** প্রতিটা দল নিজে report করে, স্বাধীন যাচাই নেই; pass@N-কে pass@1 বলে report করা বা final test থেকে তথ্য ব্যবহার — এমন বিভ্রান্তিকর অভ্যাসের সুযোগ; closed-source framework-এ transparency কম।
 4. **Run-to-run high variance:** agent trajectory stochastic; একবারের run unrepresentative; কয়েকবার চালিয়ে শুধু সেরাটা report করলে ক্ষমতা বাড়িয়ে দেখানো হয়।
+
+**সহজ কথায়:** চারটা সমস্যা একসাথে। (১) প্রশ্ন ফাঁস হতে পারে, (২) যে যার মতো scaffold বসায়, (৩) কেউ যাচাই করে না, (৪) একই agent বারবার একই ফল দেয় না। তাই এখনকার score পুরোপুরি বিশ্বাস করা যায় না।
 
 ### ৩.২ কেন এটা গুরুত্বপূর্ণ (আমাদের দৃষ্টিকোণ)
 Sub-domain 1-এ দেখেছি: SWE-agent-এর Lite-এ 6 run-এর গড় 17.94% কিন্তু pass@6 = 32.67%; AutoCodeRover @1 = 19.00%, @3 = 26.00%; SWE-agent-এর cost এক paper-এ 1.67 USD, অন্য paper-এ 2.51 USD (CG4, CG8)। Sub-domain 2-এ APR Survey দেখিয়েছিল contamination উপেক্ষিত (CG6)। SWE-rebench এই তিনটা gap-কে একসাথে একটা infrastructure দিয়ে মোকাবিলা করতে চায়। আমরা যদি একটা assurance layer বানাই, সেটাকে evaluate করতেও এই ধরনের পরিষ্কার, তাজা, reproducible task লাগবে (CG10)।
@@ -196,6 +252,8 @@ Text-এ চারটা stage, Fig. 1-এ তিনটা panel (Preliminary fi
 | 3 | Execution-based installation verification | Container-এ install; test চালিয়ে 3টা শর্ত যাচাই; image build; dependency freeze | 21,336টা valid task (3,468 repository) |
 | 4 | Automated instance quality assessment | Fine-tuned Qwen2.5-72B দিয়ে 3টা quality label | 21,336টা annotated task |
 
+**সহজ কথায়:** ৫টা stage একটা ছাঁকনির সারির মতো। প্রতি ধাপে অনেক task বাদ পড়ে। শুরুতে ৪.৫ লক্ষ, শেষে ২১ হাজার। সবচেয়ে বেশি বাদ পড়ে install আর test চালানোর ধাপে।
+
 ### ৫.২ Stage 1 — Preliminary Task Collection (Section 2.1)
 **উৎস:** GitHub Archive (issue ও PR-এর metadata: description, discussion, linked PR, creation date, label, merge status, last commit) + GitHub (full history সহ repository clone)।
 
@@ -209,6 +267,8 @@ Text-এ চারটা stage, Fig. 1-এ তিনটা panel (Preliminary fi
 5. Issue description 10 character-এর বেশি।
 6. PR test যোগ বা পরিবর্তন করে **এবং** test file-এর বাইরেও code পরিবর্তন করে।
 7. পরিবর্তন 1 থেকে 15টা file-এ।
+
+**সহজ কথায়:** সাত ছাঁকনির মানে — এমন PR চাই যেটা একটা পরিষ্কার issue ঠিক করে, test সহ, আর খুব বড় নয়। যেগুলো এলোমেলো বা অস্পষ্ট, সেগুলো আগেই বাদ।
 
 তারপর প্রতিটা PR-এর patch → solution patch (non-test file) + test patch (শুধু test file)। Filter-এর পরে **প্রায় 1,53,400টা** potential task থাকে।
 
@@ -228,6 +288,8 @@ Text-এ চারটা stage, Fig. 1-এ তিনটা panel (Preliminary fi
 
 **Recipe কীভাবে চালানো হয় (Appendix B.2-এর script):** clone → base_sha checkout → pre_install → `conda create` (নির্দিষ্ট python) → requirements বা environment.yml থেকে install → pip_packages → install command → test command।
 
+**সহজ কথায়:** LLM আসলে একজন সহকারীর মতো। সে README পড়ে একটা চেকলিস্ট লেখে: কোন Python লাগবে, কী install করতে হবে, কোন command-এ test চলবে। তারপর একটা সাধারণ script সেই চেকলিস্ট ধরে কাজ করে।
+
 **Example (Appendix B.3):** flake8-bugbear-ধরনের একটা project-এ LLM Python 3.9 বেছেছে ("safe middle-ground", কারণ project 3.6–3.10 সমর্থন করে), `pip install -e .[dev]`, test command `pytest tests/test_bugbear.py`, আর pytest, coverage, hypothesis, hypothesmith>=0.2, pre-commit যোগ করেছে।
 
 **Interactive agent-এর সাথে তুলনা (Appendix C, Table 3):** SWE-bench-এর 18টা আলাদা repository-র 18টা task (যাদের install instruction আগে হাতে বানানো ছিল — তাই reliable baseline)।
@@ -239,6 +301,8 @@ Text-এ চারটা stage, Fig. 1-এ তিনটা panel (Preliminary fi
 | Agentless | 10 | 9 / 18 |
 | Agent-based (interactive) | 1 | 8 / 18 |
 
+**সহজ কথায়:** ১৮টা task-এ পরীক্ষায় দেখা গেছে — সরাসরি container-এ হাত লাগিয়ে চেষ্টা করা agent প্রথম চেষ্টায় একটু এগিয়ে (৮/১৮)। কিন্তু agentless পদ্ধতিতে ৩টা recipe দিলেই সেও ৮/১৮ পায় এবং অনেক সস্তা। তাই তারা agentless বেছেছে।
+
 - Authors-এর ব্যাখ্যা: interactive agent কখনো ভালো, কিন্তু অনেক বেশি resource লাগে; agentless + একাধিক candidate বড় scale-এ বেশি efficient — তাই এটাই মূল পদ্ধতি।
 - কিছু ব্যর্থতা আসলে install-এর নয়, **log parsing**-এর — যেমন Django-র মতো custom test framework-এর output generic pytest parser পড়তে পারে না।
 - এই 18টা task দিয়েই prompt বাছাই ও candidate সংখ্যা ঠিক করা হয়েছে (authors নিজেরাই এটাকে "small-scale sanity check" বলেছেন)।
@@ -249,6 +313,8 @@ Text-এ চারটা stage, Fig. 1-এ তিনটা panel (Preliminary fi
 1. Test patch-এর **অন্তত একটা test** solution patch apply-এর **আগে fail** করে।
 2. যে test-গুলো আগে fail করেছিল, solution patch-এর পরে **সবগুলো pass** করে।
 3. Test patch-এর যে test-গুলো আগে pass করছিল, solution patch-এর পরেও **pass** করে।
+
+**সহজ কথায়:** একটা task বৈধ হতে হলে তিনটা জিনিস দেখাতে হবে। (১) fix ছাড়া test-টা ব্যর্থ হয় — মানে test সত্যিই bug ধরছে। (২) fix দিলে সেই test পাস করে — মানে fix কাজ করে। (৩) আগের ভালো test ভাঙে না — মানে fix অন্য কিছু নষ্ট করেনি।
 
 **Infrastructure:**
 - Default base container-এ conda, gcc আগে থেকে install।
@@ -280,6 +346,8 @@ Authors বলেছেন এই failure-গুলোই বেশিরভা�
 | Test Patch Correctness | 67% | 0.65 | 60% |
 | Issue Clarity | 79% | 0.76 | 80% |
 
+**সহজ কথায়:** LLM প্রতিটা task-কে তিনটা নম্বর দেয়। Task Complexity-তে সে বেশ ভালো (81%)। অন্য দুটোতে ততটা নয়। এই নম্বর দিয়ে তুমি নিজের মতো task ছেঁকে নিতে পারো।
+
 **ব্যবহার:** label-গুলো প্রতিটা task-এর metadata হিসেবে দেওয়া হয় (`llm_score`: `difficulty_score`, `issue_text_score`, `test_score`)। User নিজের প্রয়োজনে filter করতে পারে — যেমন "কঠিন কিন্তু solvable ও পরিষ্কার" task বাছাই। Authors-এর যুক্তি: SWE-bench Lite-এর মতো "কতগুলো file বদলেছে" heuristic বিভ্রান্তিকর হতে পারে — multi-file পরিবর্তন সহজ হতে পারে (একই parameter বারবার update), আর single-file পরিবর্তনেও issue অস্পষ্ট বা test অপর্যাপ্ত হতে পারে।
 
 ### ৫.৬ মূল SWE-bench Methodology-র তুলনায় Refinement (Appendix G)
@@ -289,6 +357,8 @@ Authors বলেছেন এই failure-গুলোই বেশিরভা�
 | Test directive generation | Regex দিয়ে test command বানালে মুছে ফেলা test file-ও ঢুকে invalid command হয় | মুছে ফেলা file বাদ |
 | AttributeError / ImportError check | Test যদি নতুন, এখনো-না-থাকা attribute/import check করে, agent-কে exact signature অনুমান করতে হয়; `tb=no` দিয়ে চালালে error লুকিয়ে যায় | Full error output (`tb=line`) দিয়ে চালিয়ে চিহ্নিত; metadata-তে রাখা (কিছু task, যেমন import error ঠিক করা, বৈধ) |
 | Dependency pinning | Latest version install করলে সময়ের সাথে test ভাঙে | প্রথম সফল setup-এর পরে freeze; পরের rebuild-এ পুনর্ব্যবহার |
+
+**সহজ কথায়:** SWE-bench-এর ভুলগুলো ঠিক করা হয়েছে চারভাবে। Patch বানাতে সঠিক commit ধরা, মুছে ফেলা test বাদ দেওয়া, ভুল error লুকানো না, আর library-র version আটকে রাখা। এতে task-গুলো আরও নির্ভরযোগ্য।
 
 ### ৫.৭ Dataset Schema ও উদাহরণ (Appendix E, K, Table 5)
 SWE-bench schema-র সাথে অতিরিক্ত field:
@@ -312,6 +382,8 @@ Dataset থেকে নিচের 8টা শর্ত পূরণকার�
 7. **Assessed difficulty:** LLM-assessed difficulty label **3-এর কম** (low থেকে moderate)।
 8. **Test case count:** F2P test **50 বা তার কম**।
 
+**সহজ কথায়:** ২৯৪টা task বাছার আটটা শর্তের মূল কথা — task যেন খুব বড় না হয় (≤৩ file, ছোট patch), পরিষ্কার ইংরেজিতে লেখা হয়, ২০২৫ সালের হয়, আর কঠিনতা মাঝারির নিচে থাকে। মানে benchmark তুলনামূলক সহজ দিকে।
+
 ### ৫.৯ Evaluation Protocol (Section 3.2, Appendix I, J)
 **তিনটা নীতি:**
 1. **Centralized ও standardized:** সব evaluation SWE-rebench দল নিজে চালায়; সব model-এর জন্য একই **minimal ReAct-style scaffold**, একই prompt, model developer-এর recommended default generation hyperparameter (temperature, top-p ইত্যাদি); context length **128K token** (model ছোট context সমর্থন করলে তার সর্বোচ্চ)। Function calling ব্যবহার করা হয় না — সবাই text command লেখে।
@@ -319,6 +391,8 @@ Dataset থেকে নিচের 8টা শর্ত পূরণকার�
 3. **Stochasticity হিসাবে রাখা:** প্রতিটা model পুরো benchmark-এ **5 বার** (ভিন্ন random seed); **SEM** ও **pass@5** report।
 
 **এই পদ্ধতি দুটো জিনিস মাপে (authors-এর ভাষায়):** (ক) বাস্তব issue বুঝে, plan করে, সঠিক patch লিখে, সম্ভব হলে যাচাই করার ক্ষমতা; (খ) instruction follow করে একটা structured agentic framework-এ কাজ করার ক্ষমতা।
+
+**সহজ কথায়:** পরীক্ষার নিয়ম তিনটা। (১) সব model-কে একই ঘর, একই নিয়ম। (২) নতুন task, তারিখ মিলিয়ে চিহ্ন। (৩) ৫ বার চালিয়ে গড় আর ছড়ানো দেখানো, যাতে ভাগ্যের উপর কিছু না থাকে।
 
 **Scaffold-এর বিস্তারিত (Appendix I-এর system prompt):**
 - Terminal-এ সব standard unix command (grep, sed, echo), python script চালানো, pip/apt দিয়ে package install — কিন্তু interactive command (vim) নয়।
@@ -358,6 +432,8 @@ $$
 - $E$ = executable environment (install recipe + frozen dependency + container image)
 - $\lambda = (\lambda_{\text{diff}}, \lambda_{\text{issue}}, \lambda_{\text{test}})$ = LLM-predicted quality label
 
+**সহজ কথায়:** x হলো একটা task-এর পুরো প্যাকেজ: কোড, issue, test, সমাধান, তারিখ, environment, আর LLM-এর দেওয়া নম্বর। সূত্রটা শুধু বলে একটা task আসলে কী কী দিয়ে তৈরি।
+
 ### ৬.২ Pipeline-কে Set Filter হিসেবে লেখা
 $U$ = GitHub-এর সব PR (প্রায় 10M)। প্রতিটা ধাপ একটা filter:
 $$
@@ -375,6 +451,10 @@ $$
 - $f_j$ = Section ৫.২-এর 7টা filter; $R(x)$ = সর্বোচ্চ 3টা LLM recipe (refinement সহ); $V$ = execution validity (৬.৩); $h_j$ = benchmark-এর 8টা শর্ত (Section ৫.৮)।
 - Labeling ($\lambda$) কোনো task বাদ দেয় না — শুধু metadata যোগ করে (Table 6: acceptance 100%)।
 
+সূত্রগুলো কী হিসাব করে: $\mathcal{D}_0$ = শুধু issue-লিংকড আর ১ May 2025-এর আগের PR। $\mathcal{D}_1$ = এর মধ্যে সাতটা filter পার হওয়া। $\mathcal{D}_2$ = যেগুলোর জন্য অন্তত একটা install recipe কাজ করে। $\mathcal{D}_3$ = test চালিয়ে বৈধ প্রমাণিত। $B$ = এর মধ্যে আটটা benchmark শর্ত পূরণকারী।
+
+**সহজ কথায়:** প্রতিটা সূত্র মানে "আগের দল থেকে শুধু যারা এই শর্ত মানে, তাদের রাখো"। সেট ছোট হতে হতে ২১,৩৩৬ আর শেষে ২৯৪।
+
 **প্রতিটা ধাপের yield (paper-এর সংখ্যা থেকে আমার হিসাব):**
 | ধাপ | আকার | আগের ধাপের তুলনায় | মন্তব্য |
 |---|---|---|---|
@@ -383,6 +463,8 @@ $$
 | $\mathcal{D}_1$ | ~1,53,400 | 34.1% (Table 6-এ 33%) | Section 2.1 |
 | $\mathcal{D}_3$ | 21,336 (3,468 repo) | 13.9% (Table 6-এ 14%) | Section 2 |
 | $B$ | 294 (169 repo) | 1.4% of $\mathcal{D}_3$ (তবে $B$-তে শুধু 2025-এর issue, তাই এই অনুপাত তুলনীয় নয়) | Section 3 |
+
+**সহজ কথায়:** ১০০টা candidate-এর মধ্যে শুধু প্রায় ৫টা পুরো পরীক্ষা পার হয়। আর ১০০টা repository-র মধ্যে ১১টার মতোতে অন্তত একটা task টিকে।
 
 **আমার হিসাব:** 4,50,000 থেকে 21,336 মানে সামগ্রিক yield $21336/450000 \approx 4.74\%$; 10M PR-এর তুলনায় মাত্র প্রায় 0.21%। Repository-র দিক থেকে $3468/32000 \approx 10.8\%$ repo-তে অন্তত একটা valid task আছে। (Paper-এর "31% repository-তে working recipe" সংখ্যাটা সম্ভবত শুধু install stage পর্যন্ত পৌঁছানো repository-র মধ্যে — paper denominator স্পষ্ট করেনি।)
 
@@ -394,6 +476,9 @@ $$
 $$
 V(x) = \mathbb{1}\left[\, |F| \geq 1 \;\land\; \forall t \in F:\; s(t,\, C \oplus T \oplus \delta) = \text{PASS} \;\land\; \forall t \in Q:\; s(t,\, C \oplus T \oplus \delta) = \text{PASS} \,\right]
 $$
+
+সূত্রটা কী হিসাব করে: এটা বলে "task বৈধ" হবে (১ হলে) শুধু যদি অন্তত একটা test fix-এর আগে ব্যর্থ হয় আর fix-এর পরে সব ব্যর্থ-হওয়া আর সব আগে-পাস-করা test পাস করে। নাহলে ০।
+
 তিনটা অংশ ঠিক Section ৫.৪-এর তিনটা শর্ত। Flaky test বাদ দেওয়ার নিয়ম: $M$ বার চালালে
 $$
 V^{(M)}(x) = \prod_{r=1}^{M} V_r(x)
@@ -405,6 +490,9 @@ $$
 $$
 v(x) = \text{major.minor}\left(\text{git tag}(x)\right), \qquad c_g = \arg\max_{x \in g}\; \text{date}\left(\text{base commit}(x)\right)
 $$
+
+সূত্রটা কী হিসাব করে: প্রথমটা version নম্বর থেকে `major.minor` অংশ কেটে নেয় (1.2.3 হয় 1.2)। দ্বিতীয়টা group-এর মধ্যে সবচেয়ে নতুন base commit বেছে নেয়। এখানে `arg max` মানে "যার মান সবচেয়ে বড়, সেটা"।
+
 একই $v$-এর সব task একটা group $g$; group-এর environment বানানো হয় $c_g$ commit থেকে — group-এর সবচেয়ে নতুন base commit।
 
 ### ৬.৫ আমার হিসাব: Recipe Candidate কি Independent? (Table 3)
@@ -416,6 +504,10 @@ Table 3-এ $k = 1$-এ 6/18, তাই $p = 1/3$। তাহলে:
 - $k = 3$: $P_3 = 1 - (2/3)^3 = 1 - 0.296 = 0.704$ → প্রত্যাশিত $\approx 12.7$/18; **বাস্তবে 8/18**।
 - $k = 10$: $P_{10} = 1 - (2/3)^{10} \approx 0.983$ → প্রত্যাশিত $\approx 17.7$/18; **বাস্তবে 9/18**।
 
+সূত্রটা কী হিসাব করে: $k$টা candidate-এর অন্তত একটা সফল হওয়ার সম্ভাবনা, যদি সবাই স্বাধীন আর সমান ভালো হয়।
+
+**সহজ কথায়:** কঠিন repository-তে সব চেষ্টাই একসাথে ব্যর্থ হয়। তাই বেশি candidate দিলেও ততটা লাভ হয় না যতটা সূত্র বলছে। (৩টা দিলে আশা ১২.৭/১৮, বাস্তবে ৮/১৮।)
+
 **ব্যাখ্যা:** candidate-গুলোর ব্যর্থতা খুবই correlated — যে repository কঠিন (পুরনো dependency, custom test framework), সেখানে সব candidate-ই ব্যর্থ হয়। অর্থাৎ বেশি sample নেওয়ার লাভ দ্রুত শেষ হয়ে যায়; বাকি অর্ধেক task-এর জন্য ভিন্ন ধরনের সমাধান (interactive agent, ভালো log parser) লাগবে। এটা Agentless-এর "40টা candidate-এর upper bound" (Sub-domain 1 Summary, CG2)-এর মতোই একটা শিক্ষা: sampling-এর diversity সীমিত। (18টা task খুব ছোট sample — তাই এটা indicative, প্রমাণ নয়।)
 
 ### ৬.৬ Resolved Rate Estimator ও SEM
@@ -426,12 +518,19 @@ $$
 $$
 s = \sqrt{\frac{1}{K-1}\sum_{j=1}^{K} \left(r_j - \bar{r}\right)^2}, \qquad \text{SEM} = \frac{s}{\sqrt{K}}
 $$
+
+সূত্রগুলো কী হিসাব করে: $r_j$ = একটা run-এ কত % task সমাধান। $\bar{r}$ = ৫টা run-এর গড়। $s$ = run-গুলো গড় থেকে কতটা ছড়ানো। SEM = সেই ছড়ানোকে $\sqrt{5}$ দিয়ে ভাগ, মানে গড়টার নিজের অনিশ্চয়তা। $K$ = run-এর সংখ্যা, $N$ = task-এর সংখ্যা, $y_{ij}$ = ১ বা ০।
+
+**সহজ কথায়:** ক্লাস টেস্ট ৫ বার দিলে নম্বর একটু ওঠানামা করে। SEM বলে, এই গড়টা আসল ক্ষমতা থেকে কতটা দূরে হতে পারে।
+
 এখানে $K = 5$। Paper SEM-এর exact formula বলেনি; checklist অনুযায়ী এটা "five independent runs"-এর resolution rate-এর SEM, তাই উপরের standard formula ধরে নিচ্ছি।
 
 **Worked example (আমার হিসাব, Table 1-এর আসল সংখ্যা):** GPT-4.1 (Jan subset): $\bar{r} = 31.1\%$, SEM $= 0.79$।
 - Run-গুলোর SD: $s = 0.79 \times \sqrt{5} = 0.79 \times 2.236 \approx 1.77$ percentage point (pp)।
 - 95% CI ($t$-distribution, df $= 4$, $t_{4, 0.975} = 2.776$): $31.1 \pm 2.776 \times 0.79 = 31.1 \pm 2.19$ → **[28.9%, 33.3%]**।
 - Paper normality ধরে নেয়নি বলে CI দেয়নি; উপরের CI normality ধরে নিয়ে আমার হিসাব।
+
+**সহজ কথায়:** GPT-4.1-এর ৫ run-এর মধ্যে ছড়ানো প্রায় ১.৮ pp, আর আসল গড় প্রায় ২৯–৩৩%-এর মধ্যে। শুধু একবার চালালে এই পরিসরের বাইরেও পড়তে পারতো।
 
 **SD কত বড় হতে পারে (আমার হিসাব):** Table 1-এর সবচেয়ে বড় SEM — Qwen3-235B-A22B think (Jan) 1.81 → $s \approx 1.81 \times 2.236 \approx 4.05$ pp। অর্থাৎ একটা single run গড় থেকে প্রায় ±4 pp সরে যেতে পারে। সবচেয়ে ছোট SEM — gemma-3-27b-it (Mar–Apr) 0.30 → $s \approx 0.67$ pp।
 
@@ -440,22 +539,32 @@ SEM শুধু একই 294 task-এ run-এর এলোমেলোতা �
 $$
 \text{SE}_{\text{task}} \approx \sqrt{\frac{\bar{r}\,(1 - \bar{r})}{N}}
 $$
+
+সূত্রটা কী হিসাব করে: ধরো task-গুলো ১ বা ০ ধরনের কয়েন-টস। ২৯৪টা task-এর একটা নমুনা নিলে score কতটা এদিক-ওদিক হতে পারে, তার আন্দাজ।
+
 যদি $N = 294$ আর $\bar{r} = 0.311$ ধরি (GPT-4.1-এর Jan score, পুরো benchmark-এর আকার দিয়ে — subset-এর আসল আকার paper দেয়নি):
 $$
 \text{SE}_{\text{task}} \approx \sqrt{\frac{0.311 \times 0.689}{294}} = \sqrt{0.000729} \approx 0.027 = 2.7 \text{ pp}
 $$
 **ফল:** task-sampling SE (≈ 2.7 pp) run-sampling SEM-এর (0.79 pp) প্রায় সাড়ে তিন গুণ। Subset ছোট হলে (Jan বা Mar–Apr আলাদাভাবে) এটা আরও বড়। অর্থাৎ **paper-এর SEM আসল অনিশ্চয়তার ছোট অংশ দেখায়**। একই task-এ দুই model তুলনা করলে (paired) task-sampling-এর অনেকটা বাতিল হয়, কিন্তু **দুটো ভিন্ন task-subset তুলনায় (Jan বনাম Mar–Apr, Verified বনাম rebench) এটা বাতিল হয় না**। আরও সঠিক উপায়: প্রতিটা task-এর $\hat{q}_i = \frac{1}{K}\sum_j y_{ij}$ বের করে task-এর উপর bootstrap।
 
+**সহজ কথায়:** SEM ছোট দেখালেও আসল অনিশ্চয়তা বড়। কারণ ২৯৪টা task নিজেই "সব সম্ভাব্য task"-এর একটা নমুনা, আর SEM সেই নমুনা-বাছার ভুল ধরে না।
+
 ### ৬.৮ দুই Score-এর পার্থক্য: সরল z-test
 দুই স্বাধীন অনুমানের পার্থক্য:
 $$
 z = \frac{\bar{r}_A - \bar{r}_B}{\sqrt{\text{SE}_A^{2} + \text{SE}_B^{2}}}
 $$
+
+সূত্রটা কী হিসাব করে: দুই score-এর পার্থক্যকে তাদের মিলিত অনিশ্চয়তা দিয়ে ভাগ করে একটা "পার্থক্যটা কতটা অর্থপূর্ণ" সংখ্যা। বড় $z$ (প্রায় ২-এর বেশি) মানে পার্থক্য সম্ভবত ভাগ্যের ফল নয়।
+
 **Worked example ১ (আমার হিসাব, শুধু run-SEM দিয়ে):** GPT-4.1 Jan 31.1 (SEM 0.79) বনাম Mar–Apr 26.7 (SEM 1.09): পার্থক্য 4.4 pp; $\sqrt{0.79^2 + 1.09^2} = \sqrt{0.624 + 1.188} = \sqrt{1.812} \approx 1.35$; $z \approx 3.27$ — শুধু run-noise বিবেচনায় "significant"।
 
 **Worked example ২ (আমার হিসাব, task-sampling সহ, assumption-নির্ভর):** ধরি প্রতিটা subset-এ প্রায় 150টা task (paper আকার দেয়নি — এটা আমার অনুমান মাত্র)। তাহলে $\text{SE}_1 = \sqrt{0.311 \times 0.689/150} \approx 3.78$ pp, $\text{SE}_2 = \sqrt{0.267 \times 0.733/150} \approx 3.61$ pp; পার্থক্যের SE $\approx \sqrt{3.78^2 + 3.61^2} \approx 5.23$ pp; $z \approx 4.4/5.23 \approx 0.84$ → **significant নয়**। অর্থাৎ GPT-4.1-এর পতন contamination-এর প্রমাণ হিসেবে দুর্বল; subset-এর আকার জানা থাকলে এটা নিশ্চিত করা যেত।
 
 **Worked example ৩ (আমার হিসাব, Appendix F-এর file-count ফল):** DeepSeek-V3-0324: 1 file 28.6% ± 0.8 (n = 201) বনাম ≥3 file 17.5% ± 2.2 (n = 64)। শুধু ± দিয়ে: $z = 11.1/\sqrt{0.64 + 4.84} = 11.1/2.34 \approx 4.7$। Task-sampling যোগ করলে: $\sqrt{0.286 \times 0.714/201} \approx 3.19$ pp, $\sqrt{0.175 \times 0.825/64} \approx 4.75$ pp; পার্থক্যের SE $\approx 5.72$ pp; $z \approx 1.94$ — সীমারেখায় (p ≈ 0.05)। (Paper ± কী তা বলেনি; SEM ধরে নিয়েছি।)
+
+**সহজ কথায়:** তিনটা উদাহরণই দেখায় — কোন অনিশ্চয়তা ধরছো তার উপর নির্ভর করে একই পার্থক্য "স্পষ্ট" বা "অস্পষ্ট" দেখায়। শুধু run-noise ধরলে সব কিছু significant দেখায়, task-নমুনা ধরলে অনেকটাই নয়।
 
 ### ৬.৯ pass@k, pass^k, এবং আমার হিসাব: pass@1 ও pass@5 থেকে Flip-rate-এর Bound
 Task $i$-এ $K$ run-এর মধ্যে $c_i$টা সফল। Unbiased pass@k (Chen et al., 2021; Sub-domain 1, Paper 01, Section ৬.১০):
@@ -464,10 +573,15 @@ $$
 $$
 এখানে $K = k = 5$, তাই এটা সরলভাবে $\frac{1}{N}\sum_i \mathbb{1}[c_i \geq 1]$ — **৫টা run-এর অন্তত একটায় solve হওয়া task-এর অনুপাত** (paper formula দেয়নি; এটা স্বাভাবিক ব্যাখ্যা)।
 
+সূত্রটা কী হিসাব করে: কতগুলো task ৫টা run-এর অন্তত একটায় সমাধান হয়েছে, তার অনুপাত। উপমা: ৫টা ঢিল ছুঁড়ে অন্তত একটা লাগলেই "পারে"।
+
 Reliability-র জন্য বিপরীত metric **pass^k** (সব $k$ বার সফল):
 $$
 \text{pass}^{k} = \frac{1}{N}\sum_{i=1}^{N} \frac{\binom{c_i}{k}}{\binom{K}{k}}
 $$
+
+সূত্রটা কী হিসাব করে: কতগুলো task ৫টা run-এর সবগুলোতে সমাধান হয়েছে। উপমা: ৫টা ঢিলের সবগুলো লাগলে তবেই "ভরসা করা যায়"।
+
 Paper pass^5 দেয়নি। কিন্তু pass@1 ($\bar{r}$) আর pass@5 ($p_K$) থেকে একটা **bound** বের করা যায় (আমার derivation)। ধরি $A$ = সব $K$ run-এ solved task-এর অনুপাত ($= \text{pass}^K$), $B$ = কিছু run-এ solved কিন্তু সবগুলোতে নয় (**inconsistent / flip task**)। তাহলে $p_K = A + B$, আর প্রতিটা inconsistent task অন্তত $1/K$ অংশ run-এ solved, তাই $\bar{r} \geq A + B/K$। এই দুটো মিলিয়ে:
 $$
 B \geq \frac{p_K - \bar{r}}{1 - 1/K}, \qquad \text{pass}^{K} = A \leq \frac{K\,\bar{r} - p_K}{K - 1}
@@ -486,6 +600,8 @@ $K = 5$-এ: $B \geq (p_5 - \bar{r})/0.8$ এবং $A \leq (5\bar{r} - p_5)/4$�
 
 (শেষ কলাম = $B_{\min}/p_5$; যেমন Maverick: $19.25/27.6 \approx 69.7\%$।)
 
+**সহজ কথায়:** Model-এর যতগুলো task কখনো solve হয়, তার অনেকটাই কখনো-হয়-কখনো-হয়-না ধরনের। GPT-4.1-এ কমপক্ষে ৩৯%, Maverick-এ কমপক্ষে ৭০%। মানে গড় score দেখে বোঝা যায় না agent বারবার একই কাজ করতে পারবে কিনা।
+
 **ব্যাখ্যা:** GPT-4.1-এর যে task-গুলো অন্তত একবার solve হয়, তার **অন্তত 39%** সব run-এ solve হয় না। Llama-4-Maverick-এর ক্ষেত্রে এটা **অন্তত 70%** — authors-এর "high potential but inconsistent execution" মন্তব্যকে সংখ্যায় রূপ দেয়। এটাই আমাদের **CG4**-এর জন্য সরাসরি প্রমাণ: গড় score একটা নির্দিষ্ট task-এ agent-কে বিশ্বাস করা যায় কিনা বলে না।
 
 **আরেকটা পরীক্ষা (আমার হিসাব) — task-গুলো কি "সমান কঠিন"?** যদি সব task-এ সফলতার সম্ভাবনা একই $\bar{r}$ হতো, তাহলে pass@5 হতো $1 - (1 - \bar{r})^5$। GPT-4.1: $1 - 0.733^5 \approx 1 - 0.212 = 78.8\%$, কিন্তু বাস্তবে 39.0%। Maverick: $1 - 0.878^5 \approx 47.8\%$, বাস্তবে 27.6%। অর্থাৎ task-গুলো খুবই heterogeneous — অনেক task প্রায় কখনোই solve হয় না, কিছু প্রায় সবসময় হয়, আর একটা মাঝারি অংশ "flip" করে। Assurance layer-এর জন্য শিক্ষা: **কোন task "flip-prone" তা চিহ্নিত করতে পারলে সেখানে বাড়তি যাচাই দরকার।**
@@ -495,8 +611,14 @@ Paper বলেছে "একাধিক run চালিয়ে শুধু
 $$
 \mathbb{E}\left[\max_{j} r_j\right] \approx \bar{r} + 1.163 \cdot s, \qquad s = \text{SEM} \cdot \sqrt{K}
 $$
+
+সূত্রটা কী হিসাব করে: ৫টা run করে শুধু সেরাটা দেখালে গড়ের চেয়ে কতটা বেশি দেখায়, তার আন্দাজ।
+
 - Qwen3-235B-A22B think (Jan): $s \approx 4.05$ → ফোলানো $\approx 1.163 \times 4.05 \approx 4.7$ pp (13.7% → প্রায় 18.4%)।
 - Llama-4-Maverick (Mar–Apr): $s \approx 1.69 \times 2.236 \approx 3.78$ → $\approx 4.4$ pp।
+
+**সহজ কথায়:** ৫ বার চেষ্টা করে সেরা রেজাল্ট দেখালে প্রায় ৪–৫ pp বাড়তি দেখায়। এটা অনেক model-এর মধ্যকার পার্থক্যের চেয়েও বড়। তাই centralized ৫-run গড় ন্যায্য।
+
 - এটা Table 1-এর অনেক model-এর পারস্পরিক পার্থক্যের চেয়ে বড় — অর্থাৎ self-reported "best run" leaderboard-এর ranking উল্টে দিতে পারে। Centralized 5-run গড়ের যুক্তি এখানে।
 
 ### ৬.১১ Contamination Flag ও Rolling Window
@@ -504,6 +626,9 @@ Model $m$-এর release date $d_m$, task $x$-এর creation date $\tau(x)$:
 $$
 \text{flag}(m, x) = \mathbb{1}\left[\, \tau(x) < d_m \,\right], \qquad B_m = \{\, x \in B \;:\; \tau(x) \geq d_m \,\}
 $$
+
+সূত্রগুলো কী হিসাব করে: task যদি model-এর release-এর আগের হয় তাহলে flag ১ (সন্দেহজনক), নাহলে ০ (পরিষ্কার)। $B_m$ = ওই model-এর জন্য শুধু পরিষ্কার task।
+
 Leaderboard-এ যদি কোনো model-এর evaluation-এ flag = 1 এমন task থাকে, সেটা চিহ্নিত। $B_m$ = model $m$-এর জন্য "পরিষ্কার" task — প্রতিটা model-এর জন্য আলাদা, তাই **সব model-কে একই পরিষ্কার set-এ তুলনা করতে হলে সব $B_m$-এর intersection ($B_{m_1} \cap B_{m_2} \cap \ldots$), অর্থাৎ সবচেয়ে নতুন model-এর তারিখের পরের task নিতে হয়** (আমার পর্যবেক্ষণ — এটা fairness আর sample size-এর মধ্যে একটা trade-off)।
 
 ### ৬.১২ আমার হিসাব: Verified বনাম SWE-rebench — Gap, Ratio, Rank Correlation
@@ -521,6 +646,10 @@ $$
 | LLaMA-4-Scout-Instruct | 8.8 | 5.3 | 3.5 | 0.60 |
 | Qwen2.5-Coder-32B-Instruct | 4.9 | 3.2 | 1.7 | 0.65 |
 
+সূত্রগুলো কী হিসাব করে: $\Delta_m$ = Verified-এর score থেকে rebench-এর score বিয়োগ (কত পয়েন্ট পড়েছে)। $\rho_m$ = rebench-এর score কে Verified দিয়ে ভাগ (কত অংশ ধরে রাখলো)।
+
+**সহজ কথায়:** সব model-ই কমেছে। কিন্তু DeepSeek-V3-0324 সবচেয়ে বেশি কমেছে (মাত্র ৫৪% ধরে রেখেছে)। এটাই সন্দেহের মূল ভিত্তি।
+
 - **সব** model-এর score কমেছে; গড় $\rho \approx 4.618/7 \approx 0.66$। তাই absolute পতন একা contamination প্রমাণ করে না — SWE-rebench-এর task automated (কিছু অস্পষ্ট বা ত্রুটিপূর্ণ task থাকতে পারে; authors নিজেরাই "lower absolute success rates" আশা করেছেন), আর Verified মানুষ দিয়ে ছাঁকা।
 - **আপেক্ষিক** পতন সবচেয়ে বেশি DeepSeek-V3-0324-এর ($\rho = 0.54$, গড়ের চেয়ে প্রায় 12 percentage point কম ধরে রাখা)। এটাই paper-এর contamination যুক্তির শক্ত অংশ: Verified-এ দুই DeepSeek version-এর পার্থক্য 4.5 pp (39.7 বনাম 35.2), কিন্তু তাজা task-এ প্রায় শূন্য (21.3 বনাম 21.9)।
 - Verified-এ দুই DeepSeek-এর পার্থক্যের run-only $z$: $4.5/\sqrt{0.35^2 + 0.52^2} = 4.5/0.627 \approx 7.2$; rebench-এ $-0.6/\sqrt{0.98^2 + 1.44^2} = -0.6/1.74 \approx -0.34$ (আমার হিসাব)। একই task-এ দুই model, তাই paired comparison-এ task-sampling-এর প্রভাব কম — এই অংশটা তুলনামূলক শক্ত প্রমাণ।
@@ -528,6 +657,9 @@ $$
 $$
 \rho_s = 1 - \frac{6\sum d_i^{2}}{n(n^{2} - 1)} = 1 - \frac{6 \times 4}{7 \times 48} = 1 - \frac{24}{336} \approx 0.93
 $$
+
+সূত্রটা কী হিসাব করে: Spearman দুই তালিকার ক্রম কতটা মেলে তা মাপে। ১ মানে হুবহু মেলে, ০ মানে কোনো মিল নেই।
+
   অর্থাৎ **ranking প্রায় একই**; শুধু দুটো পাশাপাশি জোড়া জায়গা বদল করেছে। Contamination absolute score ফোলাতে পারে, কিন্তু এই 7টা model-এর আপেক্ষিক ক্রম বেশিরভাগ টিকে আছে।
 
 ### ৬.১৩ আমার হিসাব: Temporal তুলনায় Difference-in-Differences (Table 1)
@@ -549,6 +681,8 @@ Mar–Apr বিয়োগ Jan (pp):
 | gemma-3-27b-it∗ | 4.3 | 4.8 | +0.5 |
 | Qwen2.5-Coder-32B-Instruct | 2.7 | 3.2 | +0.5 |
 
+**সহজ কথায়:** মাস ভিত্তিক তুলনায় বেশিরভাগ model-এর score প্রায় এক থাকে। শুধু GPT-4.1 স্পষ্টভাবে কমেছে (−4.4)। আর কিছু model সামান্য বেড়েছে, যা বলে Mar–Apr-এর task হয়তো একটু সহজ।
+
 যে চারটা model-এ ∗ নেই (DeepSeek-V3-1226, Qwen2.5-72B, Llama-3.3-70B, Qwen2.5-Coder-32B) — Table 2-এর বর্ণনা অনুযায়ী এগুলো "2024 বা 2025-এর শুরুতে" release; DeepSeek-V3-1226-এর নামেই December আছে, আর বাকি তিনটা 2024-এর model বলে আমার জানা (paper নিজে exact release date দেয়নি)। তাহলে তাদের জন্য **দুটো subset-ই পরিষ্কার** (দুটোই release-এর পরে)। তাদের গড় পরিবর্তন:
 $$
 \bar{\Delta}_{\text{clean}} = \frac{2.8 + 1.1 + 3.0 + 0.5}{4} = 1.85 \text{ pp}
@@ -557,6 +691,9 @@ $$
 $$
 \text{DiD} = (-4.4) - 1.85 = -6.25 \text{ pp}
 $$
+
+সূত্রটা কী হিসাব করে: সন্দেহভাজন model-এর পরিবর্তন থেকে নিরাপদ model-গুলোর গড় পরিবর্তন বাদ দেয়। যে পতনটা বাকি থাকে, সেটাই "অতিরিক্ত" পতন, যা contamination-এর ইঙ্গিত হতে পারে।
+
 **ব্যাখ্যা:** subset-এর কঠিনতার পার্থক্য বাদ দিলে GPT-4.1-এর "অতিরিক্ত" পতন প্রায় 6 pp — paper-এর পর্যবেক্ষণ (GPT-4.1-ই একমাত্র model যার স্পষ্ট পতন) এতে আরও শক্ত হয়। **কিন্তু সতর্কতা:** (১) control group মাত্র 4টা model; (২) subset-এর আকার অজানা (Section ৬.৮-এর worked example ২); (৩) GPT-4.1-এর release (2025-04-14) Mar–Apr window-এর ভেতরে, তাই Mar–Apr-এর কিছু task-ও release-এর আগের; (৪) GPT-4.1-এর আসল training cutoff যদি January 2025-এর আগে হয়, তাহলে Jan task-ও training-এ থাকার কথা নয় — তখন পতনের কারণ অন্য কিছু (যেমন subset-specific task mix)। Paper নিজেও কারণ দাবি করেনি, শুধু পর্যবেক্ষণ বলেছে।
 
 ### ৬.১৪ Quality Classifier Metric ও Majority Baseline (Table 4)
@@ -564,6 +701,9 @@ Class $c$-এর জন্য precision, recall, F1 (Sub-domain 2, Paper 03, Sec
 $$
 F1_{\text{weighted}} = \sum_{c} \frac{n_c}{n}\, F1_c, \qquad F1_{\text{macro}} = \frac{1}{|C|}\sum_{c} F1_c
 $$
+
+সূত্রগুলো কী হিসাব করে: F1 হলো precision (যা ধরেছে তার কতটা ঠিক) আর recall (যা ধরার কথা তার কতটা ধরেছে) মিলিয়ে একটা নম্বর। Weighted মানে বড় class-কে বেশি ওজন, macro মানে সব class সমান ওজন। Majority baseline মানে "সবসময় বড় class বলা" classifier কত accuracy পায়।
+
 **Worked example (আমার হিসাব, Task Complexity, fine-tuned):** low-score F1 = 0.87 ($n = 313$), high-score F1 = 0.65 ($n = 100$):
 $$
 F1_{\text{weighted}} = \frac{313 \times 0.87 + 100 \times 0.65}{413} = \frac{272.31 + 65}{413} \approx 0.817
@@ -579,6 +719,8 @@ $$
 | Test Patch Correctness | 233/413 = 56.4% | 60% | 67% | 0.64 |
 | Task Complexity | 313/413 = 75.8% | 68% | 81% | 0.78 |
 | Issue Clarity | 329/413 = 79.7% | 80% | 79% | 0.57 |
+
+**সহজ কথায়:** ক্লাসে ৮০ জন ভালো ছাত্র আর ২০ জন দুর্বল হলে "সবাই ভালো" বললেও ৮০% ঠিক হয়। Issue Clarity classifier ঠিক সেটাই করছে, তাই তার ৭৯% accuracy বিশেষ কিছু নয়।
 
 **গুরুত্বপূর্ণ পর্যবেক্ষণ (আমার):** Issue Clarity-তে fine-tuned model-এর accuracy (79%) **"সবসময় পরিষ্কার বলো" baseline-এর (79.7%) চেয়েও কম**, আর vanilla-র (80%) চেয়েও কম। High-score (সমস্যাযুক্ত) class-এর recall মাত্র 0.20 — অর্থাৎ (আমার হিসাবে confusion matrix পুনর্গঠন) 84টা অস্পষ্ট issue-এর মধ্যে মাত্র প্রায় 17টা ধরা পড়ে, প্রায় 67টা "পরিষ্কার" বলে পার পেয়ে যায়। Test Patch Correctness-এ high-score recall 0.42 — সমস্যাযুক্ত test-এর অর্ধেকের বেশি ধরা পড়ে না। শুধু Task Complexity-তে fine-tuning সত্যিকারের উন্নতি দিয়েছে।
 
@@ -603,6 +745,8 @@ $$
 | **Quality classifier** | Qwen2.5-72B-Instruct fine-tuned; >3,800 example; 75/25 split; 413 validation |
 | **Install study** | SWE-bench-এর 18টা repository-র 18টা task |
 
+**সহজ কথায়:** পরীক্ষার ছক: ২১ হাজার task-এর dataset, ২৯৪ task-এর benchmark, ১৩টা model, প্রতিটা ৫ বার, একই scaffold। Metric তিনটা: resolved%, SEM, pass@5।
+
 **আমার পর্যবেক্ষণ (setup-এর অস্পষ্টতা):**
 1. Table 2-এর Verified সংখ্যাতেও SEM ও Pass@5 আছে — তাই মনে হয় authors নিজেরাই একই scaffold-এ Verified-এ 5 বার চালিয়েছেন; কিন্তু paper এটা স্পষ্ট লেখেনি।
 2. ">3,800 example" আর "75/25 split-এ 413 validation" মেলে না ($413/0.25 \approx 1{,}652$ প্রতি label)। সম্ভবত 3,800 সব label মিলিয়ে বা অন্য গণনায় — paper-এ পরিষ্কার নয়।
@@ -619,6 +763,8 @@ $$
 | Filter Tasks | 450K candidate | 150K filtered task | 33% |
 | Install & Validate | 150K task | 21K valid task | 14% |
 | Annotate | 21K task | 21K annotated task | 100% |
+
+**সহজ কথায়:** funnel-এর সবচেয়ে সরু জায়গা install আর validate। ১৫০ হাজারের মধ্যে মাত্র ২১ হাজার পার হয়েছে।
 
 Text-এর সঠিক সংখ্যা: ~4,50,000 → ~1,53,400 → **21,336** (3,468 repository)। সবচেয়ে বড় ক্ষতি install ও validate stage-এ (মাত্র 14% পার হয়)।
 
@@ -645,6 +791,8 @@ Agentless 1 candidate: 6/18 (33%); 3 candidate: 8/18 (44%); 10 candidate: 9/18 (
 | Issue Clarity | macro avg | 0.67 | 0.60 | 0.61 | 0.65 | 0.57 | 0.58 | 413 |
 | Issue Clarity | weighted avg | 0.77 | 0.80 | 0.77 | 0.75 | 0.79 | 0.76 | 413 |
 
+**সহজ কথায়:** এই বড় table-এ পড়ার সহজ নিয়ম: Task Complexity-তে fine-tuning সত্যিই কাজ করেছে। Test Patch Correctness-এ কিছুটা। Issue Clarity-তে একদমই না।
+
 **পর্যবেক্ষণ:**
 - Fine-tuning-এ সবচেয়ে বড় লাভ Test Patch Correctness-এর high-score recall-এ: 0.12 → 0.42 (vanilla প্রায় সব test-কে "ঠিক আছে" বলতো)।
 - Task Complexity-তে accuracy 0.68 → 0.81, weighted F1 0.70 → 0.82।
@@ -664,6 +812,8 @@ Agentless 1 candidate: 6/18 (33%); 3 candidate: 8/18 (44%); 10 candidate: 9/18 (
 | Difficulty Score | 1.13 | 1 | 2 | 2 |
 | Issue Text Score | 1.04 | 1 | 2 | 3 |
 | Test Score | 1.38 | 2 | 2 | 3 |
+
+**সহজ কথায়:** Dataset-এর task-এ গড়ে বেশি file বদলায় (3.46 বনাম 1.7), কিন্তু F2P test-এর মধ্যমা মাত্র ২। মানে অনেক task-এ test খুবই কম।
 
 **SWE-bench (Sub-domain 1, Paper 01, Table 1)-এর সাথে তুলনা (আমার):**
 | বিষয় | SWE-bench (2,294 task) | SWE-rebench dataset (21,336 task) |
@@ -697,6 +847,8 @@ Agentless 1 candidate: 6/18 (33%); 3 candidate: 8/18 (44%); 10 candidate: 9/18 (
 | gemma-3-27b-it∗ | 4.3 | 0.81 | 9.4 | 4.8 | 0.30 | 10.5 |
 | Qwen2.5-Coder-32B-Instruct | 2.7 | 0.57 | 7.7 | 3.2 | 0.77 | 9.5 |
 
+**সহজ কথায়:** Jan থেকে Mar–Apr-এ বেশিরভাগ model-এর score প্রায় একই। শুধু GPT-4.1 পড়েছে। আর প্রতিটা model-এর pass@5, pass@1-এর চেয়ে অনেক বেশি — মানে ৫ বারের কোনোটা-না-কোনোটায় অনেক task পারে, কিন্তু বারবার না।
+
 (মূল PDF-এর text extraction-এ table-এর column এলোমেলো হয়েছিল; সংখ্যাগুলো `pdftotext -raw` দিয়ে আবার যাচাই করা।)
 
 ### ৮.৬ Verified বনাম SWE-rebench — সম্পূর্ণ Table 2
@@ -710,6 +862,8 @@ Agentless 1 candidate: 6/18 (33%); 3 candidate: 8/18 (44%); 10 candidate: 9/18 (
 | Qwen2.5-72B-Instruct | 11.3 | 0.35 | 27.8 | 9.3 | 1.26 | 19.0 |
 | LLaMA-4-Scout-Instruct | 8.8 | 0.48 | 22.2 | 5.3 | 0.38 | 14.3 |
 | Qwen2.5-Coder-32B-Instruct | 4.9 | 0.46 | 16.0 | 3.2 | 0.77 | 9.5 |
+
+**সহজ কথায়:** সব সাতটা model-এরই score তাজা task-এ কম। এই পতন কতটা contamination-এর, আর কতটা তাজা task-এর অস্পষ্টতার, তা আলাদা করা কঠিন।
 
 Table 2-এর rebench কলাম Table 1-এর Mar–Apr কলামের সাথে হুবহু মেলে (আমি মিলিয়ে দেখেছি)। Gap/ratio বিশ্লেষণ Section ৬.১২-এ।
 
@@ -738,6 +892,8 @@ DeepSeek-V3-0324, leaderboard task (January–July 2025):
 | 1 file | 28.6% ± 0.8% | 201 |
 | 2 files | 20.6% ± 0.4% | 144 |
 | ≥ 3 files | 17.5% ± 2.2% | 64 |
+
+**সহজ কথায়:** যত বেশি file বদলাতে হয়, agent তত কম পারে। কিন্তু সবসময় নয়, তাই file-এর সংখ্যা কঠিনতার মোটামুটি আন্দাজ মাত্র।
 
 Authors: file বাড়লে performance কমে — file count একটা "coarse" difficulty proxy, তবে LLM-এর direct quality assessment ভালো। (আমার statistical যাচাই Section ৬.৮-এর worked example ৩-এ — task-sampling ধরলে 1 বনাম ≥3-এর পার্থক্য সীমারেখায়।)
 
@@ -777,6 +933,8 @@ Authors: file বাড়লে performance কমে — file count একট�
 | RL training-এর উপযোগী | না | Train split আছে কিন্তু environment ছাড়া (Sub-domain 1, Paper 01) | হ্যাঁ, ছোট | **হ্যাঁ, বড় scale-এ executable environment সহ** |
 | Quality metadata | না | Verified-এ মানুষের | — | **LLM-predicted 3টা label** |
 | Reproducibility | — | Docker harness | — | **Frozen dependency, container image, internal mirror** |
+
+**সহজ কথায়:** এই table-এ SWE-rebench অন্যদের থেকে আলাদা তিন জায়গায়: সম্পূর্ণ automatic, বিশাল (২১ হাজার task), আর তারিখ মিলিয়ে contamination চিহ্নিত করে।
 
 **মূল শক্তি:**
 1. **Scale + automation:** মানুষের bottleneck ছাড়া নতুন task নিয়মিত।
@@ -862,6 +1020,8 @@ Authors: file বাড়লে performance কমে — file count একট�
 | CG9 | APCA-কে Python repository-level agent patch-এ নেওয়া | সরাসরি নয়; কিন্তু 21K Python repo-level executable task = APCA-র জন্য বড় testbed | **সুযোগ তৈরি করে** |
 | CG10 | Assurance tool-এর নিজের evaluation validity | Task creation date দেওয়া; temporal split সহজ | **সমাধানের হাতিয়ার দেয়** |
 
+**সহজ কথায়:** SWE-rebench আমাদের পুরনো gap-গুলোর মধ্যে CG6 অনেকটা মেটায়, CG4 ও CG8 আংশিক। কিন্তু CG1 (সঠিকতা), CG3, CG5, CG7 সম্পূর্ণ খোলা। আর CG9, CG10-এর জন্য একটা ভালো testbed দেয়।
+
 ### ১৩.২ আমাদের Assurance Layer কি SWE-rebench-এ evaluate করা যায়? (CG10)
 **হ্যাঁ — এবং এটাই সম্ভবত সবচেয়ে বাস্তবসম্মত পথ (আমার প্রস্তাব):**
 1. **Leakage-মুক্ত task বাছাই:** আমাদের judge-LLM (যেমন RePaCA-ধরনের reasoning model) আর patch-generating agent-এর knowledge cutoff / release date-এর **পরে** তৈরি task নেওয়া ($B_m$, Section ৬.১১)। তাহলে judge-ও gold patch দেখেনি, agent-ও না।
@@ -886,6 +1046,8 @@ Authors: file বাড়লে performance কমে — file count একট�
 | G8 | **Scaffold-robust evaluation** — একাধিক scaffold-এ model ranking কতটা স্থির | Single-scaffold ranking-এর construct validity | AI Coding Agents (SWE-agent, Agentless) |
 | G9 | **Confidence ও abstention** — agent কখন "নিশ্চিত নই" বলবে | Flip-prone task-এ abstain করলে ভুল patch কমে | Trustworthy AI for Software Engineering |
 | G10 | **Python-এর বাইরে ও কঠিন task** | Benchmark ≤3 file, সহজ দিকে; শুধু Python | Coding-Agent Evaluation & Reliability (SWE-Bench Pro) |
+
+**সহজ কথায়:** এই gap table-টা বলে — আমরা কোন কোন প্রশ্নের উত্তর এখনো জানি না, আর সেগুলো আমাদের অন্য sub-domain-এ কোথায় পড়তে হবে। এর মধ্যে G1 (decontaminated task-এ patch কত ভুল) সবচেয়ে মূল্যবান।
 
 ### ১৩.৪ প্রস্তাবিত নতুন Common Gap (Sub-domain 3 Summary-তে চূড়ান্ত হবে)
 - **CG11 (প্রস্তাব): Automated benchmark-এর label noise ও তার evaluation-এ প্রভাব** — LLM-labeled task quality (Issue Clarity accuracy majority baseline-এর সমান) কীভাবে score ও contamination সিদ্ধান্তকে বিকৃত করে। এটা CG6-এর অংশ হিসেবেও রাখা যায় — Sub-domain 3-এর বাকি দুটো paper পড়ে ঠিক করবো।
@@ -918,6 +1080,8 @@ Authors: file বাড়লে performance কমে — file count একট�
 | **C. Reliability metrics from multi-run data:** pass^k bound, flip rate, flip-prone task predictor (G2, CG4) | ✅ হ্যাঁ — নিজের ছোট run বা public data থাকলে প্রায় শূন্য খরচ | মাঝারি-উচ্চ | ⭐⭐⭐⭐ |
 | **D. LLM task-label audit:** 100টা task হাতে label করে SWE-rebench label-এর accuracy (G3, CG11) | ✅ হ্যাঁ — শুধু মানুষের সময় লাগে | মাঝারি | ⭐⭐⭐ (workshop/short paper) |
 | E. নতুন language-এ pipeline | ⚠️ কঠিন — অনেক infrastructure | মাঝারি | ⭐⭐ |
+
+**সহজ কথায়:** সবচেয়ে ভালো পথ হলো A + B + C একসাথে। অর্থাৎ তাজা task নাও, agent-কে ৩–৫ বার চালাও, আর দেখো resolved patch আসলে কতটা ঠিক। সেই সাথে আমাদের assurance layer ভুল patch ধরতে পারে কিনা যাচাই করো।
 
 **সবচেয়ে সম্ভাবনাময় নির্দিষ্ট প্রশ্ন (আমার মত):**
 > "Contamination-মুক্ত, তাজা SWE task-এ AI agent-এর 'resolved' patch-এর কত অংশ আসলে সঠিক, আর static reasoning judge + dynamic test signal মিলিয়ে একটা assurance layer কি সেগুলোকে নির্ভরযোগ্যভাবে আলাদা করতে পারে — run-to-run consistency-কে একটা অতিরিক্ত signal হিসেবে ব্যবহার করে?"
@@ -1067,6 +1231,8 @@ A: হ্যাঁ — Qwen3 think বনাম no-think "প্রায় এ
 | SWE-bench Verified-এর অবস্থা | DeepSeek-V3-0324: Verified 39.7% বনাম rebench 21.3% | Vals.ai-তে Opus 5 97.0%, তারপর saturation-এর কারণে archived (স্বাধীনভাবে মাপা); OpenAI Feb 2026-এ Verified বাদ দিয়েছে "increasingly contaminated" বলে (OpenAI page fetcher-এ 403, search snippet থেকে) | §2, §3 |
 | Leaderboard-এর সংখ্যা নিয়ে বিরোধ | — | BenchLM বলছে "Opus 4.6 leads at 65.3%" — সম্ভবত অন্য window (search-snippet only) | §2 |
 
+**সহজ কথায়:** ২০২৫ থেকে ২০২৬-এ সেরা score ২৭–৩১% থেকে প্রায় ৬৪%-এ উঠেছে। open model অনেক কাছাকাছি এসেছে। আর শীর্ষ ৫টা model মাত্র ২.২ pp-এর মধ্যে, মানে ranking-এর উপর ভরসা করা কঠিন।
+
 **আমার হিসাব — paper-এর Section ৬.১২-এর ratio আজকের সংখ্যায়:** একই model-এর Verified (Vals) আর SWE-rebench score দুটোই fact sheet-এ আছে মাত্র দুটো model-এর:
 - Opus 5: $\rho = 63.4/97.0 \approx 0.65$, ফাঁক 33.6 pp।
 - GPT-5.6 Sol: $\rho = 62.3/96.2 \approx 0.65$, ফাঁক 33.9 pp।
@@ -1080,6 +1246,8 @@ Paper-এ 7টা open model-এর গড় $\rho \approx 0.66$ ছিল। �
 | Fable 5 [high] (2026 window) | 64.5 | 78.4 | 17.4% | 61.0% | 22.2% |
 | GLM-5.2 (2026 window) | 62.9 | 81.1 | 22.8% | 58.4% | 28.1% |
 | তুলনা: gpt-4.1 (2025, Mar–Apr) | 26.7 | 39.0 | 15.4% | 23.6% | 39.4% |
+
+**সহজ কথায়:** Model ভালো হয়েছে, কিন্তু যে task-গুলো কখনো পারে কখনো পারে না, সেগুলো কমেনি, বরং মোটের উপর বেড়েছে। reliability নিজে থেকে আসে না।
 
 **আমার পর্যবেক্ষণ:** solved task-এর মধ্যে inconsistent অংশ কমেছে (39% থেকে 22–28%), কিন্তু **মোট task-এর মধ্যে flip করা task-এর অংশ কমেনি, বরং বেড়েছে** (অন্তত 15.4% থেকে অন্তত 17–23%)। Model শক্তিশালী হয়েছে, কিন্তু "একই task-এ বারবার একই ফল" — এই reliability আপনা থেকে আসেনি।
 
@@ -1124,6 +1292,8 @@ Paper-এ 7টা open model-এর গড় $\rho \approx 0.66$ ছিল। �
 | CG11 — verifier health | **খোলা** | SWE-Bench Pro-র test-এর সাথে LLM-judge disagreement 32.4% বনাম DeepSWE-এর 1.4% (স্বাধীন); SWE-rebench-এর verifier-এর এমন মাপ নেই |
 | CG12 — verifier gaming | **খোলা, সরাসরি প্রমাণসহ** | METR: 8 ঘন্টার বেশি task-এ সফল run-এর অন্তত 16% অবৈধ (স্বাধীন, আগের প্রজন্ম); GLM-5.2 anti-hacking safeguard দিলে 78.80% থেকে 57.32% (স্বাধীন) |
 
+**সহজ কথায়:** ২০২৫-এর paper-এর কোন সিদ্ধান্ত ২০২৬-এও টেকে, আর কোনটা পুরনো হয়ে গেছে, তার তালিকা এই table। যেগুলো "খোলা" লেখা, সেগুলোই আমাদের SPL3-র সুযোগ।
+
 ### ২১.৪ বর্তমান Model দিয়ে আবার পরীক্ষা করলে — SPL3 Idea
 
 | Idea | কী করবো | খরচের ধারণা (আমার হিসাব) | কোন নতুন gap দেখাবে |
@@ -1133,6 +1303,8 @@ Paper-এ 7টা open model-এর গড় $\rho \approx 0.66$ ছিল। �
 | C. Runtime leakage audit | 30–50টা SWE-rebench task container-এ চারটা channel (local file, `.git` history, network, metadata) পরীক্ষা | API খরচ শূন্য, শুধু Docker-এর সময় | Temporal decontamination কি runtime-এ ভেঙে যায় (CG10, CG12) |
 | D. Fresh-task overfitting audit | A-এর resolved patch-এ gold patch-এর সাথে differential test, আর 20টা হাতে review | ছোট; মূলত মানুষের সময় | PatchDiff-ধরনের হার 2026-এর agent-এ (G1, CG1) |
 | E. Verified-বনাম-fresh ratio, open-weight model | একটা সস্তা open-weight model একই scaffold-এ 50 Verified + 50 fresh task-এ | Vals-এ DeepSeek V4 Pro Verified-এ ≈ 0.10 USD/test; 100 task-এ মোটামুটি 10–20 USD | 2026-এর model-এ paper-এর $\rho$, এবার একই harness-এ (G5) |
+
+**সহজ কথায়:** পাঁচটা idea-র মধ্যে B (pass^5 ও flip rate) সবচেয়ে সস্তা, কারণ আলাদা খরচ লাগে না। A আর D মিলে আসল পরীক্ষা। C করলে "decontaminated" দাবিটা সম্পূর্ণ হয়।
 
 **আমার পর্যবেক্ষণ:** A + B + D একসাথে Section ১৫-এর "সবচেয়ে সম্ভাবনাময় প্রশ্ন"-এরই 2026 সংস্করণ — শুধু task-এর তারিখ এখন 2026-09-22-এর পরে রাখতে হবে, আর C না করলে "decontaminated" দাবিটা অসম্পূর্ণ থাকবে।
 

@@ -23,9 +23,62 @@
 
 ---
 
+## ★ সহজ ভাষায় পুরো Paper (প্রথমবার পড়ার জন্য)
+
+### ক. Paper-টা কী নিয়ে?
+- এটা একটা **নতুন tool-এর paper**। Tool-টার নাম AutoCodeRover।
+- বানিয়েছেন Singapore-এর National University of Singapore (NUS)-এর চারজন গবেষক। ISSTA 2024 conference-এ ছাপা হয়েছে।
+- Tool-টা একটা AI (LLM) agent। তুমি GitHub-এ একটা issue (bug বা নতুন feature-এর অনুরোধ) দিলে, সে নিজে code পড়ে সমাধান লিখে দেয়।
+- Paper-এ tool বানানোর পদ্ধতি আছে, আর SWE-bench Lite নামের একটা পরীক্ষায় তার ফলাফল আছে।
+- সবচেয়ে মজার অংশ: তারা নিজেরা হাতে দেখেছে যে test pass করা patch-গুলোর মধ্যে কতগুলো আসলে ঠিক।
+
+### খ. সমস্যাটা কী ছিল?
+- ধরো, একটা বড় project-এ হাজার হাজার file আছে। কেউ লিখল, "এই form-এ ভুল choice দিলে error message-এ choice-টা দেখাচ্ছে না।"
+- Developer-কে প্রথমে খুঁজে বের করতে হয় কোন file-এর কোন function-এ এই কাজটা হয়। এটা খড়ের গাদায় সুই খোঁজার মতো।
+- তখনকার AI agent-রা পুরো codebase-কে শুধু file-এর গাদা ভাবত। আবার খরচও ছিল বেশি। SWE-agent প্রতি issue-তে প্রায় 2.51 USD খরচ করত।
+- আরেকটা সমস্যা: অনেক tool বলত "আমি এত % issue solve করেছি"। কিন্তু সেই patch আসলেই ঠিক কিনা, কেউ দেখত না। Test pass করা আর সত্যি ঠিক হওয়া এক কথা নয়।
+- উদাহরণ: Django-র একটা issue-তে ভুল value error message-এ দেখানোর কথা ছিল। AI একটা বদল করে test pass করিয়ে দিল, কিন্তু অন্য একই ধরনের জায়গা ঠিক করল না। Test খুশি, কিন্তু কাজ অর্ধেক।
+
+### গ. Paper কী solve করেছে?
+- AI-কে code খুঁজতে শেখানোর নতুন উপায় বানিয়েছে। AI এখন code-কে class আর method-এর কাঠামো হিসেবে দেখে, শুধু file হিসেবে নয়।
+- Tool-টা ধাপে ধাপে search করে। এতে কম code পড়েই সঠিক জায়গা পাওয়া যায়, তাই খরচ কমে।
+- Test থাকলে সেই test থেকে "কোন method বেশি সন্দেহজনক" তার তালিকা বানিয়ে AI-কে সাহায্য করে।
+- Tool-এর patch আসলে কতটা ঠিক, সেটা হাতে যাচাই করে সৎভাবে report করেছে।
+- মূল সংখ্যা ১: SWE-bench Lite-এ 19% issue solve করেছে, SWE-agent করেছে 18%। মানে ১০০টার মধ্যে ১৯টা, প্রায় সমান।
+- মূল সংখ্যা ২: প্রতি issue-তে খরচ 0.43 USD, SWE-agent-এর 2.51 USD। মানে প্রায় ছয় ভাগের এক ভাগ খরচ।
+- মূল সংখ্যা ৩: test pass করা 78টা patch-এর মধ্যে ঠিক ছিল মাত্র 51টা (65.4%)। মানে প্রতি তিনটার একটা patch "pass করেছে, কিন্তু আসলে ভুল"।
+
+### ঘ. কীভাবে solve করেছে?
+1. **Code-কে গাছের মতো সাজায়:** পুরো project-কে AST (code-এর গাছ-আকৃতির নকশা: class → method → statement) বানিয়ে নেয়। এতে "এই class-এর এই method কোথায়?" প্রশ্নের নির্ভুল উত্তর মেলে।
+2. **AI-কে ৭টা search tool দেয়:** যেমন `search_class`, `search_method_in_class`। AI এগুলো নাম ধরে ডাকতে পারে, ঠিক যেমন তুমি library-র কাছে বই চাও।
+3. **Issue পড়ে hint বের করে:** Issue-তে user প্রায়ই class বা method-এর নাম লিখে ফেলে। AI সেই নাম ধরে প্রথম search করে।
+4. **ধাপে ধাপে search করে (stratified search):** প্রতিবার শুধু দরকারি কয়েকটা search চালায়। ফল দেখে নতুন নাম পেলে পরের ধাপে সেটা খোঁজে। যথেষ্ট জানা হলে থামে।
+5. **Bug-এর জায়গা ঠিক করে:** শেষে AI বলে "bug এই file-এর এই method-এ।"
+6. **আলাদা agent patch লেখে:** আরেকটা AI সেই জায়গার code দেখে নির্দিষ্ট format-এ patch লেখে।
+7. **নিজে যাচাই করে:** Patch ঠিকমতো apply হয় কিনা, syntax ভুল আছে কিনা দেখে। ভুল থাকলে সর্বোচ্চ ৩ বার আবার লেখে।
+8. **Test থাকলে বাড়তি সাহায্য নেয় (SBFL):** কোন method fail করা test-এ বেশি চলেছে তা গুনে top-5 সন্দেহজনক method AI-কে hint হিসেবে দেয়।
+
+### ঙ. এরপর কী করা যায়?
+- Authors-এর কথা: Issue থেকে নিজে নিজে "bug দেখানো test" বানানো, যাতে test না থাকলেও SBFL চালানো যায়।
+- Authors-এর কথা: Call graph (কে কাকে ডাকে তার নকশা), data dependence-এর মতো আরও program analysis জুড়ে search আরও ভালো করা।
+- এখনো খোলা প্রশ্ন: Test pass করা patch ঠিক না ভুল, তা নিজে নিজে ধরার উপায় কী? ম্যানুয়ালি দেখা তো বড় scale-এ সম্ভব নয়।
+- এখনো খোলা প্রশ্ন: AI কখন বুঝবে সে ভুল জায়গায় আছে? এখন সে "পারবো না" বলতে জানে না।
+- আমরা SPL3-তে করতে পারি: ছোট একটা mini-ACR বানিয়ে তার উপর একটা assurance layer বসানো, যেটা প্রতিটা patch-কে correct বা overfitting বলে চিহ্নিত করে।
+- আমরা আরও করতে পারি: একই task ৩ বার চালিয়ে consistency মাপা, আর patch-এর security scan করা।
+
+> **মনে রাখো:**
+> AutoCodeRover code-কে file-এর গাদা না ভেবে class-method কাঠামো হিসেবে খোঁজে, তাই কম খরচে SWE-agent-এর সমান ফল পায়।
+> কিন্তু test pass করা মানেই ঠিক হওয়া নয়: 78টার মধ্যে মাত্র 51টা (65.4%) আসলে ঠিক ছিল। এটাই আমাদের assurance research-এর মূল কারণ।
+> তিনবার চালালে 19% থেকে 26% হয়, মানে AI-এর ফল প্রতিবার একরকম হয় না। এটাও reliability-র সমস্যা।
+
+---
+
+
 ## ১. এক লাইনে Paper (TL;DR)
 
 **AutoCodeRover হলো একটা দুই-ধাপের LLM agent: প্রথম ধাপে LLM codebase-এর AST-এর উপর class/method/code search API ডেকে ধাপে ধাপে (stratified, iterative) প্রাসঙ্গিক code খুঁজে bug-এর জায়গা ঠিক করে; দ্বিতীয় ধাপে আরেকটা LLM agent সেই জায়গায় patch লেখে এবং patch apply না হলে আবার চেষ্টা করে। Test থাকলে SBFL (spectrum-based fault localization) দিয়ে আরও ভালো জায়গা দেখায়। GPT-4 দিয়ে SWE-bench Lite-এ 19% (pass@1) resolve করে, প্রতি task-এ গড়ে মাত্র 0.43 USD খরচে।**
+
+**সহজ কথায়:** AutoCodeRover একটা AI সহকারী। সে আগে code-এর কাঠামো ধরে ধাপে ধাপে bug-এর জায়গা খোঁজে। তারপর আরেকটা AI সেখানে সমাধান লেখে। AST মানে code-এর গাছ-আকৃতির নকশা। SBFL মানে test-এর ফল দেখে সন্দেহজনক জায়গা বাছা। pass@1 মানে প্রথম চেষ্টায় সফল হওয়ার হার।
 
 ### Supervisor-কে ৩০ সেকেন্ডে কীভাবে বলবো
 > "Sir, SWE-bench (Paper 01) দেখিয়েছিল যে LLM-এর মূল সমস্যা হলো বড় codebase-এ bug-এর জায়গা খুঁজে পাওয়া। SWE-agent (Paper 02) LLM-কে shell-এর মতো file command দিয়ে সমাধান করতে চেয়েছে। AutoCodeRover বলছে — codebase-কে শুধু file-এর গাদা না ভেবে program structure (AST: class, method) হিসেবে দেখো। এরা LLM-কে ৭টা search API দিয়েছে (যেমন `search_class`, `search_method_in_class`), LLM ধাপে ধাপে search করে context জোগাড় করে, তারপর আলাদা agent patch লেখে। Test-suite থাকলে SBFL দিয়ে suspicious method দেখানো হয়। ফলাফল: SWE-bench Lite-এ 19% (SWE-agent 18%), কিন্তু খরচ 0.43 USD বনাম 2.51 USD — প্রায় ছয় গুণ সস্তা। সবচেয়ে গুরুত্বপূর্ণ — তারা নিজেরা manually দেখেছে যে test pass করা 78টা patch-এর মধ্যে মাত্র 51টা (65.4%) আসলে সঠিক। অর্থাৎ 'resolved' মানেই 'correct' নয় — এটা আমাদের assurance research-এর মূল motivation।"
@@ -60,6 +113,8 @@ class ModelChoiceField(ChoiceField):      # ClassDef node
 - **Class signature:** class-এর নাম, parent class, আর ভেতরের method-গুলোর শুধু নাম/parameter (body ছাড়া)। লম্বা class-এর পুরোটা না দিয়ে signature দিলে context ছোট থাকে।
 - Python-এ built-in `ast` module দিয়ে খুব সহজে AST বানানো যায় (Section ১৬-তে কাজে লাগবে)।
 
+**সহজ কথায়:** AST হলো code-এর সূচিপত্রের মতো। ফলে "কোন class-এর ভেতরে কোন method" তা সহজে ও নির্ভুলভাবে বলা যায়।
+
 ### ২.৪ Code Search API
 - LLM নিজে hard disk-এ file খুঁজতে পারে না; তাকে কিছু **function/tool** দেওয়া হয়, যা সে নাম ও argument দিয়ে "ডাকতে" পারে। AutoCodeRover-এ এমন **৭টা API** আছে (Table 1, Section ৫.৩-এ পুরো list)।
 - **"Hints" ধারণা:** Issue-তে user প্রায়ই class/method/file-এর নাম বা ছোট code snippet লিখে দেয়। LLM এই hint-গুলো থেকে keyword বের করে API-এর argument বানায়।
@@ -86,6 +141,8 @@ Program-এর **কোথায়** bug আছে তা খুঁজে ব�
 - **Granularity:** statement-level, basic block-level, method-level। AutoCodeRover **method-level SBFL** ব্যবহার করে, কারণ LLM লম্বা code snippet পড়তে পারে।
 - **দুর্বলতা:** SBFL-এর accuracy test-suite-এর quality-র উপর অনেক নির্ভর করে। দরকার অন্তত একটা failing test।
 
+**সহজ কথায়:** SBFL অনেকটা গোয়েন্দার মতো। যে সন্দেহভাজন শুধু অপরাধের দিনগুলোতে উপস্থিত ছিল, তাকেই বেশি সন্দেহ করা হয়।
+
 ### ২.৯ Test-suite based APR-এর তিন ধারা
 Paper-এর Related Work (Section 2.1) অনুযায়ী:
 | ধারা | কীভাবে কাজ করে | উদাহরণ (paper-এ cited) |
@@ -95,6 +152,8 @@ Paper-এর Related Work (Section 2.1) অনুযায়ী:
 | **Learning-based** | Deep learning model-কে code-এ train করে পরের সঠিক token predict | CoCoNuT, ইত্যাদি |
 | **LLM-based APR** | LLM-কে buggy statement দিয়ে বারবার patch চাওয়া যতক্ষণ না test pass করে | — |
 - **Authors-এর critique:** LLM-based APR সাধারণত **perfect fault localization ধরে নেয়** (bug-এর line আগে থেকে জানা)। বাস্তবে বড় project-এ এটা জানাই সবচেয়ে কঠিন। আবার traditional APR-এর ভালো test-suite লাগে, যা সবসময় থাকে না, আর তারা issue-র natural language description ব্যবহার করে না। AutoCodeRover এই দুই ফাঁক পূরণ করতে চায়।
+
+**সহজ কথায়:** আগের পদ্ধতিগুলো হয় ভালো test চাইত, নয়তো bug-এর জায়গা আগে থেকেই জানা ধরে নিত। AutoCodeRover এই দুটো শর্ত ছাড়াই কাজ করতে চায়।
 
 ### ২.১০ Generate-and-Validate, Retry Loop ও Linter
 - **Generate-and-validate:** patch বানাও → যাচাই করো → fail হলে আবার বানাও।
@@ -110,6 +169,8 @@ Paper-এর Related Work (Section 2.1) অনুযায়ী:
 - **Correctness বনাম Plausibility:** SWE-bench-এর "Resolved" আসলে **plausibility** মাপে, correctness নয়। Test দুর্বল হলে overfitting patch-ও resolved হয়ে যায়।
 - **Semantically equivalent:** code হুবহু এক না হলেও আচরণ (behavior) এক। যেমন Figure 3-এ AutoCodeRover `%`-formatting দিয়ে value বসিয়েছে, developer `params={'value': value}` দিয়েছে — লেখা আলাদা, প্রভাব একই।
 - APR community-তে এটা পুরনো সমস্যা — paper Smith et al. (FSE 2015, "Is the cure worse than the disease?")-কে cite করে।
+
+**সহজ কথায়:** Plausible মানে "পরীক্ষায় পাশ"। Correct মানে "সত্যিই ঠিক উত্তর"। মুখস্থ করে পাশ করা ছাত্রের মতো overfitting patch পরীক্ষা পার হয়, কিন্তু বিষয়টা বোঝেনি।
 
 ### ২.১২ Bug Reproduction / Issue Reproducer
 Issue-র বর্ণনা থেকে এমন একটা test বানানো যেটা bug-টা ঘটিয়ে দেখায় (fail করে)। এটা পেলে SBFL চালানো ও patch যাচাই — দুটোই করা যায়। Paper এটা future work হিসেবে প্রস্তাব করেছে (*LLM Test Generation* sub-domain-এ বিস্তারিত আসবে)।
@@ -138,6 +199,8 @@ Cognition Labs-এর closed-source commercial "AI software engineer"। এর 
 5. **খরচ:** GPT-4-এর মতো model ব্যয়বহুল; SWE-agent প্রতি task-এ ~2.5 USD খরচ করছিল।
 6. **Patch-এর গুণমান report হচ্ছিল না:** Devin ও SWE-agent কতগুলো patch সত্যি সঠিক তা report করেনি (authors-এর দাবি, Section 1)।
 
+**সহজ কথায়:** সমস্যা ছিল চারটা। Bug-এর জায়গা খোঁজা কঠিন। খরচ বেশি। Test ছাড়া পুরনো পদ্ধতি চলে না। আর patch আসলে ঠিক কিনা কেউ জানাত না।
+
 ### ৩.২ কেন এটা গুরুত্বপূর্ণ?
 Developer-রা bug fix-এ অনেক সময় দেয় (paper অনুযায়ী, যে issue-গুলো ACR solve করেছে তার developer-দের গড়ে 2.68 দিন লেগেছে)। যদি একটা tool অল্প খরচে, অল্প সময়ে কিছু শতাংশ issue নিজে থেকে সমাধান করতে পারে, এবং সেই patch-গুলো **বিশ্বাসযোগ্য** হয়, তাহলে developer-এর কাজ কমে।
 
@@ -159,6 +222,8 @@ Paper-এর **explicit RQ** (Section 5):
 4. **Test-based fault localization** দিয়ে code search guide করা।
 5. Solve করা issue-গুলোর patch সত্যি **acceptable** কিনা পরীক্ষা করা (≈2/3 correct)।
 
+**সহজ কথায়:** Authors বলছেন, শুধু "কত % পারলাম" দেখালে হবে না। কম খরচে, কম সময়ে, আর সত্যিই ঠিক patch দিতে পারলে তবেই tool কাজের।
+
 ---
 
 ## ৫. Methodology — কীভাবে কাজটা করা হয়েছে
@@ -173,8 +238,10 @@ Input: problem statement $P$ (issue title + description) ও codebase $C$। (Te
 | 3 | Context retrieval | Retrieval agent | ফল analyze করে: context যথেষ্ট? না হলে ধাপ 1-এ ফেরত (পরের stratum) |
 | 4 | Context retrieval | Retrieval agent | যথেষ্ট হলে **buggy location**-এর list দেয় (file, class, method) |
 | 5 | Patch generation | Patch agent | Buggy location-এর সঠিক code আনে, আগের সব context + analysis দেখে patch লেখে |
-| 6 | Patch generation | System | Patch format ঠিক আছে? apply হয়? linter OK? না হলে "Patch cannot be applied… try again" বলে retry |
+| 6 | Patch generation | System | Patch format ঠিক আছে? apply হয়? linter OK? (linter = code না চালিয়ে syntax ভুল ধরার tool) না হলে "Patch cannot be applied… try again" বলে retry |
 | 7 | Output | System | Final patch (retry limit শেষ হলে "best patch so far") |
+
+**সহজ কথায়:** আগে code খুঁজে bug-এর জায়গা ঠিক করা, তারপর সেই জায়গায় patch লেখা, শেষে patch ঠিক আছে কিনা মেপে দেখা। এই তিন ধাপ পরপর চলে।
 
 ### ৫.২ Motivating Example: django-13933 (Figure 1, Figure 3)
 Issue: `ModelChoiceField` validation error দেওয়ার সময় ভুল choice-এর **value** দেখায় না (যেখানে `ModelMultipleChoiceField` দেখায়)। এটা "New feature" ticket।
@@ -195,6 +262,8 @@ Issue: `ModelChoiceField` validation error দেওয়ার সময় �
 | `search_code(c)` | পুরো codebase-এ code snippet `c` | Snippet-এর আগে-পরে **±3 line** |
 | `search_code_in_file(c, f)` | File `f`-এ snippet `c` | Snippet-এর ±3 line |
 
+**সহজ কথায়:** AI-এর হাতে এই ৭টা খোঁজার বোতাম আছে। কোনোটা class খোঁজে, কোনোটা method, কোনোটা একটুকরো code। Class খুঁজলে শুধু সারসংক্ষেপ (signature) আসে, যাতে লম্বা লেখা পড়তে না হয়।
+
 **Design decision ও কারণ:**
 - Class-এর জন্য পুরো body নয়, **শুধু signature** — বড় project-এ class অনেক লম্বা হয়। Authors-এর মতে, একটা নির্দিষ্ট সীমায় context কেটে ফেলার চেয়ে signature দেওয়া ভালো। Signature দেখে agent পরে দরকারি method আলাদা করে চাইতে পারে।
 - **LLM-এর সাথে interface:** API-গুলোর বর্ণনা ও expected output prompt-এ দেওয়া থাকে; LLM API-এর নাম ও argument-এর list লিখে উত্তর দেয়; system local codebase-কে AST-তে parse করে search চালায় এবং ফল LLM-কে ফেরত দেয়।
@@ -208,6 +277,8 @@ Issue: `ModelChoiceField` validation error দেওয়ার সময় �
 
 **কেন কাজ করে (paper-এর যুক্তি):** django-13230-এ শুধু `search_method("add_item")` দিয়ে শুরু করলে LLM মনে করতে পারে এটাই যথেষ্ট — অসম্পূর্ণ। আবার সব hint একসাথে search করলে বিশাল context। Stratified search "best use of context" — authors-এর ভাষায় "optimal context" (এটা authors-এর দাবি; কোনো ablation দিয়ে প্রমাণ করা হয়নি — Section ১২ দেখো)।
 
+**সহজ কথায়:** একটা মাত্র search করলে অর্ধেক তথ্য মেলে। সব search একসাথে করলে তথ্যের বন্যা হয়। তাই মাঝামাঝি পথ: প্রতি ধাপে কয়েকটা দরকারি search, ফল দেখে পরের ধাপ।
+
 ### ৫.৫ Analysis-Augmented Context Retrieval: SBFL (Section 4.4)
 - **কখন:** যদি test-suite $T$ পাওয়া যায় (developer-এর দেওয়া বা অন্য tool-এর তৈরি)।
 - **কীভাবে:** Context retrieval শুরুর **আগেই** SBFL চালিয়ে **top-5 suspicious method** বের করা হয় (method-level)। এগুলো agent-কে দেওয়া হয় এই বলে: "results from an external analysis tool that identifies suspicious code"।
@@ -215,12 +286,16 @@ Issue: `ModelChoiceField` validation error দেওয়ার সময় �
 - **Patch validation (ACR-sbfl setting):** Patch তৈরি হলে পুরো test-suite চালানো হয়; fail করলে patch agent-কে আবার ডাকা হয়। এই validation loop **৩ বার** পর্যন্ত চলে।
 - **RQ2-তে ব্যবহৃত test-suite:** SWE-bench Lite-এ দেওয়া **developer-written test case** (অর্থাৎ PR-এর test) — এটা গুরুত্বপূর্ণ, Section ১২-তে আলোচনা।
 
+**সহজ কথায়:** Test থাকলে SBFL একটা বাড়তি ইঙ্গিত দেয়। AI সেটা অন্ধভাবে মানে না, issue-র লেখার সাথে মিলিয়ে দেখে।
+
 ### ৫.৬ Patch Generation (Section 4.5)
 1. Patch agent পায়: problem statement, buggy location/method-এর list, এবং পুরো retrieval history (কোন API ডাকা হয়েছিল, কী ফল এসেছিল, retrieval agent-এর analysis)।
 2. প্রথমে buggy location-এর **সঠিক code snippet** codebase থেকে আনে।
 3. নির্দিষ্ট format-এ patch লেখে (Figure 1 Step 4-এ দেখানো: `<file>…</file>` tag-এ file ও line, আর `<patched>…</patched>` tag-এ নতুন code)।
 4. **Retry loop:** patch format না মানলে, codebase-এ syntactically apply না হলে, বা linter Python syntax সমস্যা (যেমন indentation error) পেলে — আবার চেষ্টা।
 5. **Retry limit = ৩**। তারপর "best patch so far" output।
+
+**সহজ কথায়:** Patch ভুল format-এ হলে বা apply না হলে AI আবার চেষ্টা করে। এভাবে সর্বোচ্চ ৩ বার।
 
 ### ৫.৭ Stopping / Termination
 - Retrieval loop থামে যখন LLM নিজে বলে context যথেষ্ট ও buggy location ঠিক করে।
@@ -233,6 +308,8 @@ Issue: `ModelChoiceField` validation error দেওয়ার সময় �
 |---|---|---|---|
 | Issue-only (বাস্তবসম্মত) | $P$, $C$ | Stratified search + patch retry (format/apply/lint) | ACR @1, ACR @3 |
 | Test-suite available | $P$, $C$, $T$ | উপরের সব + SBFL top-5 hint + test-based patch validation (৩ বার) | ACR-sbfl |
+
+**সহজ কথায়:** Test না থাকলে tool শুধু issue পড়ে কাজ করে। Test থাকলে SBFL-এর hint আর test দিয়ে patch যাচাই যোগ হয়।
 
 ### ৫.৯ পুরো Algorithm ধাপে ধাপে (আমার সারাংশ)
 1. Codebase-কে AST-তে parse করে class/method index তৈরি।
@@ -247,6 +324,8 @@ Issue: `ModelChoiceField` validation error দেওয়ার সময় �
 10. (ঐচ্ছিক) Test চালাও; fail হলে নতুন patch (≤3)।
 11. Patch না এলে retrieval আবার (মোট ≤10 বার); তারপর output।
 
+**সহজ কথায়:** পুরো কাজটা এক লাইনে: code-কে index করো, খোঁজো, জায়গা ঠিক করো, patch লেখো, যাচাই করো, দরকার হলে আবার চেষ্টা করো।
+
 ---
 
 ## ৬. Mathematical Formulation — সূত্র ও ব্যাখ্যা
@@ -258,6 +337,9 @@ Paper 01-এর মতো notation:
 $$
 \hat{\delta} = \text{ACR}(P,\; C) \quad \text{বা} \quad \hat{\delta} = \text{ACR}(P,\; C,\; T)
 $$
+
+**সহজ কথায়:** এই সূত্র বলছে: issue আর codebase দিলে tool একটা patch ফেরত দেয়। Test থাকলে সেটাও input-এ যোগ হয়।
+
 - $P$ = problem statement (issue title + description)
 - $C$ = buggy version-এ checkout করা codebase
 - $T$ = test-suite (শুধু ACR-sbfl setting-এ)
@@ -267,6 +349,9 @@ $$
 $$
 (K,\; L) = \mathcal{R}(P,\; C), \qquad \hat{\delta} = \mathcal{G}(P,\; K,\; L)
 $$
+
+**সহজ কথায়:** এই সূত্র দুই ধাপকে আলাদা করে দেখায়। প্রথম ধাপ (retrieval) জায়গা খুঁজে বের করে। দ্বিতীয় ধাপ (generation) সেই জায়গার জন্য patch বানায়।
+
 $\mathcal{R}$ = context retrieval agent, $K$ = জোগাড় হওয়া context (API call ও তাদের ফল), $L$ = buggy location-এর list, $\mathcal{G}$ = patch generation agent।
 
 ### ৬.২ Stratified Search-এর Formal রূপ (আমার formalization)
@@ -276,6 +361,9 @@ $$
 $$
 \text{stop at stratum } i \quad \text{যদি} \quad \text{LLM}_{\text{sufficient}}(K_i) = \text{true}
 $$
+
+**সহজ কথায়:** এই সূত্র stratified search-এর নিয়ম বলছে। প্রতিটা ধাপে LLM কিছু API call বাছে। সেগুলো চালিয়ে পাওয়া ফল আগের context-এ যোগ হয়। যতক্ষণ LLM বলে "যথেষ্ট জানি" না, ততক্ষণ চলে। নিচে symbol-এর মানে দেওয়া আছে।
+
 - $A_i$ = stratum $i$-এ LLM-এর বাছাই করা API call-এর set (একাধিক হতে পারে)
 - $\text{exec}(a, \text{AST}(C))$ = AST-এর উপর call $a$ locally চালানোর ফল
 - $\text{LLM}_{\text{sufficient}}$ = LLM-এর নিজের "context যথেষ্ট" সিদ্ধান্ত
@@ -287,6 +375,8 @@ $$
 - $A_2$ = { search_method_in_class(validate, ModelChoiceField), search_method_in_class(to_python, ModelChoiceField) } → $\text{size}(A_2) = 2$
 - $K_2$ যথেষ্ট → $L$ = { django/forms/models.py :: ModelChoiceField.to_python }
 - মোট ২টা stratum-এ ৬টা API call। (Figure 1-এর "Step 1–3" এখানে দুই round search + একটা analysis-এর সমান।)
+
+**সহজ কথায়:** Django-র উদাহরণে AI মাত্র দুই round-এ, ৬টা search দিয়ে সঠিক method পেয়ে গেছে।
 
 ### ৬.৩ SBFL Suspiciousness Score
 
@@ -308,10 +398,14 @@ $$
 \text{Ochiai}(m) = \frac{e_f(m)}{\sqrt{N_F \cdot \left(e_f(m) + e_p(m)\right)}} = \frac{e_f(m)}{\sqrt{\left(e_f(m) + n_f(m)\right) \cdot \left(e_f(m) + e_p(m)\right)}}
 $$
 
+**সহজ কথায়:** Ochiai সূত্র একটা method-এর সন্দেহের score হিসাব করে। যে method fail করা test-এ যত বেশি চলেছে, score তত বেশি। যত বেশি pass করা test-এও চলেছে, score তত কমে। সর্বোচ্চ মান 1। নিচে symbol-এর মানে আছে।
+
 **Tarantula (Jones et al., 2002 — paper-এ cited [21]):**
 $$
 \text{Tarantula}(m) = \frac{\dfrac{e_f(m)}{N_F}}{\dfrac{e_f(m)}{N_F} + \dfrac{e_p(m)}{N_P}}
 $$
+
+**সহজ কথায়:** Tarantula-ও একই কাজ করে, শুধু হিসাবের পদ্ধতি আলাদা। এটা failing test-এর কত ভাগ method-টাকে ছুঁয়েছে, আর passing test-এর কত ভাগ ছুঁয়েছে, এই দুই ভাগের তুলনা করে।
 
 **Intuition:**
 - Numerator-এ $e_f$: যত বেশি failing test method-টা ছুঁয়েছে, তত সন্দেহ।
@@ -335,13 +429,20 @@ $$
 
 Ranking: প্রথম > দ্বিতীয় > তৃতীয় > চতুর্থ। AutoCodeRover-এ এভাবে top-5 method agent-কে দেওয়া হয়। (Method-এর নাম django-13964 case study থেকে ধার করা, কিন্তু সংখ্যাগুলো কাল্পনিক।)
 
+**সহজ কথায়:** টেবিলে যে method দুটো fail করা test-এ বেশি চলেছে সেগুলোর score উপরে। যে method শুধু pass করা test-এ চলেছে তার score শূন্য, মানে তাকে সন্দেহ করার কারণ নেই।
+
 **Paper-এর আসল উদাহরণ (Figure 9, django-13964):** SBFL top-5 ছিল — (1) `DatabaseOperations.convert_uuidfield_value`, (2) `Model._do_update`, (3) `Model._prepare_related_fields_for_save`, (4) `Value._resolve_output_field`, (5) `ForeignKey.resolve_related_fields`। Agent top-1 নয়, বরং **3rd ও 5th** method search করেছে, কারণ এগুলো issue-র text-এর সাথে বেশি মেলে। 3rd-টাতেই developer আসলে fix করেছিল। → SBFL score একা যথেষ্ট নয়; LLM-এর language understanding + SBFL মিলিয়ে ভালো ফল।
+
+**সহজ কথায়:** SBFL-এর top-1 ভুল ছিল। AI নিজে issue-র লেখা পড়ে 3rd আর 5th বেছে নিয়েছে, আর সেখানেই fix ছিল। অর্থাৎ SBFL আর LLM মিলে ভালো ফল দেয়।
 
 ### ৬.৪ Resolve Rate
 Paper 01-এর Resolved সংজ্ঞা (F2P + P2P সব pass) একই:
 $$
 \text{Resolve rate} = \frac{\text{number of resolved tasks}}{N} \times 100\%
 $$
+
+**সহজ কথায়:** মোট task-এর মধ্যে কতগুলো সমাধান হলো, সেটাকে শতাংশে বলা। যেমন ৩০০টার মধ্যে ৫৭টা মানে 19%।
+
 **Worked example (Table 2):**
 - SWE-bench Lite: $57/300 = 0.19 = 19.00\%$ (ACR @1); $54/300 = 18.00\%$ (SWE-agent)
 - Full SWE-bench: $285/2294 = 0.1242 = 12.42\%$ (ACR @1); $286/2294 = 12.47\%$ (SWE-agent)
@@ -360,11 +461,16 @@ $$
 
 **Worked example:** Lite-এ @1 = 57 task, @3 = 78 task → ৩ বার চালালে আরও $78 - 57 = 21$টা task resolve হয় (relative বৃদ্ধি $21/57 \approx 36.8\%$, আমার হিসাব)। Full SWE-bench-এ $422 - 285 = 137$টা বেশি।
 
+**সহজ কথায়:** একবার চেষ্টা করলে ৫৭টা, তিনবার চেষ্টা করলে ৭৮টা। অর্থাৎ ভাগ্য আর AI-এর এলোমেলো স্বভাবের কারণে প্রতিবার ফল একটু আলাদা হয়।
+
 ### ৬.৬ Time ও Cost Metric
 Paper-এর তিনটা metric: (১) % resolved, (২) average time cost (seconds), (৩) average token cost (token ও USD)।
 $$
 \bar{t} = \frac{1}{N}\sum_{i=1}^{N} t_i, \qquad \bar{c} = \frac{1}{N}\sum_{i=1}^{N} c_i
 $$
+
+**সহজ কথায়:** এই সূত্র প্রতি task-এ গড় সময় আর গড় খরচ হিসাব করে। সব task-এর সময় (বা খরচ) যোগ করে task-এর সংখ্যা দিয়ে ভাগ করা হয়। নিচে symbol-এর মানে আছে।
+
 $t_i$ = task $i$-তে মোট সময় (seconds), $c_i$ = task $i$-তে মোট token (বা USD), $N$ = task সংখ্যা।
 **গুরুত্বপূর্ণ:** @3-এর time ও cost = **তিনবার চালানোর মোট** (প্রতি task)।
 
@@ -375,10 +481,15 @@ $t_i$ = task $i$-তে মোট সময় (seconds), $c_i$ = task $i$-ত�
 
 **Implied price per million token (আমার হিসাব):** ACR: $0.43/37{,}000 \times 10^6 \approx 11.6$ USD; SWE-agent: $2.51/245{,}000 \times 10^6 \approx 10.2$ USD। দুটো প্রায় কাছাকাছি, তাই খরচের পার্থক্য মূলত **token সংখ্যার** পার্থক্য থেকে।
 
+**সহজ কথায়:** দুই tool-এর token-প্রতি দাম প্রায় এক। তাই ACR সস্তা হওয়ার আসল কারণ সে কম token খরচ করে।
+
 **Cost per resolved task (আমার derived metric — paper-এ নেই, কিন্তু assurance-এর জন্য বেশি অর্থবহ):**
 $$
 \text{CPR} = \frac{N \times \bar{c}}{\text{number resolved}}
 $$
+
+**সহজ কথায়:** CPR বলে একটা সফল সমাধানের পেছনে গড়ে কত খরচ হলো। মোট খরচকে সফল task-এর সংখ্যা দিয়ে ভাগ করে হিসাব হয়।
+
 | System (Lite) | মোট খরচ | Resolved | CPR |
 |---|---|---|---|
 | ACR @1 | $300 \times 0.43 = 129$ USD | 57 | ≈ 2.26 USD |
@@ -388,18 +499,27 @@ $$
 
 (ACR-sbfl-এর খরচে test চালানোর compute ধরা হয়নি — শুধু token।)
 
+**সহজ কথায়:** একটা সমাধান পেতে ACR @1-এ গড়ে প্রায় 2.26 USD লাগে, আর SWE-agent-এ প্রায় 13.94 USD। অর্থাৎ ACR অনেক সস্তা।
+
 **Developer time-এর সাথে তুলনা (paper-এর দাবি + আমার হিসাব):** ACR @3 যে 78টা issue solve করেছে, তার 66টার জন্য developer-দের PR বানাতে গড়ে ~2.68 দিন লেগেছে (বাকি 12টা 34–4023 দিন)। $2.68 \text{ দিন} = 2.68 \times 24 \times 60 \approx 3859$ মিনিট; $3859/8.67 \approx 445$ গুণ দ্রুত। কিন্তু এটা **calendar time বনাম compute time** — developer পুরো 2.68 দিন এই issue-তে কাজ করেনি। তাই এই তুলনা সাবধানে ব্যবহার করতে হবে (Section ১২)।
+
+**সহজ কথায়:** Tool-এর হিসাবে সময় কম দেখালেও developer-এর 2.68 দিন আসলে অপেক্ষা-সহ পুরো সময়। তাই "৪৪৫ গুণ দ্রুত" কথাটা আক্ষরিক ধরা ঠিক নয়।
 
 ### ৬.৭ Correctness Rate (Plausible → Correct)
 $$
 \text{Correctness rate} = \frac{N_{\text{correct}}}{N_{\text{plausible}}}, \qquad N_{\text{overfit}} = N_{\text{plausible}} - N_{\text{correct}}
 $$
+
+**সহজ কথায়:** Plausible patch-এর কত ভাগ আসলে সঠিক, সেটা এই সূত্র দিয়ে মাপা হয়। বাকিগুলো overfitting, মানে test pass করেছে কিন্তু আসলে ভুল।
+
 - $N_{\text{plausible}}$ = test pass করা (resolved) task — এখানে ACR @3-এর 78
 - $N_{\text{correct}}$ = যেগুলো developer patch-এর সাথে semantically equivalent (৩ run-এর যেকোনোটায় correct patch থাকলেই)
 
 **Worked example (Section 6.1):** $51/78 = 0.6538 \approx 65.4\%$। Overfitting $= 78 - 51 = 27$টা। এর মধ্যে "all but 2" = **25টা** developer-এর একই method modify করেছে (location ঠিক, content ভুল)।
 
 **আমার derived সংখ্যা:** সত্যিকারের correct fix-এর হার $= 51/300 = 17.0\%$ — অর্থাৎ "26% resolved" থেকে assurance-এর দৃষ্টিতে সংখ্যাটা 17%-এ নেমে আসে। Location-level useful patch (correct + same-method overfitting) $= 51 + 25 = 76$টা = $76/78 \approx 97.4\%$ plausible patch অন্তত সঠিক জায়গায় হাত দিয়েছে।
+
+**সহজ কথায়:** "26% resolved" শুনতে ভালো। কিন্তু সত্যিই ঠিক সমাধান ৩০০টার মধ্যে ৫১টা, মানে প্রায় 17%। এটাই assurance-এর আসল চিত্র।
 
 ### ৬.৮ Overlap ও Unique Fix (Figure 6 Venn Diagram)
 $A$ = ACR @1-এর resolved set (57), $S$ = SWE-agent-এর resolved set (54):
@@ -409,15 +529,23 @@ $$
 $$
 |A \cup S| = |A| + |S| - |A \cap S| = 57 + 54 - 31 = 80
 $$
+
+**সহজ কথায়:** দুই tool-এর সফল task-এর মধ্যে কতগুলো মেলে আর কতগুলো আলাদা, এই সূত্রে তা বের করা হয়েছে। মিলেছে ৩১টা, বাকিগুলো একেক tool একা পেরেছে।
+
 **আমার হিসাব:**
 - দুটো মিলিয়ে (oracle ensemble) $80/300 \approx 26.7\%$ — কোনোটার একার চেয়ে অনেক বেশি।
 - Jaccard similarity $= |A \cap S|/|A \cup S| = 31/80 \approx 0.39$ — দুই tool অনেকটাই ভিন্ন task solve করে।
 - ACR-এর resolved-এর $26/57 \approx 45.6\%$ SWE-agent পারেনি।
 
+**সহজ কথায়:** দুই tool-এর শক্তি আলাদা। তাই একসাথে ব্যবহার করলে ফল ভালো হতে পারে।
+
 ### ৬.৯ SBFL-এর প্রভাব (RQ2)
 $$
 \Delta = 66 - 57 = 9 \text{ task}, \qquad \frac{9}{300} = 3 \text{ percentage point}, \qquad \frac{9}{57} \approx 15.8\% \text{ relative বৃদ্ধি}
 $$
+
+**সহজ কথায়:** SBFL যোগ করায় ৯টা বেশি task solve হয়েছে। ৩০০টার মধ্যে ৯টা মানে 3 percentage point। আগের ৫৭টার তুলনায় প্রায় ১৬% বেশি।
+
 (Relative বৃদ্ধি আমার হিসাব।) তাছাড়া ACR-sbfl এমন **7টা** task solve করেছে যা অন্য কোনো run পারেনি।
 
 ### ৬.১০ Failure Taxonomy-এর বণ্টন (Figure 10)
@@ -425,6 +553,9 @@ $$
 $$
 \sum_{k} \text{share}_k = 26.0 + 29.3 + 20.0 + 18.0 + 6.7 = 100\%
 $$
+
+**সহজ কথায়:** ৩০০টা task পাঁচটা দলে ভাগ করলে সব দলের শতাংশ যোগ করে ঠিক 100% হয়। এতে বোঝা যায় কতগুলো সফল, আর বাকিগুলো কোথায় আটকেছে।
+
 সংখ্যায় (আমার রূপান্তর, $300 \times$ শতাংশ): Success ≈ 78, Wrong patch ≈ 88, Wrong location in correct file = 60, Wrong file = 54, No patch ≈ 20 → মোট 300।
 
 ---
@@ -445,8 +576,10 @@ $$
 | **Baselines** | SWE-agent (GitHub-এ public result সরাসরি নেওয়া), Devin (technical report-এর সংখ্যা; tool access নেই) |
 | **Metric** | % resolved, average time (s), average token ও USD cost; অতিরিক্ত manual correctness check |
 | **Machine** | x86_64 Linux, Ubuntu 20.04 |
-| **Patch evaluation** | Official SWE-bench Docker environment |
+| **Patch evaluation** | Official SWE-bench Docker environment (Docker = আলাদা বাক্সে program চালানোর ব্যবস্থা) |
 | **Correctness check পদ্ধতি** | কমপক্ষে ২ জন author প্রতিটা patch cross-validate; মতভেদ হলে আরেকজন author সিদ্ধান্ত দেন |
+
+**সহজ কথায়:** পরীক্ষাটা GPT-4 দিয়ে SWE-bench Lite-এর ৩০০টা task-এ হয়েছে। প্রতিটা task তিনবার চালানো হয়েছে, আর patch-গুলো official Docker environment (আলাদা বাক্সে program চালানোর ব্যবস্থা)-এ মাপা হয়েছে।
 
 ---
 
@@ -479,6 +612,8 @@ $$
 
 ("—" = data নেই। SWE-agent-এর time public নয়; Devin-এর cost public নয়।)
 
+**সহজ কথায়:** Lite-এ ACR @1 19%, SWE-agent 18%। কিন্তু খরচ 0.43 বনাম 2.51 USD। তিনবার চেষ্টা করলে ACR-এর ফল 26% হয়, তবে তখন খরচও প্রায় তিনগুণ।
+
 **Authors-এর ব্যাখ্যা:**
 - Full SWE-bench-এ ACR @1 (12.42%) SWE-agent (12.47%)-এর "at par"।
 - Lite-এ ACR @1 19% বনাম SWE-agent 18%।
@@ -487,12 +622,16 @@ $$
 
 **আমার পর্যবেক্ষণ:** Devin subset-এ **ACR @1 (12.63%) আসলে Devin (13.86%) ও SWE-agent (13.51%) দুটোর চেয়েই কম।** "Devin-এর চেয়ে ভালো" দাবি শুধু @3 (তিনবার চেষ্টা) দিয়ে — যা সমান শর্তে তুলনা নয়। Full SWE-bench-এও @1-এ SWE-agent এক task এগিয়ে (286 বনাম 285)।
 
+**সহজ কথায়:** "Devin-কে হারিয়েছে" কথাটা শুধু তিনবার চেষ্টার ফলে সত্য। এক চেষ্টায় তুলনা করলে Devin আর SWE-agent দুটোই এগিয়ে।
+
 ### ৮.২ Time ও Token Cost (Figure 7, Figure 8)
 - **Figure 7:** success rate বনাম গড় cost (USD) — ACR কম খরচে সমান বা বেশি success দেখায়।
 - ACR @1 Lite-এ গড়ে 195 s ও 37k token (0.43 USD); SWE-agent 245k token (2.51 USD)।
 - ACR @3 (তিন run মিলিয়ে) 520 s (~8.67 মিনিট) — developer survey অনুযায়ী automated repair-এর গ্রহণযোগ্য 30–60 মিনিটের অনেক নিচে।
 - ACR @3-এর 78টা solved issue-এর 66টায় developer-দের PR তৈরিতে গড়ে ~2.68 দিন; বাকি 12টা close হতে 34 থেকে 4023 দিন লেগেছে।
 - **Figure 8 (resolved task-এর token distribution):** ACR **19টা** task 10k-এর কম token-এ (~0.1 USD) এবং **31টা** task 10k–30k token-এ resolve করেছে; অন্যদিকে SWE-agent-এর resolved task-এর **66.7%**-এ 100k-এর বেশি token লেগেছে। Authors-এর ব্যাখ্যা: stratified retrieval দ্রুত error location ধরে ফেলে।
+
+**সহজ কথায়:** ACR বেশিরভাগ সমাধান খুব কম token (খরচের একক, প্রায় এক টুকরো শব্দ) খরচ করে পেয়েছে। কারণ সে দ্রুত ঠিক জায়গা ধরতে পারে।
 
 ### ৮.৩ AutoCodeRover বনাম SWE-agent — Overlap (Figure 6)
 | | সংখ্যা |
@@ -505,6 +644,8 @@ $$
 - **ACR-এর unique 26-এর কারণ (authors):** AST-level fine-grained search দিয়ে bug location নির্ভুলভাবে ধরা — যেমন django-13401-এ একসাথে তিনটা দরকারি method search।
 - **SWE-agent-এর unique 23-এ ACR কেন ব্যর্থ (authors):** মূলত **unimplemented search API** — যেমন django-12286-এ LLM `search_file` ডেকেছে, যা ACR-এ নেই। Error message ফেরত দিলেও LLM পরে valid API ডাকতে পারেনি। → আরও robust search API দরকার।
 - **Conclusion:** দুই tool একে অপরের **complement**।
+
+**সহজ কথায়:** ACR আর SWE-agent একে অপরের পরিপূরক। একজন যা পারে না, অন্যজন অনেক সময় তা পারে।
 
 ### ৮.৪ Plausible বনাম Correct Patch (Section 6.1)
 | Metric | মান |
@@ -520,6 +661,9 @@ $$
 2. **Issue-তে reporter একটা preliminary patch দিয়েছিল** যা final developer patch থেকে আলাদা — LLM সেটা অনুসরণ করে ভুল করেছে।
 3. **Issue-তে একটা নির্দিষ্ট case উল্লেখ ছিল** — LLM শুধু সেটাই ঠিক করেছে, কিন্তু developer অনুরূপ অন্য case-ও ঠিক করেছে।
 - **Authors-এর উপসংহার:** test-suite-এর মতো **issue description-ও একটা incomplete specification**। আর overfitting patch-ও developer-এর কাজে লাগে, কারণ সেটা সঠিক location দেখিয়ে দেয়।
+
+**সহজ কথায়:** Overfitting-এর কারণ তিনটা: AI-এর সীমা, issue-তে reporter-এর ভুল ইঙ্গিত, আর issue-তে একটামাত্র case উল্লেখ। তবু ভুল patch-ও developer-কে ঠিক জায়গাটা দেখিয়ে দেয়।
+
 - **গুরুত্বপূর্ণ:** Authors বলেছেন Devin ও SWE-agent এই ধরনের correctness report করেনি।
 
 ### ৮.৫ RQ2: SBFL-এর প্রভাব
@@ -535,6 +679,8 @@ $$
 - **SBFL সহ:** Top-5 list পেয়ে agent `search_method_in_class(resolve_related_fields, ForeignKey)` ও `search_method_in_class(_prepare_related_fields_for_save, Model)` ডাকে — দ্বিতীয়টাতেই developer fix করেছিল।
 - Agent SBFL-এর top-1 অন্ধভাবে নেয়নি, 3rd ও 5th নিয়েছে কারণ সেগুলো issue-র অন্য hint-এর সাথে মেলে → **execution-based analysis issue-তে না থাকা তথ্য যোগ করে, আর LLM দুই উৎস মিলিয়ে নেয়।**
 
+**সহজ কথায়:** SBFL ছাড়া AI ভুল class (Product, Order) নিয়ে সময় নষ্ট করেছে। SBFL-এর hint পেয়ে সে সঠিক method-এ পৌঁছেছে।
+
 ### ৮.৬ RQ3: Failure Taxonomy (Figure 10)
 ৩০০ task-এর প্রতিটার best run (৩ run থেকে) ধরে, SBFL ছাড়া। (Paper text-এ এটাকে "ACR-all in Table 2" বলা হয়েছে, কিন্তু Table 2-এ এই নাম নেই — আমার ধারণা এটা ACR @3-এর সমতুল্য, কারণ Success = 26.0% = @3।)
 
@@ -546,6 +692,8 @@ $$
 | Wrong file | ভুল file-এ patch | 18.0% | 54 |
 | No patch | কোনো applicable patch তৈরি হয়নি | 6.7% | 20 |
 
+**সহজ কথায়:** ৩০০টার মধ্যে ৭৮টা সফল। ৮৮টায় জায়গা ঠিক কিন্তু patch ভুল। বাকি প্রায় ১৩৪টায় জায়গাই ভুল বা patch তৈরিই হয়নি। অর্থাৎ বেশিরভাগ ব্যর্থতার মূল কারণ সঠিক জায়গা না পাওয়া।
+
 **Authors-এর বিশ্লেষণ:**
 - **Wrong patch (29.3%)** — location ঠিক, তাই উন্নতির পথ: আরও fine-grained **intra-procedural analysis** ও **specification inference** দিয়ে method-level repair guidance।
 - **Wrong location/file/no patch** (মোট 44.7%) — fault localization ব্যর্থ। "Wrong file" ও "No patch" task-গুলোর issue-তে কম class/method/file-এর নাম থাকে; কিছুতে শুধু reproduce করার ছোট example আছে → সেখান থেকে **test-suite generate করে SBFL** চালানো যায়। আর যেগুলোতে reproducible example নেই, শুধু natural language — সেখানে **human involvement** দরকার।
@@ -555,6 +703,8 @@ $$
 - 12 July 2024-এ full SWE-bench leaderboard-এ সর্বোচ্চ: Factory Code Droid **19.27%**।
 - একই সময়ে AutoCodeRover-এর নতুন version: **18.83%** (full SWE-bench)।
 - Authors বলেছেন ফলাফল "right spirit"-এ দেখতে হবে — ACR-এর আসল গুরুত্ব হলো **program specification থেকে patching guide করার** পদ্ধতি।
+
+**সহজ কথায়:** ২০২৪-এর মাঝামাঝি ACR-এর নতুন version 18.83% পর্যন্ত পৌঁছেছিল। তখনকার সেরা ছিল 19.27%, মানে প্রায় সমান।
 
 ---
 
@@ -568,6 +718,8 @@ $$
 6. **Plausible ≠ Correct:** 78টা plausible-এর মাত্র 51টা (65.4%) correct — প্রায় ১/৩ overfitting। Issue description-ও incomplete specification।
 7. **Tools are complementary:** ACR ও SWE-agent-এর common মাত্র 31; union 80 (26.7%)।
 8. **Failure-এর বড় অংশ localization:** 44.7% task-এ সঠিক location-ই পাওয়া যায়নি; 29.3%-এ location ঠিক কিন্তু patch ভুল।
+
+**সহজ কথায়:** এই ৮টা পয়েন্ট মনে রাখলেই viva-তে paper-এর সারকথা বলা যায়। সবচেয়ে বড় কথা দুটো: খরচ কম আর plausible মানেই correct নয়।
 
 ---
 
@@ -586,6 +738,8 @@ $$
 
 (Paper 01-এর baseline অন্য model ও অন্য setup-এ চলেছিল, তাই সংখ্যার সরাসরি তুলনা অর্থবহ নয় — শুধু design পার্থক্য দেখানো হলো।)
 
+**সহজ কথায়:** ACR-এর বিশেষত্ব হলো code-কে class-method কাঠামোতে দেখা, ধাপে ধাপে search করা, আর patch-এর সঠিকতা যাচাই করে report করা। অন্য কোনো system এই তিনটা একসাথে করেনি।
+
 **মূল শক্তি:**
 1. **Software engineering knowledge + LLM:** AST, FL, linter, test — পুরনো SE tool-কে LLM-এর সাথে জুড়েছে।
 2. **Context efficiency:** Signature-only output, ±3 line snippet, শুধু দরকারি call — কম token, কম বিভ্রান্তি।
@@ -593,6 +747,8 @@ $$
 4. **Flexible:** Test না থাকলেও চলে; থাকলে SBFL ও validation যোগ হয়।
 5. **Honest evaluation dimension:** Plausible বনাম correct আলাদা করে report।
 6. **Fully reproducible artifacts:** Patch, conversation, script সব public।
+
+**সহজ কথায়:** ছয়টা শক্তির মূল কথা: পুরনো software engineering tool আর LLM-কে জুড়েছে, কম token-এ কাজ করেছে, আর সব কিছু public রেখেছে।
 
 ---
 
@@ -613,6 +769,8 @@ $$
 - **Python ছাড়া** অন্য language — AST search, linter Python-specific (আমার পর্যবেক্ষণ; architecture অন্য language-এ নেওয়া সম্ভব কিন্তু evaluate করা হয়নি)।
 - Module-level code, config file, non-code file (যেমন documentation, setup file)-এ পরিবর্তন লাগলে — class/method-কেন্দ্রিক API দিয়ে ধরা কঠিন (আমার পর্যবেক্ষণ)।
 
+**সহজ কথায়:** Issue-তে নাম-ধাম দেওয়া থাকলে, আর bug এক-দুই method-এর ভেতরে থাকলে ACR ভালো করে। নাম না থাকলে, বা একসাথে অনেক জায়গা বদলাতে হলে সে আটকে যায়।
+
 ---
 
 ## ১২. Limitations — দুর্বলতা
@@ -624,6 +782,9 @@ $$
 4. **Unimplemented search API** (যেমন `search_file`) — আরও robust API দরকার।
 5. **Issue description incomplete specification** — preliminary patch বা নির্দিষ্ট case উল্লেখের কারণে overfitting।
 6. **সব সিদ্ধান্ত LLM-এর হাতে** (কোথায় search, কখন থামা) — সবসময় যথেষ্ট নয়; human involvement-এর interface দরকার।
+
+**সহজ কথায়:** Authors নিজেই বলছেন: ফল প্রতিবার আলাদা হয়, overfitting আছে, test সবসময় থাকে না, আর AI কখন থামবে সেই সিদ্ধান্তও AI-এর হাতে।
+
 7. Wrong patch-এর জন্য আরও fine-grained analysis ও specification inference দরকার।
 
 ### ১২.২ আমার Critical Analysis (Professor-level observation)
@@ -644,6 +805,8 @@ $$
 15. **Cost-এ hidden compute বাদ:** শুধু LLM token-এর USD; AST parsing, Docker-এ test চালানো (ACR-sbfl) ইত্যাদির খরচ ধরা হয়নি।
 16. **Abstract-এর "about 4 minutes" ও Table-এর সংখ্যা:** Lite-এ @1 = 195 s (≈3.25 মিনিট), full-এ 248 s (≈4.1 মিনিট) — ছোট অসামঞ্জস্য, তবে বড় সমস্যা নয়।
 
+**সহজ কথায়:** আমার ১৬টা পর্যবেক্ষণের সবচেয়ে বড় কথা: SBFL-এ evaluation-এর test ব্যবহার করা অনেকটা প্রশ্ন দেখে পরীক্ষা দেওয়ার মতো। আর ৩ run-এর যেকোনো একটা ঠিক হলেই "correct" ধরা উদার নিয়ম।
+
 ---
 
 ## ১৩. Research Gaps — কোথায় কাজ করার সুযোগ আছে
@@ -661,6 +824,8 @@ $$
 | G9 | **Human-in-the-loop interface** — কখন agent developer-কে জিজ্ঞাসা করবে | Authors নিজেই বলেছেন দরকার | Patch Validation (HITL); Trustworthy AI for SE |
 | G10 | **Robust tool/API design** — unimplemented API-তে agent আটকে যায় | SWE-agent-এর 23 unique-এর মূল কারণ | AI Coding Agents (Paper 02 ACI-এর সাথে তুলনা) |
 
+**সহজ কথায়:** Gap মানে যে প্রশ্নের উত্তর এখনো কেউ দেয়নি। সবচেয়ে বড় gap হলো patch ঠিক না ভুল তা নিজে নিজে ধরা (G1) আর test ছাড়া validation (G2)।
+
 ---
 
 ## ১৪. কী করলে আরও ভালো হবে — Improvement Ideas
@@ -676,6 +841,8 @@ $$
 7. **Multi-dimensional assurance score (Paper 01-এর idea-র ধারাবাহিকতা):**
    $$\text{AssuranceScore} = w_1 \cdot \text{Plausible} + w_2 \cdot \text{CorrectnessConf} + w_3 \cdot \text{Security} + w_4 \cdot \text{Consistency}$$
 8. **Ablation suite:** Stratified বনাম flat search, signature বনাম full body — framework-এর আসল অবদান মাপা।
+
+**সহজ কথায়:** এই idea-গুলো আমার নিজের। মূল কথা: test ছাড়াই patch যাচাই করা, ভুল জায়গায় থাকলে AI-কে থামতে শেখানো, আর প্রতিবার একই ফল দেওয়া নিশ্চিত করা।
 
 ---
 
@@ -693,6 +860,8 @@ $$
 | G7: Call-graph-augmented retrieval | ⚠️ সম্ভব, কিন্তু full SWE-bench-এ evaluate করা ব্যয়বহুল | মাঝারি (অনেকে কাজ করছে) | ⭐⭐ |
 
 **সবচেয়ে ভালো combination (আমার মত):** "Plausible-to-correct gap" — ACR-এর 65.4% সংখ্যাটা একটা পরিষ্কার motivation। একটা automatic assurance layer বানানো যেটা agent-এর plausible patch-কে correct/overfitting হিসেবে classify করে, এবং ACR-এর manually-যাচাই করা patch (যদি public artifact-এ label থাকে — নিজে যাচাই করতে হবে) বা নিজেদের ছোট labeled set দিয়ে evaluate করে।
+
+**সহজ কথায়:** সবচেয়ে আকর্ষণীয় বিষয়: "test pass করা patch-কে সত্যিই ঠিক না ভুল বলে আলাদা করা" নিয়ে কাজ করা। সংখ্যাটা (65.4%) নিজেই একটা পরিষ্কার motivation।
 
 **সম্ভাব্য venue (general guidance):**
 - **Conference:** ICSE, FSE, ASE, ISSTA (এই paper যেখানে published); workshop: LLM4Code, APR workshop (International Workshop on Automated Program Repair) — student-এর জন্য শুরু করার ভালো জায়গা।
@@ -720,6 +889,8 @@ $$
 - প্রতিটা run-এর token ও খরচ log করা — paper-এর মতো cost metric report করতে হবে।
 - ৩ বার চালিয়ে variance দেখানো উচিত (paper-এর randomness threat)।
 
+**সহজ কথায়:** শুরুতে ছোট করে করো: ৩০ থেকে ৫০টা task, সস্তা model, আর প্রতিটা run-এর খরচ লিখে রাখা।
+
 ---
 
 ## ১৭. পরবর্তী গবেষণায় এই Paper-এর প্রভাব (Context)
@@ -729,6 +900,8 @@ $$
 - **Plausible বনাম correct** আলাদা করে report করার প্রথা — পরে SWE-bench Verified (Paper 01, Section ১৭) ও patch validation-এর কাজগুলো (আমাদের Patch Validation folder) একই সমস্যার দিকে নজর দিয়েছে।
 - Issue reproduction test generation — authors-এর future work — পরের agent ও test-generation কাজে গুরুত্বপূর্ণ দিক হয়েছে বলে সাধারণভাবে দেখা যায়; আমাদের *LLM Test Generation* folder-এর paper পড়ে নিশ্চিত হবো।
 - Authors-এর Perspectives: ভবিষ্যতে focus **"scale" থেকে "trust"**-এর দিকে সরবে — এটা হুবহু আমাদের domain-এর (Reliability and Assurance) motivation।
+
+**সহজ কথায়:** এই paper দেখিয়েছে সস্তা আর সহজ উপায়েও SWE-agent-এর সমান ফল পাওয়া যায়। আর ফোকাস ধীরে ধীরে "কত বেশি পারে" থেকে "কতটা বিশ্বাস করা যায়"-এর দিকে সরছে।
 
 ---
 
@@ -770,6 +943,8 @@ A: (১) mini-ACR (AST index + ৭ API + stratified loop + patch retry) বা�
 **Q12. Temperature 0.2 দিলেও ৩ বার চালাতে হলো কেন?**
 A: Temperature 0.2-তেও GPT-4-এর output পুরো deterministic নয়, আর agent loop-এ ছোট পার্থক্য পরের সিদ্ধান্তে বড় হয়ে যায়। 19% (@1) বনাম 26% (@3)-এর পার্থক্যই দেখায় non-determinism অনেক — reliability-র জন্য এটা একটা মূল সমস্যা।
 
+**সহজ কথায়:** AI-এর উত্তর প্রতিবার ঠিক এক হয় না। তাই ৩ বার চালিয়ে সবচেয়ে ভালোটা নেওয়া হয়েছে, কিন্তু এটাই reliability-র সমস্যা।
+
 ---
 
 ## ১৯. Glossary (দ্রুত মনে রাখার জন্য)
@@ -799,6 +974,8 @@ A: Temperature 0.2-তেও GPT-4-এর output পুরো deterministic ন�
 | Issue reproducer | Issue থেকে bug-দেখানো test তৈরি |
 | Devin | Cognition Labs-এর closed-source AI software engineer |
 
+**সহজ কথায়:** Glossary মুখস্থ করার দরকার নেই। Viva-র আগে চোখ বুলিয়ে নিলেই যথেষ্ট।
+
 ---
 
 ## ২০. এক নজরে সারাংশ (Summary Card)
@@ -815,6 +992,8 @@ A: Temperature 0.2-তেও GPT-4-এর output পুরো deterministic ন�
 | **Key insight** | Program structure + SE analysis tool + LLM = সস্তা ও কার্যকর; কিন্তু plausible ≠ correct |
 | **Main limitation** | SBFL-এ evaluation test leakage-এর ঝুঁকি, pass@3 দিয়ে তুলনা, statistical test নেই, শুধু GPT-4, নিজের tool-এর manual check |
 | **আমাদের জন্য gap** | Automatic overfitting detection, leakage-free reproduction-test validation, localization confidence, run-to-run consistency |
+
+**সহজ কথায়:** পুরো paper এক টেবিলে: সমস্যা কী ছিল, সমাধান কী, ফল কত, আর কোথায় দুর্বলতা। এই টেবিলটা viva-র আগে একবার পড়ে নাও।
 
 ---
 
@@ -836,6 +1015,8 @@ A: Temperature 0.2-তেও GPT-4-এর output পুরো deterministic ন�
 | Patch-এর বাস্তব গ্রহণযোগ্যতা | Developer-এর 2.68 দিনের সাথে তুলনা | ~33k agent PR-এ (Codex, Copilot, Devin, Cursor, Claude Code) bug-fix PR সবচেয়ে কম merge হয় (MSR 2026, independent); fix-related PR-এ Claude Code 57.4% (n=115), Codex 81.6% (search-snippet only) | arXiv 2601.15195; arXiv 2602.00164 |
 
 **আমার পর্যবেক্ষণ:** ACR-এর 65.4% আর PatchDiff-এর 29.6% একই জিনিস মাপে না — ACR "semantically equivalent to developer patch" হাতে যাচাই করেছে; PatchDiff differential testing দিয়ে "আচরণ ভিন্ন" মেপেছে। তবু দিক একই: test-pass করা patch-এর মোটামুটি এক-তৃতীয়াংশ নিয়ে সন্দেহ থেকে যায় ($1 - 0.654 = 0.346$ বনাম $0.296$)।
+
+**সহজ কথায়:** ২০২৪ আর ২০২৬-এর সংখ্যা এক জিনিস মাপে না। তবু দিক একই: test pass করা patch-এর প্রায় এক-তৃতীয়াংশ নিয়ে এখনো সন্দেহ আছে।
 
 ### ২১.২ কোন Finding এখনো সত্য, কোনটা পুরনো হয়ে গেছে
 
@@ -860,6 +1041,8 @@ A: Temperature 0.2-তেও GPT-4-এর output পুরো deterministic ন�
 | G8: Specification inference | **বর্তমান model-এর জন্য তথ্য পাওয়া যায়নি** | — |
 | G9: Human-in-the-loop interface | **আংশিক** | Agent PR-এর rejection কারণে "lack of reviewer engagement" ও "agent misalignment" (MSR 2026, independent) — মানুষ-agent যোগাযোগ এখনো দুর্বল |
 | CG12: Assurance signal-এর gaming | **খোলা, নতুন প্রমাণ** | ACR-sbfl-এর মতো test-feedback loop এখন reward-hacking-এর পথ: Opus 5.5 successful hack 0.046% (training-time, vendor, self-measured); GPT-6.1 Sol-এ GPT-6 Astra-র চেয়ে বেশি reward-hacking flag (vendor); কোনো independent audit পাওয়া যায়নি |
+
+**সহজ কথায়:** ২০২৬-এও প্রায় সব gap খোলা। বিশেষ করে patch-এর সঠিকতা যাচাই আর test-feedback-এর অপব্যবহার ঠেকানোর কাজ এখনো বাকি।
 
 ### ২১.৪ বর্তমান Model দিয়ে আবার পরীক্ষা করলে — SPL3 Idea
 

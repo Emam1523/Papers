@@ -24,12 +24,65 @@
 
 ---
 
+## ★ সহজ ভাষায় পুরো Paper (প্রথমবার পড়ার জন্য)
+
+### ক. Paper-টা কী নিয়ে?
+- এটা একটা **নতুন tool-এর paper**। Tool-টার নাম **ExecutionAgent**। সাথে 50টা আসল project-এ tool-টা পরীক্ষা করে দেখানো হয়েছে।
+- Paper লিখেছেন Stuttgart University-র (জার্মানি) Islem Bouzenia আর Michael Pradel। এটা ISSTA 2025-এ ছাপা হয়েছে। ISSTA হলো software testing-এর একটা বড় conference।
+- Tool-টা একটা AI agent (মানে এমন AI, যে নিজে নিজে একের পর এক কাজ করতে পারে)।
+- তুমি শুধু একটা GitHub project-এর link দেবে। Agent নিজে terminal-এ command চালাবে, project-টা তৈরি করবে আর তার test চালাবে।
+- শেষে সে বলবে কয়টা test pass করল, কয়টা fail করল, কয়টা skip হলো।
+- সহজ করে বললে: "অচেনা project-এর test চালানোর কাজটা automatic করা।"
+
+### খ. সমস্যাটা কী ছিল?
+- ধরো তুমি একটা নতুন বাসায় উঠেছ। একটা আলমারি কিনেছ, যেটা নিজে জোড়া লাগাতে হবে। Manual-টা অর্ধেক লেখা, কিছু screw-এর নাম ভুল। তুমি চেষ্টা করছ, ভুল করছ, আবার চেষ্টা করছ।
+- অচেনা software project-এর test চালানোও ঠিক এমন। প্রতিটা project-এর ভাষা আলাদা, tool আলাদা, দরকারি library-র version আলাদা। README প্রায়ই অসম্পূর্ণ বা পুরনো।
+- **একটা concrete example:** OpenVPN নামে একটা C project-এর test চালাতে `autoconf`, `libtool`, `cmocka` সহ প্রায় 13টা system package আগে install করতে হয়। তারপর `autoreconf`, `./configure`, `make`, `make check` — এই ক্রমে command চালাতে হয়। কোনো একটা বাদ গেলে test চলেই না।
+- আগে এই কাজ মানুষ হাতে করত। এতে অনেক সময় লাগত, আর হাজার হাজার project-এ করা অসম্ভব ছিল।
+- যেসব automatic script ছিল, সেগুলো সাধারণত শুধু একটা ভাষার জন্য। যেমন GitBug-Java 66,042টা repository নিয়ে শুরু করে মাত্র 228টার test চালাতে পেরেছিল।
+- আমাদের জন্য এটা কেন জরুরি: AI agent-এর বানানো patch ঠিক কিনা দেখতে হলে test চালাতেই হয়। কিন্তু test চালানোর আগে project-টা চালু অবস্থায় আনতে হয়। SWE-bench এই কাজ মানুষ দিয়ে করিয়েছিল, তাই আমরা সমস্যাটা এতদিন দেখিনি।
+
+### গ. Paper কী solve করেছে?
+- Paper একটা **general agent** বানিয়েছে, যেটা যেকোনো ভাষার project-এ কাজ করে। 14টা ভাষার 50টা project-এ পরীক্ষা হয়েছে।
+- Agent-এর output দুটো file: একটা **Dockerfile** (পরিবেশ বানানোর recipe) আর একটা **script** (সেই পরিবেশে build ও test চালানোর command)। একবার বানানো হলে এগুলো বারবার ব্যবহার করা যায়।
+- নতুন একটা ধারণা দিয়েছে: **meta-prompting**। এতে AI-কে দিয়েই AI-এর নিজের জন্য নিয়ম (guideline) লেখানো হয়।
+- দেখিয়েছে যে শুধু "build হয়েছে" যথেষ্ট না। Build করা আর test চালানো একদম আলাদা ক্ষমতা।
+- **গুরুত্বপূর্ণ সংখ্যা ১:** 50টা project-এর মধ্যে **33টার** test suite সফলভাবে চলেছে। মানে ১০০টার মধ্যে ৬৬টা।
+- **গুরুত্বপূর্ণ সংখ্যা ২:** সেরা পুরনো পদ্ধতি চালাতে পেরেছিল মাত্র **5টা**। তাই ExecutionAgent **6.6 গুণ** ভালো। পুরনো পদ্ধতির হিসাবে ১০০টার মধ্যে মাত্র ১০টা।
+- **গুরুত্বপূর্ণ সংখ্যা ৩:** গড় খরচ মাত্র **0.16 USD** আর **74 মিনিট** প্রতি project। মানে এক কাপ চায়ের দামেরও কম।
+
+### ঘ. কীভাবে solve করেছে?
+1. **ভাষা চেনা:** Project-টা কোন ভাষার, তা GitHub-এর Linguist library দিয়ে বের করা হয়।
+2. **LLM-কে জিজ্ঞেস করা (meta-prompting):** "Java project-এর test চালাতে কোন 10টা নিয়ম মানা উচিত?" LLM-এর উত্তরটাই agent-এর নিয়মের তালিকা হয়ে যায়।
+3. **Hint জোগাড়:** Project-এর CI script (maintainer-এর লেখা "কীভাবে test চলে" file) পড়ে সংক্ষেপ করা হয়। সাথে web search করে উপরের 5টা page-এর install-এর তথ্য নেওয়া হয়।
+4. **Terminal-এ চেষ্টা করা:** Agent এবার Docker container-এর ভেতরে একটা একটা করে command চালায়। প্রতিবার সে আগে "ভাবে" (thought), তারপর command দেয়।
+5. **Output ছোট করা:** Command-এর output বেশি লম্বা (200 token-এর বেশি) হলে আরেকটা LLM call দিয়ে সংক্ষেপ করা হয়। নইলে agent অপ্রয়োজনীয় তথ্যে হারিয়ে যায়।
+6. **ভুল থেকে শেখা:** Command আটকে গেলে সময়সীমা (5 মিনিট) পার হলে agent ঠিক করে অপেক্ষা করবে, input দেবে না বন্ধ করবে। একটা চেষ্টায় সর্বোচ্চ 40 command। ব্যর্থ হলে "কী শিখলাম" লিখে আবার চেষ্টা, মোট 3 বার পর্যন্ত।
+7. **শেষ যাচাই:** Agent "কাজ শেষ" বললে control center দেখে তিনটা file আছে কিনা: Dockerfile, install script আর test result file।
+8. **আসলের সাথে মেলানো:** শেষে সংখ্যাগুলো CI log-এর আসল সংখ্যার সাথে মিলিয়ে দেখা হয়, কতটা কাছাকাছি।
+
+### ঙ. এরপর কী করা যায়?
+- **Authors যা বলেছেন:** একই ভুল বারবার করা কমানো; পুরনো dependency-র project আর একাধিক configuration (ভিন্ন OS বা browser) সামলানো; আর এই environment দিয়ে AI agent-এর patch যাচাই করে দেখা (paper এটাকে "vision" বলেছে, পরীক্ষা করেনি)।
+- **এখনো খোলা প্রশ্ন:** Agent যে result file লেখে, সেটা আসলেই সত্য কিনা — paper শুধু file আছে কিনা দেখে। একই project বারবার চালালে ফল একই হয় কিনা, তাও জানা নেই।
+- **আরেকটা খোলা প্রশ্ন:** পুরনো commit-এ (যেমন SWE-bench-এর base commit) কাজ করে কিনা। Paper শুধু সর্বশেষ version পরীক্ষা করেছে।
+- **SPL3-এ আমরা করতে পারি (১):** Agent-এর লেখা result বিশ্বাস না করে, test framework-এর নিজের XML/JSON report থেকে আমরা নিজেরা result পড়বো। সাথে "`|| true` দিয়ে ব্যর্থতা লুকানো হয়েছে কিনা" ধরার checker।
+- **SPL3-এ আমরা করতে পারি (২):** SWE-bench বা SWE-rebench-এর ছোট একটা subset-এ ExecutionAgent চালিয়ে দেখা, পুরনো commit-এ per-test স্তরে সে কতটা সঠিক।
+- **SPL3-এ আমরা করতে পারি (৩):** একই project কয়েকবার চালিয়ে ফলের variance মাপা। খরচ কম, নতুনত্ব ভালো।
+
+> **মনে রাখো:**
+> ExecutionAgent যেকোনো project-এর test চালানোর recipe (Dockerfile ও script) নিজে বানায়: 50টার মধ্যে 33টায় সফল, খরচ গড়ে 0.16 USD।
+> কিন্তু "test চলেছে" মানেই "ফল সত্য" নয় — paper শুধু file আছে কিনা দেখে, result সত্য কিনা দেখে না। আমাদের কাজ ঠিক এখানেই।
+
+---
+
 ## ১. এক লাইনে Paper (TL;DR)
 
 **ExecutionAgent হলো একটা GPT-4o-mini-চালিত LLM agent, যেটা যেকোনো GitHub project-এর জন্য নিজে নিজে terminal-এ command চালিয়ে, ভুল দেখে শুধরে, একটা Dockerfile আর একটা install-ও-test script তৈরি করে, এবং project-এর test suite চালিয়ে কতগুলো test pass, fail ও skip হলো তা report করে; 14টা language-এর 50টা project-এর মধ্যে 33টার test suite সফলভাবে চালাতে পেরেছে, যা সেরা পুরনো পদ্ধতির (5টা) চেয়ে 6.6 গুণ।**
 
 ### Supervisor-কে ৩০ সেকেন্ডে কীভাবে বলবো
 > "Sir, AI agent-এর patch সঠিক কিনা যাচাই করতে আমরা সবসময় বলি 'test চালাও'। কিন্তু একটা অচেনা project-এর test চালানোই একটা কঠিন কাজ — ভাষা আলাদা, build tool আলাদা, dependency-র version মেলাতে হয়, documentation অসম্পূর্ণ। SWE-bench এই কাজ মানুষ দিয়ে করেছিল, SWE-rebench Python-এর জন্য নির্দিষ্ট ধাপের LLM pipeline দিয়ে করেছিল। ExecutionAgent এটাকে একটা general agent দিয়ে করে: প্রথমে LLM-কে দিয়েই language-specific guideline লিখিয়ে নেয় (meta-prompting), CI script আর web search থেকে install-এর hint জোগাড় করে, তারপর Docker container-এ terminal command চালিয়ে trial-and-error করে। 50টা project-এর 33টায় test suite চলেছে, তার 29টায় ফলাফল CI-এর আসল ফলাফলের 10%-এর মধ্যে, আর খরচ গড়ে মাত্র 0.16 USD আর 74 মিনিট প্রতি project। আমাদের assurance layer-এর 'test চালানোর অংশ' এখান থেকে আসতে পারে।"
+
+**সহজ কথায়:** ওপরের কথাটা এক বাক্যে: আগে বোঝো test কীভাবে চালাতে হয়, তারপরই বলা যায় patch ঠিক কিনা। ExecutionAgent সেই প্রথম ধাপটা AI দিয়ে করায়।
 
 ---
 
@@ -54,11 +107,15 @@
 - **User setup বনাম development setup:** একজন সাধারণ user library ব্যবহার করতে `pip install x` করলেই হয়। কিন্তু **test চালাতে** লাগে development setup — test framework, compiler, কখনো `glibc-32`, কিছু dependency নতুন করে compile করা, config file বদলানো। Paper-এর "LLM scripts" baseline ঠিক এই পার্থক্য না বুঝে ব্যর্থ হয়েছে।
 - **Git submodule:** একটা repository-র ভিতরে আরেকটা repository-কে dependency হিসেবে রাখা। Clone করার সময় আলাদাভাবে (`git submodule update --init`) আনতে হয়। Paper-এ 9টা project-এ submodule ছিল, তার মাত্র 2টায় test চলেছে।
 
+**সহজ কথায়:** Test suite হলো পরীক্ষার প্রশ্নপত্র। Build system হলো প্রশ্নপত্র ছাপানোর মেশিন। এক এক ভাষার মেশিন এক এক রকম, তাই agent-কে প্রতিবার আলাদা করে শিখতে হয়।
+
 ### ২.৩ Docker Container
 - **Container:** একটা হালকা, আলাদা করা (isolated) Linux পরিবেশ। Host machine নষ্ট না করে ভিতরে যেকোনো package install করা যায়।
 - **Dockerfile:** container image কীভাবে বানাতে হবে তার recipe — `FROM ubuntu:20.04` (base image), `RUN apt-get install ...` (package install), `WORKDIR` (কোন folder-এ কাজ হবে)।
 - **কেন দরকার:** (১) **Reproducibility** — একই Dockerfile থেকে যেকোনো machine-এ একই পরিবেশ; (২) **নিরাপত্তা** — agent যদি ভুল বা ক্ষতিকর command চালায়, ক্ষতি container-এর ভিতরে থাকে। SWE-bench-ও প্রথমে conda ব্যবহার করে পরে Docker-এ গিয়েছিল (SWE-bench analysis, Section ১২.২, critique #8)।
 - ExecutionAgent-এর **output-ই** দুটো file: একটা Dockerfile (container বানাতে) আর একটা shell script (container-এর ভিতরে build ও test চালাতে)।
+
+**সহজ কথায়:** Docker হলো একটা বন্ধ ঘর। ঘরের ভেতরে যত খুশি জিনিস বসাও, বাইরের ঘর নষ্ট হয় না। Dockerfile হলো সেই ঘর সাজানোর তালিকা।
 
 ### ২.৪ CI/CD Script — Hint হিসেবে
 - **Continuous Integration (CI):** প্রতিটা commit বা pull request-এ একটা server স্বয়ংক্রিয়ভাবে project build করে test চালায়। Platform: GitHub Actions (`.github/workflows/*.yml`), CircleCI, Jenkins, CirrusCI, Travis CI ইত্যাদি।
@@ -72,19 +129,27 @@
 - **Trajectory:** একটা project-এর জন্য agent-এর নেওয়া সব ধাপের ক্রম (thought → command → output → ...)।
 - **Command budget:** একটা চেষ্টায় সর্বোচ্চ কতগুলো command চালানো যাবে — খরচ ও অসীম loop থামাতে।
 
+**সহজ কথায়:** Agent-এর হাতে চারটা tool, আর একটা সীমা (command budget) — যাতে সে অনন্তকাল ঘুরতে না থাকে।
+
 ### ২.৬ Meta-Prompting ও Guideline
 - **সাধারণ prompt engineering:** মানুষ হাতে লিখে দেয় "Java হলে `mvn test` চালাও, Python হলে ..."। সমস্যা: সময়সাপেক্ষ, সব technology কভার করা যায় না, দ্রুত পুরনো হয়।
 - **Meta-prompting (এই paper-এর প্রস্তাবিত ধারণা):** LLM-কে একটা উঁচু-স্তরের প্রশ্ন করা — "একটা Java project install করে test চালাতে আমার কোন 10টা guideline মানা উচিত, সর্বশেষ practice মেনে?" — আর সেই **উত্তরকে** agent-এর আসল prompt-এর অংশ বানানো। অর্থাৎ prompt লেখার কাজটাই LLM-কে দিয়ে করানো।
 - **Guideline:** ছোট নিয়মের তালিকা — যেমন "pom.xml থেকে Java version মিলিয়ে নাও", "test report বের করতে `mvn surefire-report:report` ব্যবহার করো"। এগুলো agent-কে একটা high-level plan দেয়।
 - **Paper-এর যুক্তি:** নতুন train করা LLM-এর মধ্যে নতুন technology-র জ্ঞান থাকে, তাই meta-prompting স্বয়ংক্রিয়ভাবে "আপ-টু-ডেট" থাকে। (সীমাবদ্ধতা: LLM-এর জ্ঞান তার training cutoff পর্যন্ত — Section ১২ দেখো।)
 
+**সহজ কথায়:** Meta-prompting হলো নিজে নিয়ম না লিখে বিশেষজ্ঞকে জিজ্ঞেস করে নেওয়া: "এই কাজে কোন নিয়মগুলো মানব?"
+
 ### ২.৭ Output Summarization (Context Management)
 `ls -R` বা `npm install`-এর output হাজার হাজার লাইন হতে পারে। পুরোটা prompt-এ দিলে (ক) context window ভরে যায়, (খ) agent অপ্রাসঙ্গিক তথ্যে বিভ্রান্ত হয় (SWE-bench-এর "বেশি context ≠ ভালো" finding-এর মতো), (গ) খরচ বাড়ে। তাই output নির্দিষ্ট সীমা (default 200 token) ছাড়ালে আরেকটা LLM call দিয়ে সংক্ষেপ করা হয়।
+
+**সহজ কথায়:** Output যত লম্বা, agent তত গুলিয়ে ফেলে। তাই লম্বা output-এর সারাংশ prompt-এ রাখা হয়।
 
 ### ২.৮ Test Execution Report ও Ground Truth তুলনা
 - **Test execution report:** test চালানোর পর তিনটা সংখ্যা — $n_{pass}$, $n_{fail}$, $n_{skip}$। ExecutionAgent এগুলো একটা file-এ লিখে রাখে।
 - **Ground truth তুলনা:** একই project-এর CI log-এ যে সংখ্যা আছে, তার সাথে মেলানো। মিললে বোঝা যায় agent "সত্যিই" ঠিক পরিবেশে test চালিয়েছে — শুধু "কিছু একটা চালিয়েছে" নয়।
 - **কেন শুধু "test চলেছে" যথেষ্ট নয়:** dependency কম থাকলে অনেক test skip বা fail হয়, অথচ suite "চলেছে" দেখায়। তাই deviation মাপা দরকার (সূত্র Section ৬-এ)।
+
+**সহজ কথায়:** শুধু "test চলেছে" বললে হবে না। CI-এর আসল সংখ্যার সাথে মিলিয়ে দেখতে হবে সত্যিই ঠিক পরিবেশে চলেছে কিনা।
 
 ### ২.৯ Flaky Test
 যে test একই code-এ কখনো pass, কখনো fail করে — network, timing, floating-point, ক্রম-নির্ভরতার কারণে। Paper-এর baseline Flapy মূলত flaky test গবেষণার জন্য বানানো tool। Ground truth-এর সাথে কিছু অমিলের কারণ হিসেবে paper flakiness-কে দায়ী করেছে।
@@ -95,6 +160,8 @@ Agent-এর একটা অংশ (যেমন preparation phase) সরি�
 ### ২.১১ Cost ও Time পরিমাপ
 - **LLM cost:** API-তে input token আর output token-এর আলাদা দাম, প্রতি million token হিসেবে। মোট খরচ = সব call-এর token × দাম।
 - **Wall-clock time:** শুরু থেকে শেষ পর্যন্ত আসল সময় — LLM call, package download, compile, test চালানো সব মিলিয়ে। Paper-এর 74 মিনিট এই সময়, একসাথে 5টা project চালানো অবস্থায়।
+
+**সহজ কথায়:** খরচ মানে LLM-কে দেওয়া আর LLM থেকে পাওয়া token-এর দাম। সময় মানে ঘড়ির আসল সময় (শুধু LLM-এর সময় নয়)।
 
 ### ২.১২ এই paper আমাদের অন্য sub-domain-এর সাথে কোথায় যুক্ত
 | ধারণা | কোথায় আগে এসেছে | এখানে ভূমিকা |
@@ -132,11 +199,15 @@ Agent-এর একটা অংশ (যেমন preparation phase) সরি�
 | Project-এর CI/CD workflow পুনর্ব্যবহার | সব project-এ নেই; নির্দিষ্ট platform-নির্ভর (যেমন GitHub Actions) যা বাইরের মানুষের জন্য পুরোপুরি চালানো যায় না; একাধিক platform, প্রত্যেকের আলাদা config |
 | Heuristic automated script | সাধারণত এক language-এর জন্য; Flapy শুধু PyPI-তে থাকা Python project-এ চলে আর সেখানেও অনেক suite চালাতে পারে না; GitBug-Java-র pipeline 66,042 repository থেকে শুরু করে মাত্র 228টার test চালাতে পেরেছিল |
 
+**সহজ কথায়:** আগের তিনটা পথের কোনোটাই সব project-এ কাজ করে না: মানুষ ধীর, CI সবসময় নেই, আর script শুধু এক ভাষার।
+
 ### ৩.৪ সমাধানকে যে চারটা challenge পার হতে হবে
 1. বিভিন্ন জনপ্রিয় language-এর **সর্বশেষ technology ও tool** সম্পর্কে জানা।
 2. **অসম্পূর্ণ ও আংশিক পুরনো documentation** বোঝা।
 3. **System-এর সাথে interact** করা — command চালানো, output দেখা, error সামলানো।
 4. Setup **সফল হয়েছে কিনা যাচাই** করা, না হলে test suite না চলা পর্যন্ত সমস্যা সমাধান।
+
+**সহজ কথায়:** Agent-কে চারটা কাজ ঠিকমতো করতে হবে: নতুন technology জানা, অসম্পূর্ণ docs বোঝা, terminal-এর সাথে কথা বলা, আর শেষে যাচাই করা যে সব ঠিকমতো হয়েছে।
 
 ### ৩.৫ কেন এটা গুরুত্বপূর্ণ (আমাদের domain-এর চোখে)
 Paper নিজেই বলছে: যেসব LLM agent নিজে code বদলায় (SWE-agent, AutoCodeRover ইত্যাদি), তাদের পরিবর্তন যাচাই করতে একটা feedback mechanism লাগে, আর test suite চালানো সেই mechanism দেয়। Defects4J, SWE-bench, DyPyBench-এর মতো benchmark বানাতেও test চালানো লাগে। **আমার পর্যবেক্ষণ:** আমাদের assurance report-এর "regression test signal" আর "generated test signal" — দুটোই এই ক্ষমতার উপর দাঁড়িয়ে। SWE-bench-এ এটা মানুষ করে দিয়েছিল বলে আমরা এতদিন সমস্যাটা দেখিনি।
@@ -159,6 +230,8 @@ Paper নিজেই বলছে: যেসব LLM agent নিজে code ব
 - **RQ3 (ablation study):** বিভিন্ন component ও configuration-এর প্রভাব কতটা?
 - **RQ4 (trajectories):** Agent tool-গুলোর সাথে কীভাবে interact করে, লক্ষ্যে পৌঁছাতে কোন পথ নেয়?
 
+**সহজ কথায়:** Paper চারটা প্রশ্নের উত্তর খোঁজে: কতটা কাজ করে (RQ1), কত খরচ (RQ2), কোন অংশ কতটা জরুরি (RQ3), আর agent আসলে কী কী করে (RQ4)।
+
 ---
 
 ## ৫. Methodology — কীভাবে কাজটা করা হয়েছে
@@ -170,6 +243,8 @@ Paper নিজেই বলছে: যেসব LLM agent নিজে code ব
 | **Phase 2: Feedback loop** | LLM পরের command ঠিক করে → tool চালায় → output summary → prompt update → আবার | Dockerfile + install/test script + test result file |
 
 পুরো প্রক্রিয়া পরিচালনা করে একটা component — **control center**।
+
+**সহজ কথায়:** Agent প্রথমে একটু পড়াশোনা করে (Phase 1), তারপর হাতে-কলমে চেষ্টা করে (Phase 2)। যেন পরীক্ষার আগে নোট পড়া, তারপর mock test দেওয়া।
 
 ### ৫.২ Algorithm 1 — ধাপে ধাপে
 Input: repository URL $u$। Output: environment set up ও test চালানোর script।
@@ -189,6 +264,8 @@ Input: repository URL $u$। Output: environment set up ও test চালান
    - Step 2: cmd_result ← execute(cmd); যদি cmd = `task_done` এবং result valid → target file পড়ে script return।
    - Step 3: output-এর summary বানাও, prompt-এ (thought, cmd, summary) যোগ করো; budget এক কমাও।
 4. Inner loop শেষ হলে attempt এক কমাও; LLM-কে দিয়ে আগের command ও thought-এর তালিকা বিশ্লেষণ করিয়ে lesson বানাও (line 30: analyze_commands_and_thoughts)।
+
+**সহজ কথায়:** Algorithm-এর ভেতরে দুটো loop: বাইরের loop মানে নতুন চেষ্টা (সর্বোচ্চ 3), ভেতরের loop মানে চেষ্টার ভেতরে একটা একটা command (সর্বোচ্চ 40)। ব্যর্থ চেষ্টার পর agent "কী ভুল হলো" লিখে রাখে, পরের চেষ্টায় সেটা কাজে লাগে।
 
 ### ৫.৩ Phase 1-এর বিস্তারিত
 
@@ -214,6 +291,8 @@ Input: repository URL $u$। Output: environment set up ও test চালান
 - কোনো page-এ setup-এর তথ্য না থাকলে LLM-কে বলা হয় নির্দিষ্ট বাক্য ফেরত দিতে: "This page does not contain setup-related information."
 - কারণ: অনেক project-এর বেশি পরিষ্কার documentation readthedocs-এর মতো বাইরের site-এ থাকে।
 
+**সহজ কথায়:** Phase 1-এর শেষে agent-এর হাতে চারটা জিনিস: ভাষার নিয়ম, container-এর নিয়ম, CI-এর সারাংশ আর web-এর সারাংশ। এগুলো দিয়েই সে পরের ধাপে prompt সাজায়।
+
 ### ৫.৪ Phase 2-এর বিস্তারিত
 
 **৫.৪.১ Command prompt-এর 7টা section:**
@@ -227,6 +306,8 @@ Input: repository URL $u$। Output: environment set up ও test চালান
 | 6 | Tool invocation history | Dynamic | এ পর্যন্ত চালানো command ও তাদের output summary (শুরুতে খালি) |
 | 7 | পরের command-এর instruction | Static | Response format: TypeScript interface (Figure 4) |
 
+**সহজ কথায়:** Agent-এর prompt একটা লম্বা চিঠির মতো। শুরুতে স্থির অংশ (তার কাজ ও tool), মাঝে পরিবর্তনশীল অংশ (নিয়ম, hint, এ পর্যন্ত কী করেছে), শেষে "পরের command কী?" প্রশ্ন।
+
 **Response format (Figure 4):** JSON — `thoughts` (string) আর `tool` (name ও args)। উদাহরণ: thoughts = "I need to check the files and folders available within this repository.", tool = `linux_terminal` with `cmd: ls`। Thought চাওয়ার দুটো কারণ: (১) empirically response-এর মান বাড়ে (chain-of-thought), (২) debugging ও decision বোঝা সহজ। Format ভুল হলে control center error message দিয়ে সঠিক format মনে করিয়ে দেয়।
 
 **৫.৪.২ চারটা Tool:**
@@ -239,7 +320,11 @@ Input: repository URL $u$। Output: environment set up ও test চালান
 
 Terminal দিয়েই সব করা সম্ভব, তবু file tool দেওয়া হয়েছে একজন developer-এর text editor ব্যবহারের অনুকরণে।
 
+**সহজ কথায়:** চারটা tool-ই যথেষ্ট, কারণ terminal দিয়েই প্রায় সবকিছু করা যায়। `write_file` শুধু Dockerfile বা script লেখা সহজ করে।
+
 **৫.৪.৩ Summarization:** Tool output **200 token** (default)-এর বেশি হলে আরেকটা LLM call দিয়ে summary ও প্রাসঙ্গিক তথ্য বের করা হয় (Figure 3-এর format)। তারপর command ও summary tool invocation history-তে যোগ হয়।
+
+**সহজ কথায়:** লম্বা output হলে সারাংশ বানাও, তারপর সেই সারাংশ আর command prompt-এর history-তে রাখো। এতে prompt ছোট থাকে।
 
 **৫.৪.৪ Control Center-এর দায়িত্ব:**
 1. LLM output parse করে format যাচাই।
@@ -248,12 +333,18 @@ Terminal দিয়েই সব করা সম্ভব, তবু file too
 4. **Timeout (default 5 মিনিট):** সময় পার হলে পাওয়া output ও process status LLM-কে দেওয়া হয়, LLM তিনটার একটা বেছে নেয় — (১) আরও 5 মিনিট অপেক্ষা, (২) চলমান tool-কে input দেওয়া (যেমন installation confirm করতে "y"), (৩) command বন্ধ করা।
 5. **Output cleaning:** terminal-এর color code ও progress bar-এর বিশেষ character মুছে ফেলা।
 
+**সহজ কথায়:** Control center হলো agent-এর তত্ত্বাবধায়ক। সে agent-এর কথা ঠিকঠাক parse করে, command আটকে গেলে সিদ্ধান্ত নেয়, আর output পরিষ্কার করে।
+
 **৫.৪.৫ `task_done`-এর পর validation:** Control center তিনটা file আছে কিনা দেখে — (১) container বানানোর file (যেমন Dockerfile), (২) container-এর ভিতরে চালানোর installation script, (৩) test result-এর file (pass, fail, skip সংখ্যা)। সব থাকলে script user-কে ফেরত; না থাকলে ঠিক কী বাদ পড়েছে তা জানিয়ে agent-কে নতুন command দিতে বলা হয়।
+
+**সহজ কথায়:** "কাজ শেষ" বললেই agent ছাড়া পায় না। তিনটা file আছে কিনা দেখা হয়। কিন্তু file-এর ভেতরের তথ্য সত্য কিনা — সেটা দেখা হয় না (এটাই paper-এর বড় দুর্বলতা)।
 
 **৫.৪.৬ Output-এর উদাহরণ (Figure 5, OpenVPN):**
 - Dockerfile: `FROM ubuntu:20.04`, timezone ঠিক করা (interactive prompt এড়াতে), `apt-get install` দিয়ে build-essential, liblzo2-dev, libpam0g-dev, liblz4-dev, libcap-ng-dev, libnl-genl-3-dev, linux-libc-dev, autoconf, automake, libtool, cmocka-dev, python3-docutils, git; তারপর OpenVPN clone।
 - `install_and_run.sh`: `autoreconf -fvi` → `./configure --enable-werror` → `make -j$(nproc)` → `make check VERBOSE=1`।
 - **আমার পর্যবেক্ষণ:** Dockerfile-এর দুই জায়গায় `|| exit 0` আছে — অর্থাৎ install বা clone fail করলেও image build "সফল" দেখাবে। Reproducibility-র জন্য এটা ঝুঁকিপূর্ণ (Section ১২.২)।
+
+**সহজ কথায়:** OpenVPN-এর জন্য agent একটা Dockerfile (সব package install) আর একটা ছোট script (চারটা command: autoreconf, configure, make, make check) বানিয়েছে। মানুষ হাতে যা করত, ঠিক তাই।
 
 ### ৫.৫ Implementation ও Model
 - Python ও bash-এ লেখা; ExecutionAgent নিজেও একটা Docker container-এ চলে।
@@ -288,10 +379,15 @@ $$
 \text{Run}(D, S) = (n_{pass}, n_{fail}, n_{skip})
 $$
 
+**সহজ কথায়:** প্রথম সূত্রটা বলছে আমাদের লক্ষ্য: এমন একজোড়া file $(D, S)$ খোঁজা, যা চালালে তিনটা সংখ্যা (pass, fail, skip) পাওয়া যায়। এখানে $D$ হলো Dockerfile, $S$ হলো script, আর $n$ দিয়ে test গোনা হয়েছে।
+
 ### ৬.২ Preparation Phase — Prompt Ingredients
 $$
 I(u) = \left( G_{lang}(u),\; G_{cont},\; H_{ci}(u),\; H_{web}(u) \right)
 $$
+
+**কী হিসাব করে:** চারটা hint-কে এক পুঁটলিতে বেঁধে $I(u)$ নাম দেওয়া হয়েছে। এটাই agent-এর "পড়াশোনার নোট"। নিচে প্রতিটা অংশ কী:
+
 - $G_{lang}(u) = \text{LLM}(\text{meta-prompt}, \text{Linguist}(u))$ — 10টা language guideline
 - $G_{cont}$ — container guideline
 - $H_{ci}(u)$ — CI script-এর summary
@@ -316,6 +412,9 @@ Attempt শেষ হলে lesson:
 $$
 L_a = \text{LLM}\left( \text{analyze}(c_{1..B},\; \theta_{1..B}) \right)
 $$
+
+**কী হিসাব করে:** প্রথম চার লাইন বলছে: প্রতি ধাপে LLM একটা thought আর একটা command দেয়। Command চলে, output আসে। Output বেশি লম্বা হলে সংক্ষেপ হয়। তারপর prompt-এ নতুন তথ্য যোগ হয়। চেষ্টা শেষ হলে সব ধাপ বিশ্লেষণ করে একটা lesson লেখা হয়। নিচে symbol-গুলোর মানে:
+
 | Symbol | মানে |
 |---|---|
 | $\theta_t$ | LLM-এর thought (reasoning) |
@@ -326,17 +425,23 @@ $$
 
 **নোট (paper-এর ব্যাখ্যা থেকে):** 200 token-এর বেশি হলে summarize করার কথা Section 2.4.3-এ আছে, যদিও Algorithm 1-এ শর্ত ছাড়া summarize দেখানো হয়েছে।
 
+**সহজ কথায়:** প্রতিটা ধাপে agent নতুন তথ্য নিয়ে prompt বড় করে, আর প্রতি চেষ্টা শেষে নিজের ভুল থেকে একটা পাঠ লিখে রাখে। ব্যর্থ চেষ্টার পাঠ পরের চেষ্টায় কাজে লাগে।
+
 ### ৬.৪ থামার শর্ত (Termination)
 $$
 \text{Stop}(t) = \mathbb{1}\left[ c_t = \text{task-done} \;\land\; \text{valid} \right], \qquad \text{valid} = \mathbb{1}[D \text{ আছে}] \cdot \mathbb{1}[S \text{ আছে}] \cdot \mathbb{1}[R \text{ আছে}]
 $$
 যেখানে $R$ = test result file। **গুরুত্বপূর্ণ:** valid শুধু file-এর **অস্তিত্ব** যাচাই করে, file-এর **বিষয়বস্তু সঠিক কিনা** নয়।
 
+**সহজ কথায়:** Agent থামে তখনই, যখন সে "কাজ শেষ" বলে আর তিনটা file-ই আছে। ($\mathbb{1}[\cdot]$ মানে শর্ত সত্য হলে 1, মিথ্যা হলে 0।) লক্ষ করো, এখানে file-এর ভেতরের তথ্য সঠিক কিনা তার কোনো শর্ত নেই।
+
 **সর্বোচ্চ command সংখ্যা (আমার হিসাব):**
 $$
 T_{max} = A \times B = 3 \times 40 = 120 \text{ command}
 $$
 প্রতিটা command-এ সর্বোচ্চ 2টা LLM call (command নির্বাচন + summary), আর প্রতি attempt-শেষে 1টা lesson call — অর্থাৎ feedback phase-এ মোটামুটি সর্বোচ্চ $120 \times 2 + 3 = 243$টা LLM call (Phase 1-এর call ছাড়া)। এটা upper bound; paper আসল call সংখ্যা report করেনি।
+
+**সহজ কথায়:** সর্বোচ্চ 3 চেষ্টা × 40 command = 120 command। প্রতি command-এ সর্বোচ্চ 2টা LLM call, আর প্রতি চেষ্টার শেষে 1টা। তাই মোট সর্বোচ্চ প্রায় 243 call। এটা শুধু উপরের সীমা, আসল সংখ্যা paper বলেনি।
 
 ### ৬.৫ Effectiveness Metric
 $N = 50$ project। প্রতিটা project $i$-এর জন্য তিনটা binary ফল — built $b_i$, tests executed $e_i$, deviation 10%-এর কম $g_i$:
@@ -345,11 +450,15 @@ SR_{build} = \frac{1}{N}\sum_{i=1}^{N} b_i, \qquad SR_{test} = \frac{1}{N}\sum_{
 $$
 যেখানে $g_i \leq e_i \leq b_i$। Paper এই rate-গুলো **হাতে script ও test result দেখে** নির্ধারণ করেছে।
 
+**সহজ কথায়:** এই তিনটা সূত্র সোজা শতাংশ: 50টা project-এর মধ্যে কতটায় build হলো, কতটায় test চলল, আর কতটায় ফল CI-এর কাছাকাছি। প্রতিটা project-এর জন্য 1 (হ্যাঁ) বা 0 (না) ধরে গড় করা হয়েছে।
+
 **Worked example (ExecutionAgent, Table 2):**
 - $SR_{build} = 41/50 = 82\%$
 - $SR_{test} = 33/50 = 66\%$
 - $SR_{close} = 29/50 = 58\%$
 - Build হওয়াদের মধ্যে test চলেছে (আমার হিসাব): $33/41 \approx 80.5\%$
+
+**সহজ কথায়:** ExecutionAgent-এর 41টা build-এর মধ্যে 33টায় test চলেছে (প্রায় ৮০%)। মানে build হলে বেশিরভাগ ক্ষেত্রে test-ও চলে।
 
 **তুলনা — LLM scripts baseline:** build 29/50 = 58%, কিন্তু test মাত্র 5/50 = 10%; build হওয়াদের মধ্যে $5/29 \approx 17.2\%$। অর্থাৎ শুধু build করতে পারা আর test চালাতে পারা — দুটো একদম আলাদা ক্ষমতা।
 
@@ -358,6 +467,8 @@ $$
 \text{Factor} = \frac{SR_{test}(\text{ExecutionAgent})}{\max_{m \in \text{baselines}} SR_{test}(m)} = \frac{33}{5} = 6.6
 $$
 Baseline-গুলোর মধ্যে সর্বোচ্চ test execution LLM scripts-এর 5/50 (AutoGPT 4/50, Flapy 0/10)।
+
+**সহজ কথায়:** Factor 6.6 মানে: সেরা পুরনো পদ্ধতি যতগুলো project-এর test চালাতে পারে (5টা), ExecutionAgent তার 6.6 গুণ (33টা) পারে।
 
 ### ৬.৭ Ground Truth থেকে Deviation (paper-এর সূত্র)
 প্রতিটা bucket $b \in \{pass, fail, skip\}$-এর জন্য:
@@ -368,6 +479,9 @@ $$
 $$
 \text{dev} = \frac{1}{3}\left( \text{dev}_{pass} + \text{dev}_{fail} + \text{dev}_{skip} \right)
 $$
+
+**কী হিসাব করে:** Deviation মাপে agent-এর পাওয়া সংখ্যা আসল (CI-এর) সংখ্যা থেকে কত শতাংশ দূরে। তিনটা bucket (pass, fail, skip) আলাদা করে মেপে গড় করা হয়। 0% মানে হুবহু মিল। নিচে symbol-গুলোর মানে:
+
 | Symbol | মানে |
 |---|---|
 | $n_b^{EA}$ | ExecutionAgent-এর চালানোয় bucket $b$-এর test সংখ্যা |
@@ -391,6 +505,8 @@ $$
 
 **Zero-denominator সমস্যা (আমার পর্যবেক্ষণ):** axios-এ GT fail = 0, কিন্তু EA fail = 8। তখন $\text{dev}_{fail} = 8/0$ — অসংজ্ঞায়িত। Paper বলেনি এই ক্ষেত্রে কী করা হয়েছে। Table 1-এর 33টা tested project-এর মধ্যে অনেকগুলোতে GT-র fail বা skip = 0।
 
+**সহজ কথায়:** Pytest-এ তিনটা bucket-এর deviation ছোট (3.71, 0, 7.21), তাই গড় প্রায় 3.64%। অর্থাৎ "close" (10%-এর কম)। অন্যদিকে Django-তে 1টা বাড়তি fail থেকেই 20% — metric ছোট bucket-এ কতটা স্পর্শকাতর তা এই দুই উদাহরণে দেখা যায়।
+
 ### ৬.৮ সামগ্রিক Average Deviation (7.5%)
 33টা tested project-এর মধ্যে 17টা হুবহু মেলে (deviation 0), বাকি 16টার গড় 15.4%:
 $$
@@ -399,6 +515,8 @@ $$
 অর্থাৎ abstract-এর "7.5%" হলো **শুধু tested 33টা project-এর** গড়, সব 50টার নয়।
 
 **আমার যাচাই (Table 1 থেকে recompute):** paper-এর সূত্র হুবহু প্রয়োগ করে Table 1-এর সংখ্যা থেকে আমি 7.5% বা "29/50 deviation < 10%" reproduce করতে পারিনি। শূন্য-denominator bucket বাদ দিলে 33টার মধ্যে 25টা 10%-এর নিচে আর গড় প্রায় 20.6%। শুধু **pass সংখ্যা** দিয়ে deviation হিসাব করলে 29টা 10%-এর নিচে পড়ে (Table 2-এর 29-এর সাথে মেলে), গড় প্রায় 6.84%। তাই paper আসলে কোন হিসাব ব্যবহার করেছে তা অস্পষ্ট — এটা supervisor-এর কাছে খোলাখুলি বলা উচিত।
+
+**সহজ কথায়:** 33টা সফল project-এর অর্ধেকের একটু বেশি (17টা) হুবহু মিলেছে, বাকিদের গড় 15.4% দূরে। দুটো মিলিয়ে সামগ্রিক গড় 7.5%। কিন্তু এই সংখ্যা শুধু সফল 33টার, সব 50টার নয়।
 
 ### ৬.৯ Conditional Success Rate (subgroup analysis)
 $$
@@ -413,6 +531,8 @@ $$
 | Python-main (ExecutionAgent) | 6/10 | 60% |
 | Python-main (Flapy) | 0/10 | 0% |
 
+**সহজ কথায়:** বিভিন্ন group-এ সফলতার হার আলাদা করে দেখা: build tool থাকলে প্রায় ৭৪%, না থাকলে ৪২%; submodule থাকলে মাত্র ২২%। অর্থাৎ project-এর ধরন সফলতাকে বড়ভাবে বদলায়।
+
 ### ৬.১০ Cost ও Time Model
 প্রতিটা LLM call $k$-এর input token $x_k$, output token $y_k$, দাম $\pi_{in}, \pi_{out}$ (USD প্রতি token):
 $$
@@ -420,17 +540,23 @@ C(u) = \sum_{k} \left( x_k \, \pi_{in} + y_k \, \pi_{out} \right)
 $$
 Paper token সংখ্যা বা দামের হিসাব table আকারে দেয়নি, শুধু গড় খরচ (Figure 9)।
 
+**সহজ কথায়:** প্রতিটা LLM call-এর খরচ = input token × input-এর দাম + output token × output-এর দাম। এগুলো যোগ করলে একটা project-এর মোট খরচ।
+
 **সফল ও ব্যর্থ project-এর মিশ্রণ:** সফলতার অনুপাত $q$ হলে প্রত্যাশিত খরচ:
 $$
 \mathbb{E}[C] = q \cdot \bar{C}_{succ} + (1 - q) \cdot \bar{C}_{fail}
 $$
 **Worked example (আমার হিসাব):** $q = 33/50 = 0.66$, $\bar{C}_{succ} = 0.10$, $\bar{C}_{fail} = 0.34$ ধরলে $\mathbb{E}[C] = 0.66 \times 0.10 + 0.34 \times 0.34 = 0.066 + 0.1156 \approx 0.18$ USD — paper-এর 0.16 USD-এর চেয়ে একটু বেশি। কারণ সম্ভবত Figure 9-এর তিনটা group (Build Failure, Build Only, Tests Executed) আর text-এর "succeed/fail" group-এর সংজ্ঞা হুবহু এক নয়; paper এটা স্পষ্ট করেনি।
 
+**সহজ কথায়:** কিছু project সস্তায় সফল, কিছু ব্যর্থ হয়ে বেশি খরচ করে। সফলতার অনুপাত দিয়ে ওজন করে গড় খরচ বের করা হয়েছে।
+
 **প্রতি সফল project-এর খরচ (আমার হিসাব):**
 $$
 C_{per\,success} = \frac{N \cdot \bar{C}}{\#\text{success}} = \frac{50 \times 0.16}{33} \approx 0.24 \text{ USD}
 $$
 **সময় (আমার হিসাব):** মোট compute-সময় $50 \times 74 = 3{,}700$ মিনিট ≈ 61.7 ঘণ্টা; একসাথে 5টা চালালে wall-clock প্রায় $61.7 / 5 \approx 12.3$ ঘণ্টা। প্রতি সফল project-এ $3700/33 \approx 112$ মিনিট।
+
+**সহজ কথায়:** মোট 50টা project-এ খরচ হয় 50 × 0.16 = 8 USD। কিন্তু সফল হয়েছে 33টা, তাই প্রতি সফল project-এ প্রায় 0.24 USD। ব্যর্থ project-এর খরচও সফলের ঘাড়ে চাপে।
 
 ### ৬.১১ Ablation-এর Relative Drop
 $$
@@ -443,11 +569,15 @@ Paper-এর "50%" ও "21%" সংখ্যা **deviation < 10% column** (Tabl
 
 "Executed tests" column দিয়ে হিসাব করলে no guidelines-এ $(33 - 15)/33 \approx 54.5\%$ আর no CI/Web-এ $(33 - 24)/33 \approx 27.3\%$ হতো।
 
+**সহজ কথায়:** কোনো অংশ সরালে সফলতা কত শতাংশ কমল, সেটাই এই সূত্র। যেমন guideline সরালে 29 থেকে 15 — প্রায় অর্ধেক কমে গেল।
+
 ### ৬.১২ Script Size
 Script-এর command সংখ্যা — comment, ফাঁকা লাইন আর `echo` বাদ; যৌগিক command ভেঙে আলাদা গোনা। যেমন `make . && make test` = 2টা command:
 $$
 \text{size}(S) = \sum_{r \in S} \left| \text{split}(r) \right| \cdot \mathbb{1}[r \text{ comment বা echo নয়}]
 $$
+
+**সহজ কথায়:** Script-এর আকার মাপা হয় ভেতরের আসল command গুনে। Comment, ফাঁকা লাইন আর `echo` বাদ। `a && b` মানে 2টা command।
 
 ### ৬.১৩ Tool Usage Distribution
 $$
@@ -455,12 +585,16 @@ p(\text{tool}) = \frac{\#\text{call}_{tool}}{\sum_{\tau} \#\text{call}_{\tau}}
 $$
 Terminal 74.8% + write_file 16.0% + read_file 8.2% + task_done 1% = 100%।
 
+**সহজ কথায়:** প্রতিটা tool মোট কতবার ডাকা হয়েছে, তার শতাংশ। Terminal সবচেয়ে বেশি (প্রায় ৭৫%)।
+
 ### ৬.১৪ (আমার পর্যবেক্ষণ) একাধিক Attempt-এর মান
 যদি প্রতিটা attempt স্বাধীনভাবে $p$ সম্ভাবনায় সফল হতো, তাহলে 3টা attempt-এ অন্তত একবার সফল:
 $$
 P_{\geq 1} = 1 - (1 - p)^3
 $$
 যেমন $p = 0.4$ হলে $1 - 0.6^3 = 0.784$। তবে বাস্তবে attempt-গুলো স্বাধীন নয় (lesson পরের attempt-এ যায়, একই project-এর একই বাধা) — আর paper প্রতি attempt-এর সফলতা আলাদা করে report করেনি, তাই এটা শুধু intuition।
+
+**সহজ কথায়:** ধরো একটা চেষ্টায় সফল হওয়ার সম্ভাবনা ৪০%। তিনবার চেষ্টা করলে অন্তত একবার সফল হওয়ার সম্ভাবনা প্রায় ৭৮%। কিন্তু বাস্তবে চেষ্টাগুলো স্বাধীন নয়, তাই এটা শুধু ধারণা।
 
 ---
 
@@ -493,12 +627,16 @@ $$
 
 উদাহরণ: CPython-এর অনেক test Python-এ লেখা কিন্তু C-তে লেখা code test করে।
 
+**সহজ কথায়:** Dataset-এ 50টা জনপ্রিয় project, 14টা ভাষা। বেশিরভাগে CI আছে (তাই আসল উত্তর পাওয়া যায়), আর 38টায় automated build tool আছে। আরও আছে: 9টায় submodule।
+
 ### ৭.২ Baselines (Section 3.1.4)
 | Baseline | কী | Setup |
 |---|---|---|
 | **LLM scripts** | LLM-কে দিয়ে প্রতিটা প্রধান language-এর জন্য একটা general install-ও-test script লেখানো (Figure 6-এর prompt: Ubuntu-তে source থেকে install করে test চালাও, project, framework ও dependency-র পার্থক্য সামলাও, যতটা সম্ভব general কিন্তু জানা special case-ও সামলাও) | 5টা script; project-এর main language-এর script দিয়ে চালানো |
 | **AutoGPT** | General-purpose LLM agent — plan করে, tool (web search, file read/write, Python execution) চালায়, plan update করে | একই model ও একই budget (সর্বোচ্চ iteration); task description Figure 7-এ (4টা goal) |
 | **Flapy** | Python project set up করে test চালানোর মানুষের লেখা script, মূলত flaky test গবেষণার জন্য | শুধু 10টা Python-main project-এ |
+
+**সহজ কথায়:** তিনটা পুরনো পদ্ধতির সাথে তুলনা: LLM-কে দিয়ে একটা সাধারণ script লেখানো, AutoGPT (সাধারণ-উদ্দেশ্যের agent), আর Flapy (Python-এর জন্য মানুষের লেখা)।
 
 ### ৭.৩ Metric ও Validation
 - Successful build rate, successful testing rate — **হাতে** script ও test result দেখে।
@@ -523,6 +661,8 @@ $$
 - 33টা tested project-এর মধ্যে **17টায় ফল ground truth-এর সাথে হুবহু এক**; বাকি 16টার গড় deviation 15.4%।
 - Individual test case স্তরে: 17/33-এ একই test set একই ফলাফলে চলেছে; বাকি 16টায় **passing test-এর 99.9% ground truth-এর সাথে মিলেছে** — অমিল মূলত failing test-এ।
 - Flapy-র 10টা Python project-এ ExecutionAgent 6টা build ও test করেছে, paper-এর দাবি অনুযায়ী সবগুলো ground truth-এর সাথে হুবহু এক।
+
+**সহজ কথায়:** ExecutionAgent 41টা build করেছে, 33টায় test চালিয়েছে। 29টায় ফল CI-এর কাছাকাছি (10%-এর মধ্যে)। বাকি baseline-গুলো এর কাছেও আসেনি। সবচেয়ে বড় ফাঁক: LLM scripts build করেছে 29টা, কিন্তু test চালিয়েছে মাত্র 5টা।
 
 ### ৮.২ Table 1 — 50টা project-এর বিস্তারিত ফল
 (GT = ground truth; EA = ExecutionAgent। "built only" = build হয়েছে কিন্তু test চলেনি; "build fail" = build হয়নি।)
@@ -580,6 +720,8 @@ $$
 | xgboost | C++, P, R | 208 | 207 | 0 | 1 | built only | | | |
 | xrdp | C, C++ | 206 | 206 | 0 | 0 | built only | | | |
 
+**সহজ কথায়:** প্রতিটা project-এর জন্য দেখানো হয়েছে CI-তে কত test pass, fail, skip ছিল, আর ExecutionAgent কত পেয়েছে। দুটো সংখ্যা মিললে ভালো। "built only" মানে build হয়েছে কিন্তু test চলেনি, "build fail" মানে build-ই হয়নি।
+
 **আমার গণনা (Table 1 থেকে):**
 - Tested = 33, built only = 8 (ansible, Chart.js, flink, langchain, scipy, tensorflow, xgboost, xrdp), build fail = 9 (folly, FreeRTOS, imgui, mpv-player, msgpack-c, node, numpy, webpack, webview) → 33 + 8 + 9 = 50 ✓; built = 33 + 8 = 41 ✓।
 - **চারটা সংখ্যাই হুবহু মেলে এমন project আমি গুনে পেয়েছি 16টা** (ccache, commons-csv, dubbo, express, guava, json, json-c, libevent, mybatis, nest, opencv, react-native, rocketmq, spring, TypeScript, vue), paper বলছে 17টা। একটার পার্থক্য সম্ভবত paper-এর "identical" সংজ্ঞায় (যেমন test set মেলানো) — paper স্পষ্ট করেনি।
@@ -587,24 +729,34 @@ $$
 - **লক্ষণীয় outlier:** react-এ EA 9,764টা test চালিয়েছে, GT-তে 5,509 — অর্থাৎ CI-র চেয়ে **বেশি** test; mermaid-এও 3,287 বনাম 3,106। এর মানে CI হয়তো সব test চালায় না, অথবা agent ভিন্ন configuration-এ চালিয়েছে — "ground truth" নিজেই নিখুঁত নয়।
 - tensorflow-এর GT-তে 3,148 test কিন্তু pass, fail, skip সবই 0 — ground truth extraction-এ সমস্যার ইঙ্গিত।
 
+**সহজ কথায়:** Table 1 নিজেও পুরোপুরি নির্ভুল নয়। কিছু ক্ষেত্রে agent CI-এর চেয়ে বেশি test চালিয়েছে (react), আবার tensorflow-এর আসল উত্তরেই সব 0। তাই "আসল উত্তর"-ও নিখুঁত নয়।
+
 ### ৮.৩ Language অনুযায়ী (Figure 8)
 - **Java-তে সবচেয়ে কার্যকর** — paper বলছে সব Java project build ও test হয়েছে।
 - **C ও C++ সবচেয়ে কঠিন** — build ও test প্রক্রিয়া কম standardized, প্রায়ই system dependency-র সাথে মেলাতে package নতুন করে compile করতে হয়।
 - Figure 8-এর প্রতিটা bar-এর সঠিক সংখ্যা text-এ নেই, আর PDF থেকে বের করা যায়নি; paper প্রতিটা project-এর "main language" তালিকাও দেয়নি। **নোট:** flink (J, Scala, P) Table 1-এ built only — তাই "সব Java project" দাবি মেলাতে হলে flink-কে Java-main ধরা হয়নি বলে ধরতে হয়।
 
+**সহজ কথায়:** Java সবচেয়ে সহজ, C ও C++ সবচেয়ে কঠিন। কারণ C/C++-এ standard package manager নেই; system library হাতে মেলাতে হয়।
+
 ### ৮.৪ Build tool ও Submodule অনুযায়ী
 - Automated build tool-যুক্ত 38টার মধ্যে 28টায় test চলেছে; build tool ছাড়া 12টার মধ্যে 5টায়।
 - Submodule-যুক্ত 9টার মধ্যে মাত্র 2টায় test চলেছে।
+
+**সহজ কথায়:** Build tool থাকলে সফলতা অনেক বেশি (28/38), না থাকলে কম (5/12)। Submodule থাকলে প্রায় সবসময় ব্যর্থ (2/9)।
 
 ### ৮.৫ Deviation-এর কারণ (5টা project-এর বিস্তারিত বিশ্লেষণ)
 1. **Module-ভিত্তিক project:** Activiti-তে bpmn converter module compile fail করায় বাকি testing থেমে যায়; অন্য module চালিয়ে যাওয়ার একটা option ছিল কিন্তু agent সেটা ব্যবহার করেনি (তাই 3,269-এর জায়গায় 2,392)।
 2. **অসম্পূর্ণ dependency:** axios-এ headless Chromium binary না থাকায় 8টা test চলেনি (Table 1-এ এগুলো fail হিসেবে দেখা যায়)।
 3. **Test flakiness:** কিছু error-এর পিছনে missing dependency বা setup সমস্যার স্পষ্ট চিহ্ন ছিল না।
 
+**সহজ কথায়:** ফল মিলছে না মূলত তিন কারণে: এক module আটকে গেলে বাকিটা থামা, একটা dependency (যেমন browser) না থাকা, আর flaky test।
+
 ### ৮.৬ Baseline-এর সাথে তুলনা
 - **LLM scripts:** অনেক build করে (29/50) কিন্তু test চালাতে পারে মাত্র 5টায় (5/29)। কারণ: user setup আর development setup-এর পার্থক্য বোঝে না — compiler, glibc-32, testing framework install, dependency recompile, config বদল বাদ পড়ে। ExecutionAgent অপ্রত্যাশিত error iteratively ঠিক করতে পারে।
 - **AutoGPT:** একই budget-এ মাত্র 9টা build, 4টায় test। ExecutionAgent-এর মূল পার্থক্য: meta-prompting, চালানো command-এর memory আরও কার্যকরভাবে manage করা, আর বেশি sophisticated ও robust tool।
 - **Flapy:** LLM scripts-এর মতো build-এ ঠিকঠাক (6/10) কিন্তু 10টার একটারও test সম্পূর্ণ চালাতে পারেনি।
+
+**সহজ কথায়:** সব baseline-এর মূল সমস্যা এক: তারা "user setup" ও "development setup"-এর পার্থক্য বোঝে না, আর ভুল হলে শোধরাতে পারে না। ExecutionAgent পারে, কারণ সে ধাপে ধাপে ভুল দেখে ঠিক করে।
 
 ### ৮.৭ RQ2: Costs (Section 3.3, Figure 9)
 | বিষয় | মান |
@@ -615,6 +767,8 @@ $$
 | সফল project-এর গড় খরচ | USD 0.10 |
 
 Authors-এর যুক্তি: বিকল্প হলো মানুষ দিয়ে হাতে setup, তাই এই সময় ও খরচ গ্রহণযোগ্য; LLM সস্তা হলে খরচ আরও কমবে।
+
+**সহজ কথায়:** ব্যর্থ হলে agent budget শেষ পর্যন্ত চেষ্টা করে, তাই ব্যর্থ project-এর খরচ (0.34) সফলের (0.10) চেয়ে প্রায় 3.4 গুণ। খরচ সামান্যই, তাই paper বলছে মানুষের হাতে করার চেয়ে এটা সস্তা।
 
 ### ৮.৮ RQ3: Ablation Study — Table 3
 | Variant | Built | Executed tests | Deviation < 10% | Project cost (USD) |
@@ -630,6 +784,8 @@ Authors-এর যুক্তি: বিকল্প হলো মানুষ 
 - **No guidelines:** effectiveness প্রায় 50% কমে।
 - **No CI/Web retrieval:** success rate 21% কমে, খরচ 13% বাড়ে।
 - **আমার পর্যবেক্ষণ:** কোনো component সরালেই খরচ খুব একটা কমে না (feedback phase ছাড়া) — বরং preparation বা retrieval সরালে খরচ বাড়ে, কারণ agent অন্ধকারে বেশি command চালায়। অর্থাৎ ভালো context একসাথে **কার্যকারিতা বাড়ায় আর খরচ কমায়**।
+
+**সহজ কথায়:** Agent-এর একটা অংশ সরিয়ে আবার চালালে কতটা খারাপ হয়, সেটাই ablation। Preparation বা feedback — যেকোনোটা সরালে ফল অনেক নামে। তাই দুটোই জরুরি। মজার ব্যাপার: preparation সরালে খরচ বরং বাড়ে, কারণ agent অন্ধকারে হাতড়ায়।
 
 ### ৮.৯ RQ4: Tool ও Trajectory বিশ্লেষণ (Section 3.5)
 **Tool usage:**
@@ -652,9 +808,13 @@ Authors-এর যুক্তি: বিকল্প হলো মানুষ 
 
 **Script complexity:** 33টা সফল project-এ গড় script size 18 (সর্বনিম্ন 12, সর্বোচ্চ 37)। Paper একই অনুচ্ছেদে আবার বলছে "গড়ে 16টা command" — **18 বনাম 16-এর অসঙ্গতি paper-এ ব্যাখ্যা করা নেই।** Script ছোট কারণ agent সফল command-ক্রম খুঁজে পাওয়ার পরেই script লেখে।
 
+**সহজ কথায়:** Agent মূলত terminal দিয়ে কাজ করে (প্রায় ৭৫%)। সাধারণ পথ তিন ধাপ: ফোল্ডার আর README দেখা, Dockerfile আর script লেখা, তারপর test চালিয়ে ফল নিশ্চিত করা। Script-এ fallback (`||`) আর cleanup-ও থাকে।
+
 **ব্যর্থতার দুটো আচরণ (Section 3.5.4):**
 1. **একই ভুলের পুনরাবৃত্তি:** যেমন `sudo` না থাকলেও বারবার `sudo` ব্যবহার — error-এর পর ঠিক করে, কিন্তু পরের command-এ আবার একই ভুল।
 2. **Follow-up না করা:** Node বা gcc-এর নতুন version install করে, কিন্তু পুরনোটাই default থেকে যায়; তারপর version check → install → default না করা — এই চক্রে resource নষ্ট।
+
+**সহজ কথায়:** Agent দুটো ভুল বারবার করে: একই ভুল পুনরাবৃত্তি (sudo নেই, তবু sudo), আর নতুন version install করে সেটাকে default না বানানো। এতে budget নষ্ট হয়।
 
 ---
 
@@ -669,6 +829,8 @@ Authors-এর যুক্তি: বিকল্প হলো মানুষ 
 7. **Test চলার পরেও ফলাফল সবসময় ঠিক নয়** — 16টা tested project-এ ground truth থেকে গড় 15.4% deviation; failing test-এ অমিল বেশি। অর্থাৎ "suite চলেছে" মানেই "সঠিক environment" নয়।
 8. **সস্তা ও যথেষ্ট দ্রুত** — GPT-4o-mini দিয়ে গড় USD 0.16, 74 মিনিট; ব্যর্থ project সফলের চেয়ে 3.4 গুণ বেশি খরচ করে (0.34 বনাম 0.10, আমার হিসাব)।
 
+**সহজ কথায়:** আটটা মূল শিক্ষা: (১) automate করা যায় কিন্তু নিখুঁত নয়, (২) build আর test আলাদা, (৩) feedback loop জরুরি, (৪) context খরচ কমায়, (৫) বিশেষ agent সাধারণ agent-এর চেয়ে ভালো, (৬) C/C++ কঠিন, (৭) test চলা মানে ঠিক ফল নয়, (৮) সস্তা।
+
 ---
 
 ## ১০. কেন এই Solution অন্যগুলোর থেকে ভালো?
@@ -682,6 +844,8 @@ Authors-এর যুক্তি: বিকল্প হলো মানুষ 
 | Output | Script | Script | যা খুশি | JSON recipe + Docker image | **Dockerfile + install/test script + result file** |
 | Ground truth যাচাই | — | — | — | F2P/P2P শর্ত | **CI log-এর সাথে pass/fail/skip তুলনা** |
 | Test চালানোর সাফল্য (এই paper-এ) | Flapy 0/10 | 5/50 | 4/50 | এই dataset-এ চালানো হয়নি | **33/50** |
+
+**সহজ কথায়:** অন্য সব পদ্ধতির তুলনায় ExecutionAgent একমাত্র যেটা একসাথে: যেকোনো ভাষায় কাজ করে, নিজে terminal-এ কথা বলে, hint নেয়, আর শেষে আসল উত্তরের সাথে মেলায়।
 
 **মূল শক্তি:**
 1. **Human developer-এর অনুকরণ:** docs পড়া, চেষ্টা, ভুল দেখে শোধরানো।
@@ -712,6 +876,8 @@ Authors-এর যুক্তি: বিকল্প হলো মানুষ 
 - কম পরিচিত বা দুর্বল documentation-এর project — পরীক্ষা হয়নি।
 - **আমাদের ক্ষেত্রে বিশেষভাবে:** নির্দিষ্ট **পুরনো commit**-এ (যেমন SWE-bench task-এর base commit) test চালাতে হলে — paper-এর setup HEAD clone করে, historical commit-এ পরীক্ষা হয়নি।
 
+**সহজ কথায়:** সংক্ষেপে: জনপ্রিয় ও স্ট্যান্ডার্ড build-এর project-এ ভালো; C/C++, submodule, পুরনো dependency ও একাধিক configuration-এ দুর্বল।
+
 ---
 
 ## ১২. Limitations — দুর্বলতা
@@ -726,6 +892,8 @@ Authors-এর যুক্তি: বিকল্প হলো মানুষ 
 7. Deviation-এর কারণ: module-ভিত্তিক build, অসম্পূর্ণ dependency, flakiness।
 8. C ও C++-এ কম কার্যকর; submodule-এ দুর্বল।
 
+**সহজ কথায়:** Authors নিজেরা আটটা দুর্বলতা মেনেছেন। সবচেয়ে বড় দুটো: একই ভুলের পুনরাবৃত্তি, আর শুধু একটা configuration-এ পরীক্ষা।
+
 ### ১২.২ আমার Critical Analysis (Professor-level observation)
 1. **Validation শুধু file-এর অস্তিত্ব দেখে (সবচেয়ে গুরুত্বপূর্ণ, আমাদের domain-এর জন্য):** `task_done`-এর পর control center দেখে Dockerfile, script আর result file **আছে কিনা** — result-এর সংখ্যা কোথা থেকে এলো, test আসলে চলেছে কিনা, তা নয়। একটা LLM agent চাইলে result file-এ সংখ্যা লিখে দিতে পারে, failing test skip করাতে পারে, বা test command-এর পাশে `|| true` বসিয়ে দিতে পারে। Paper-এর evaluation-এ মানুষ হাতে দেখেছে বলে এটা ধরা পড়েছে, কিন্তু **scale-এ automated ব্যবহারে এটা verifier gaming-এর (CG12) সরাসরি পথ।**
 2. **Figure 5-এর `|| exit 0`:** Dockerfile-এ install বা clone fail করলেও build সফল দেখায়। Trajectory analysis-এ paper এই fallback logic-কে "error handling and resilience" বলে প্রশংসা করেছে, কিন্তু assurance-এর দৃষ্টিতে এটা **নীরব ব্যর্থতা লুকানো** — environment অসম্পূর্ণ হলেও "সফল"।
@@ -739,6 +907,8 @@ Authors-এর যুক্তি: বিকল্প হলো মানুষ 
 10. **Token ও call সংখ্যা report নেই:** শুধু USD-এ খরচ "current pricing" অনুযায়ী — দাম বদলালে তুলনা করা যায় না। Token সংখ্যা দিলে যেকোনো দামে recompute করা যেত।
 11. **Time measurement-এর শর্ত:** 74 মিনিট 5টা একসাথে চলা অবস্থায়; LLM latency, download, compile আলাদা করে দেখানো হয়নি।
 12. **Dataset ছোট ও জনপ্রিয়-কেন্দ্রিক:** 50টা, median 45K star — training data-তে এদের setup নির্দেশ প্রায় নিশ্চিত আছে। কম পরিচিত project-এ (যেমন SWE-rebench-এর হাজার হাজার repository) ফল কম হতে পারে।
+
+**সহজ কথায়:** আমার মতে সবচেয়ে গুরুত্বপূর্ণ সমালোচনা: validation শুধু file-এর অস্তিত্ব দেখে। এটা আমাদের verifier gaming (CG12) প্রসঙ্গের সরাসরি পথ। বাকিগুলো ছোট, কিন্তু একসাথে paper-এর মাপজোখের নির্ভুলতায় প্রশ্ন তোলে।
 
 ---
 
@@ -760,6 +930,8 @@ Authors-এর যুক্তি: বিকল্প হলো মানুষ 
 | G12 | **Downstream ব্যবহারে মূল্যায়ন** — তৈরি environment দিয়ে agent patch যাচাই করলে assurance কতটা বাড়ে | Paper এটা "vision" হিসেবে বলেছে, পরীক্ষা করেনি | Automated Program Repair (VRpilot feedback loop); Patch Validation | CG1, CG3 |
 | G13 | **Cost transparency** — token, call, latency আলাদা করে | USD দাম বদলায়; তুলনা অসম্ভব | Coding-Agent Evaluation & Reliability | CG8 |
 
+**সহজ কথায়:** Gap table-এর মূল বার্তা: পরীক্ষার ফল সত্য কিনা (G1), পুরনো commit-এ কাজ করে কিনা (G2), per-test স্তরে তথ্য (G3), বারবার চালালে একই ফল (G4) — এই চারটা আমাদের কাজের সবচেয়ে কাছের সুযোগ।
+
 ---
 
 ## ১৪. কী করলে আরও ভালো হবে — Improvement Ideas
@@ -771,6 +943,8 @@ Authors-এর যুক্তি: বিকল্প হলো মানুষ 
 5. **Episodic memory / "do-not-repeat" তালিকা (G8):** ব্যর্থ command-pattern (যেমন sudo নেই) prompt-এ স্থায়ী নিয়ম হিসেবে রাখা; version install-এর পর `update-alternatives` বা PATH যাচাই checklist।
 6. **Sandboxing ও input sanitization (G6):** Web/README থেকে আসা text-কে "data" হিসেবে চিহ্নিত করা, network allow-list, `curl ... | bash` ধরনের command-এ সতর্কতা।
 7. **Submodule ও multi-module checklist (G7):** `.gitmodules` থাকলে স্বয়ংক্রিয় `git submodule update --init --recursive`; Maven-এ `-fae` (fail at end) ধরনের option প্রথমেই বিবেচনা।
+
+**সহজ কথায়:** উন্নতির ধারণাগুলোর মূল কথা: agent-কে বিশ্বাস না করে নিজে যাচাই করো, পুরনো commit-এ চালাও, per-test ফল রাখো, বারবার চালাও।
 
 ---
 
@@ -785,6 +959,8 @@ Authors-এর যুক্তি: বিকল্প হলো মানুষ 
 | **G4: Setup agent-এর reliability** (k run, variance) | ✅ হ্যাঁ, খরচ কম (GPT-4o-mini-স্তরের model-এ প্রতি project 0.16 USD) | মাঝারি-উচ্চ | ⭐⭐⭐ |
 | **G12: Environment + regression signal দিয়ে agent patch assurance** | ✅ হ্যাঁ — আমাদের মূল direction-এর অংশ | উচ্চ, কিন্তু অন্য অংশের উপর নির্ভরশীল | ⭐⭐⭐⭐ |
 | G6: Setup agent-এর prompt injection নিরাপত্তা | ⚠️ সম্ভব, কিন্তু নৈতিক ও sandbox সতর্কতা লাগে | উচ্চ | ⭐⭐⭐ |
+
+**সহজ কথায়:** সবচেয়ে সম্ভাবনাময় দুটো পথ: (১) result integrity checker এবং (২) পুরনো commit আর per-test ভিত্তিতে environment builder। দুটোই ছোট subset নিয়ে SPL3-তে করা যায়।
 
 **সম্ভাব্য venue (general guidance):** ISSTA, ICSE, FSE, ASE (এই paper নিজেই ISSTA-তে); workshop — LLM4Code, AST (Automation of Software Test); journal — ACM TOSEM, IEEE TSE, EMSE, JSS, IST।
 
@@ -808,6 +984,8 @@ Authors-এর যুক্তি: বিকল্প হলো মানুষ 
 - প্রতি project গড়ে 74 মিনিট — তাই ছোট subset (10–20 project/task), আর সফল Dockerfile cache করা।
 - API খরচ ও token প্রতিটা run-এ log করবো (G13)।
 
+**সহজ কথায়:** আমাদের software-এ আসবে ছয়-সাতটা module: environment তৈরি, বিশ্বাসযোগ্য test runner, integrity checker, flaky detector, regression signal, generated-test signal, আর report। মূল কথা — agent যা বলে তা নয়, আমরা নিজে যা মাপি তা-ই report-এ যাবে।
+
 ---
 
 ## ১৭. পরবর্তী গবেষণায় এই Paper-এর প্রভাব ও সংযোগ (Context)
@@ -821,6 +999,8 @@ Authors-এর যুক্তি: বিকল্প হলো মানুষ 
 - **Sub-domain 2 (VRpilot):** compiler/sanitizer/test feedback loop — একই ধাঁচের iterative refinement; একই ঝুঁকি (validator-কে খুশি করা = feedback overfitting)।
 - **একই গবেষণা দল:** RepairAgent (Bouzenia, Devanbu, Pradel), DyPyBench (Bouzenia et al., FSE 2024) — যেখানে executable Python project-এর benchmark হাতে বানাতে হয়েছিল; ExecutionAgent সেই হাতের কাজ automate করার চেষ্টা।
 - **পরবর্তী সম্পর্কিত কাজ (নাম আমার পূর্বজ্ঞান থেকে, আমাদের fact sheet-এ নেই — supervisor-কে দেখানোর আগে যাচাই করতে হবে):** Repo2Run, EnvBench, SetupBench নামে environment setup-এর agent/benchmark কাজ এসেছে বলে জানি; তাদের সংখ্যা এখানে দিচ্ছি না।
+
+**সহজ কথায়:** এই paper আমাদের গবেষণার ভিত্তি। তুলনা: SWE-rebench Python-only আর একবারে recipe লেখে, ExecutionAgent বহু ভাষা আর interactive। দুটোর সংখ্যা সরাসরি তুলনীয় নয়, কারণ লক্ষ্য আলাদা।
 
 ---
 
@@ -859,6 +1039,8 @@ A: GPT-4o-mini-এর মতো সস্তা model দিয়ে, 2025-এ�
 **Q11. Ablation-এ preparation phase সরালে খরচ বাড়লো কেন?**
 A: Guideline ও hint ছাড়া agent অন্ধভাবে বেশি command চালায়, budget শেষ করে, তাই 0.16 থেকে 0.19 USD; অথচ test চলে মাত্র 8টায়। Feedback phase সরালে খরচ 0.02 কারণ একবার মাত্র script লেখা হয় — সস্তা কিন্তু 5টায় test।
 
+**সহজ কথায়:** Viva-র জন্য তিনটা বিষয় ভালো করে মুখস্থ রাখো: (১) 6.6x কীভাবে হিসাব, (২) deviation-এর সীমাবদ্ধতা, (৩) result integrity-ই বড় দুর্বলতা।
+
 ---
 
 ## ১৯. Glossary (দ্রুত মনে রাখার জন্য)
@@ -882,6 +1064,8 @@ A: Guideline ও hint ছাড়া agent অন্ধভাবে বেশ�
 | Flaky test | একই code-এ কখনো pass কখনো fail |
 | Trajectory | Agent-এর নেওয়া ধাপের ক্রম |
 | Linguist | GitHub-এর language শনাক্তকরণ library |
+
+**সহজ কথায়:** এই glossary দেখে পুরো paper-এর ভাষা মনে করা যায়। কোনো শব্দ ভুলে গেলে এখানে ফিরে এসো।
 
 ---
 
@@ -925,6 +1109,8 @@ A: Guideline ও hint ছাড়া agent অন্ধভাবে বেশ�
 
 **আমার পর্যবেক্ষণ (খরচের অনুপাত, সতর্কতাসহ):** $1.72 / 0.16 \approx 10.8$ আর $13.20 / 0.16 = 82.5$। অর্থাৎ frontier model-এ agentic terminal task-এর প্রতি-task খরচ ExecutionAgent-এর 2025-এর খরচের প্রায় 11 থেকে 83 গুণ। **কিন্তু এটা একই কাজ নয়** (Terminal-Bench task বনাম test-suite setup), একই harness নয় — তাই এটা শুধু "frontier model দিয়ে আবার চালালে খরচ অনেক বাড়তে পারে" এর ইঙ্গিত, পরিমাপ নয়।
 
+**সহজ কথায়:** Paper-এর সময় (2025) আর এখনকার (2026) মধ্যে বড় পার্থক্য: model আরও শক্তিশালী ও দামি, কিন্তু environment-setup কাজে নতুন model-এর কোনো সংখ্যা কেউ প্রকাশ করেনি। এটাই একটা gap।
+
 ### ২১.২ কোন Finding এখনো সত্য, কোনটা পুরনো হয়ে গেছে
 
 - **অজানা (মাপা হয়নি) — "33/50 test executed":** বর্তমান model দিয়ে এই dataset-এ কেউ আবার চালিয়েছে এমন তথ্য fact sheet-এ নেই। Terminal-Bench 4.0-এ সেরা model-ও প্রায় 59–65% (independent), অর্থাৎ terminal-ভিত্তিক agent কাজ এখনো saturated নয় — **আমার অনুমান**, setup-এর জন্য সরাসরি প্রমাণ নয়।
@@ -934,6 +1120,8 @@ A: Guideline ও hint ছাড়া agent অন্ধভাবে বেশ�
 - **গুরুত্ব বেড়েছে — "validation শুধু file-existence" (আমার critique #1):** 2026-এ verifier gaming এখন মাপা ঘটনা — SWE-Bench Pro Verified-এ GLM-5.2 78.80% থেকে anti-hacking safeguard দিলে 57.32% (independent); DeepSWE-তে প্রতারণার 87% ক্ষেত্রে `.git` history থেকে gold commit পড়া (independent)। একটা setup agent-কে যদি "test result দাও" বলে reward করা হয়, একই ধরনের shortcut-এর ঝুঁকি আছে।
 - **এখনো সত্য — "test চালানোই যথেষ্ট নয়":** OpenAI-এর audit-এ Verified-এর hard subset-এর ≥59.4% task-এর test সঠিক submission reject করে (**search-snippet only**); SWE-Bench Pro-র 27.4–34.1% task ত্রুটিপূর্ণ (secondary)। অর্থাৎ environment ঠিক থাকলেও test-এর মান আলাদা সমস্যা — ExecutionAgent শুধু প্রথম সমস্যা সমাধান করে।
 - **নতুন ঝুঁকি, paper-এ ছিল না — setup agent-এ prompt injection:** ExecutionAgent README, CI file আর web page পড়ে command চালায়; 2026-এ coding agent-এ prompt injection ও CI-ভিত্তিক injection বারবার রিপোর্ট হচ্ছে (fact sheet §5)। **আমার পর্যবেক্ষণ:** setup agent এই আক্রমণের জন্য স্বাভাবিক লক্ষ্য, কিন্তু setup agent-এর উপর নির্দিষ্ট পরিমাপ fact sheet-এ নেই।
+
+**সহজ কথায়:** যা এখনো সত্য: terminal-ই agent-এর প্রধান tool, test চালানো যথেষ্ট নয়, আর verifier gaming আরও জরুরি। যা পুরনো হতে পারে: খরচ 0.16 USD (সস্তা model-এর কথা)। আর নতুন ঝুঁকি: prompt injection।
 
 ### ২১.৩ এই Paper-এর Gap-গুলো আজও খোলা কিনা
 
@@ -952,6 +1140,8 @@ A: Guideline ও hint ছাড়া agent অন্ধভাবে বেশ�
 | G11: Multi-configuration | **বর্তমান তথ্য পাওয়া যায়নি** | — |
 | G12 / CG1, CG3: Environment দিয়ে patch assurance | **খোলা** | PatchDiff: plausible patch-এর 29.6% gold থেকে ভিন্ন আচরণ, 7.8% "correct" patch পুরো developer suite-এ fail (independent, 2025 model; বর্তমান model-এ আবার মাপা হয়নি) — পুরো suite চালানোর ক্ষমতাই এখানে মূল |
 | G13 / CG8: Cost transparency | **আংশিক উন্নতি** | Vals.ai ও SWE-rebench এখন প্রতি task USD খরচ ও সময় দেয় (independent); token-স্তরের তথ্য fact sheet-এ নেই |
+
+**সহজ কথায়:** 13টা gap-এর মধ্যে বেশিরভাগ 2026-এও খোলা বা "তথ্য পাওয়া যায়নি"। মানে এখানে গবেষণার সুযোগ আছে, কারণ কেউ এখনো মাপেনি।
 
 ### ২১.৪ বর্তমান Model দিয়ে আবার পরীক্ষা করলে — SPL3 Idea (cost-aware)
 

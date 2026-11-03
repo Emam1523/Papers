@@ -19,16 +19,71 @@
 | **Timeline** | Received 13 Feb 2026 → Revised 1 Jul 2026 → Accepted 23 Jul 2026 → Online 24 Jul 2026 |
 | **License** | Open access, CC BY-NC-ND 4.0 |
 | **Paper type** | **Technique paper** — নতুন একটা APCA technique (RePaCA) + empirical evaluation (৩টা setting + ২টা ablation + qualitative example) |
-| **Base model** | Qwen2.5-Coder-3B (Instruct), শুধু GRPO (Reinforcement Learning) দিয়ে fine-tune — কোনো SFT নেই |
+| **Base model** | Qwen2.5-Coder-3B (Instruct), শুধু GRPO (Reinforcement Learning, অর্থাৎ reward পেয়ে পেয়ে শেখার পদ্ধতি) দিয়ে fine-tune (নির্দিষ্ট কাজের জন্য আবার train) — কোনো SFT (মানুষের লেখা সঠিক উত্তর দেখিয়ে শেখানো) নেই |
 | **Artifacts** | Code-এর কোনো public link paper-এ নেই; "Data will be made available on request"। Dataset গুলো APPT-এর GitHub (iSEngLab/APPT) ও INVALIDATOR-এর GitHub (thanhlecongg/Invalidator) থেকে নেওয়া |
 | **Interesting fact** | প্রথম author paper লেখার সময় **B.Sc. শেষ করছিলেন** (author bio অনুযায়ী 2026-এ graduate) — অর্থাৎ undergraduate-level কাজ থেকেও journal publication সম্ভব। SPL3-এর জন্য এটা ভালো অনুপ্রেরণা। |
-| **আমাদের domain-এ গুরুত্ব** | ⭐⭐⭐⭐⭐ — এটা সরাসরি **CG1 (plausible patch-এর overfitting detection)**-এর একটা technique। আমাদের প্রস্তাবিত Assurance Layer-এর প্রথম component ("test pass করা patch আসলে সঠিক কিনা") ঠিক এই কাজটাই করে — তাও কোনো test না চালিয়ে, শুধু code দেখে। |
+| **আমাদের domain-এ গুরুত্ব** | ⭐⭐⭐⭐⭐ — এটা সরাসরি **CG1 (plausible patch-এর overfitting detection, অর্থাৎ test pass করা ভুল patch ধরা)**-এর একটা technique। আমাদের প্রস্তাবিত Assurance Layer-এর প্রথম component ("test pass করা patch আসলে সঠিক কিনা") ঠিক এই কাজটাই করে — তাও কোনো test না চালিয়ে, শুধু code দেখে। |
+
+---
+
+## ★ সহজ ভাষায় পুরো Paper (প্রথমবার পড়ার জন্য)
+
+### ক. Paper-টা কী নিয়ে?
+- এটা একটা **নতুন technique-এর paper**। অর্থাৎ authors একটা নতুন tool বানিয়েছেন এবং পরীক্ষা করে দেখিয়েছেন সেটা কতটা ভালো।
+- Authors স্পেনের Universidad de Alcalá-র গবেষক (Marcos Fuster-Pena ও সঙ্গীরা)। Paper ছাপা হয়েছে *Neurocomputing* journal-এ, 2026 সালে।
+- Tool-এর নাম **RePaCA**। কাজ: কোনো AI বা tool যদি bug ঠিক করার একটা patch (code-এর পরিবর্তন) দেয়, তাহলে সেই patch আসলেই ঠিক কিনা তা যাচাই করা।
+- যাচাইয়ের সময় code চালানো হয় না। শুধু আগের code আর পরের code পাশাপাশি পড়ে রায় দেওয়া হয়।
+- রায় দেয় একটা ছোট AI model। রায় দেওয়ার আগে সে ধাপে ধাপে নিজের যুক্তি লিখে নেয়।
+- আমাদের SPL3-র জন্য এটা খুব কাজের, কারণ AI coding agent-এর patch বিশ্বাস করা যায় কিনা, সেই প্রশ্নের একটা সস্তা উত্তর এটা।
+
+### খ. সমস্যাটা কী ছিল?
+- Bug ঠিক করার tool বা AI agent একটা patch বানালে আমরা সাধারণত test চালিয়ে দেখি। সব test pass করলে ধরে নিই patch ভালো।
+- কিন্তু test pass করা মানেই bug ঠিক হওয়া নয়। কিছু patch শুধু test-গুলোকে ফাঁকি দেয়। এদের বলে **overfitting patch** (শুধু test-এর জন্য মানানসই patch)।
+- উদাহরণ: ধরো একটা function-এ 0 দিয়ে ভাগ করলে crash করে। একটা test ঠিক ওই input দিয়ে চেক করে। Tool লিখে দিল, "যদি input ঠিক ওই মানের হয়, তাহলে একটা fixed উত্তর দাও।" Test pass করল, কিন্তু অন্য input-এ crash আগের মতোই থাকল।
+- এটা অনেকটা পরীক্ষার আগে প্রশ্ন জেনে শুধু ওই প্রশ্নের উত্তর মুখস্থ করার মতো। পরীক্ষায় নম্বর পাওয়া যায়, কিন্তু বিষয়টা শেখা হয় না।
+- সমস্যা বাস্তব: আগের AutoCodeRover paper-এ দেখা গেছে test pass করা 78টা patch-এর মাত্র 51টা (65.4%) সত্যিই ঠিক ছিল।
+- ধরার আগের উপায়গুলোরও সমস্যা ছিল। কোনোটা patch চালাতে হয় বলে ধীর ও জটিল। আর যেগুলো চালায় না, সেগুলো কম নির্ভুল, নতুন ধরনের patch-এ ব্যর্থ, আর কেন রায় দিল তা বলে না।
+
+### গ. Paper কী solve করেছে?
+- **RePaCA** নামের একটা checker বানিয়েছে, যা শুধু code পড়ে বলে দেয় patch "correct" নাকি "overfitting"।
+- Checker প্রতিটা রায়ের সাথে একটা মানুষ-পড়ার-মতো ব্যাখ্যাও দেয়।
+- Model ছোট (3B parameter)। সাধারণ consumer GPU-র 8 GB memory-তেই চলে।
+- কোনো test চালাতে হয় না, তাই যেকোনো repair pipeline-এর পরে সহজে বসানো যায়।
+- **মূল সংখ্যা ১:** 1,183টা Java patch-এ 83.1% accuracy ও 84.8% F1। মানে ১০০টা patch-এর মধ্যে প্রায় ৮৩টার রায় ঠিক। আগের সেরা (APPT) পেয়েছিল 79.7% accuracy।
+- **মূল সংখ্যা ২:** একেবারে ভিন্ন ধরনের data-তে পরীক্ষায় RePaCA-র AUC 72.3%, আর APPT-এর 55.4%। মানে APPT প্রায় আন্দাজে বলছিল (50% মানে মুদ্রা ছোড়ার মতো), RePaCA তখনও কিছুটা কাজ করেছে।
+- **মূল সংখ্যা ৩ (সতর্কতা):** একটা test-এ overfitting ধরার হার (recall) 97.2%। কিন্তু 30টা ঠিক patch-এর 14টাকে ভুল করে বাতিলও করেছে। মানে ধরতে গিয়ে অনেক নির্দোষকেও ধরেছে।
+
+### ঘ. কীভাবে solve করেছে?
+1. একটা ছোট code model নিল: Qwen2.5-Coder-3B। এটা আগে থেকেই code বোঝে।
+2. Model-কে একটা নির্দিষ্ট format-এ উত্তর দিতে বলল। আগে `<think>` ভেতরে ধাপে ধাপে ভাবনা, তারপর `<answer>` ভেতরে রায়।
+3. Prompt-এ buggy code, patched code, নিয়ম আর একটা সমাধান-করা উদাহরণ দিল। উদাহরণ দেখে model বোঝে কী ধরনের উত্তর চাওয়া হচ্ছে।
+4. Training-এর সময় প্রতিটা patch-এর জন্য model-কে 8 বার উত্তর লিখতে দিল। প্রতিটা উত্তর আলাদা হতে পারে।
+5. প্রতিটা উত্তরকে নম্বর দিল। ঠিক format-এর জন্য নম্বর আছে। ঠিক রায়ের জন্যও নম্বর আছে। তবে overfitting patch সঠিকভাবে ধরলে নম্বর দ্বিগুণ।
+6. 8টা উত্তরের মধ্যে যেগুলো গড়ের চেয়ে ভালো নম্বর পেল, model-কে সেগুলোর মতো করে লিখতে উৎসাহ দিল। এই পদ্ধতির নাম GRPO। এটা অনেকটা ক্লাসে "বন্ধুদের তুলনায় তুমি কেমন করলে" দেখে শেখার মতো।
+7. Model যাতে একেবারে অদ্ভুত কিছু না শিখে ফেলে, সেজন্য শুরুর model-এর একটা অপরিবর্তিত কপির সাথে তুলনা করে বেশি সরে গেলে শাস্তি দিল।
+8. কোনো মানুষের লেখা ব্যাখ্যা লাগেনি। শুধু "correct" বা "overfitting" label-ই যথেষ্ট ছিল।
+9. শেষে Defects4J নামের Java bug-এর dataset-এ 5-fold cross-validation করে, অন্য কয়েকটা tool-এর সাথে তুলনা করে, আর statistical test দিয়ে দেখিয়েছে পার্থক্য কাকতালীয় নয়।
+
+### ঙ. এরপর কী করা যায়?
+- **Authors যা বলেছেন:** আরও বড় ও ভালো dataset, patch-এর আশেপাশের code (repository context) যোগ করা, যুক্তির মান মেপে reward দেওয়া, আর পুরো repair pipeline-এর ভেতরে বসিয়ে পরীক্ষা করা।
+- **যা এখনও খোলা:** এটা শুধু Java ও ছোট patch-এ পরীক্ষা হয়েছে। Python বা বড় multi-file patch-এ কাজ করবে কিনা কেউ জানে না।
+- **যা এখনও খোলা:** ব্যাখ্যা সবসময় সত্য নয়। কখনও রায় ঠিক হলেও যুক্তিতে ভুল থাকে।
+- **আমরা SPL3-তে করতে পারি:** RePaCA-র মতো prompt দিয়ে SWE-bench agent-এর Python patch যাচাই করে দেখা, আগের Java-র তুলনায় কতটা খারাপ হয়।
+- **আমরা SPL3-তে করতে পারি:** একটা রায়ের বদলে 5–8 বার রায় নিয়ে ভোট গুনে "কতটা নিশ্চিত" একটা score বানানো। নিশ্চিত না হলে মানুষের কাছে পাঠানো।
+- **আমরা SPL3-তে করতে পারি:** test চালিয়ে পাওয়া তথ্য আর এই static রায় মিলিয়ে (hybrid) আরও ভালো filter বানানো।
+
+> **মনে রাখো:**
+> Test pass করা patch সবসময় সঠিক নয়। RePaCA শুধু code পড়ে ও যুক্তি লিখে সেই ভুল patch ধরতে চায়, কিন্তু ধরতে গিয়ে অনেক ঠিক patch-ও বাতিল করে ফেলতে পারে।
+> সংখ্যা ভালো হলেও এটা শুধু Java-তে প্রমাণিত; Python agent patch-এ কাজ করবে কিনা এটাই আমাদের SPL3 প্রশ্ন।
+> ব্যাখ্যাকে প্রমাণ ধরো না। সেটা মানুষকে সাহায্য করে, কিন্তু ভুলও হতে পারে।
 
 ---
 
 ## ১. এক লাইনে Paper (TL;DR)
 
 **RePaCA একটা ছোট (3B parameter) code LLM-কে buggy code আর patched code দেখিয়ে আগে `<think>` block-এ ধাপে ধাপে চিন্তা (Chain of Thought) করতে বাধ্য করে, তারপর `<answer>` block-এ "correct" বা "overfitting" বলায়; আর এই ক্ষমতা বাড়াতে model-কে GRPO নামের Reinforcement Learning algorithm দিয়ে train করা হয়, যেখানে সঠিক format-এর জন্য ও সঠিক label-এর জন্য reward দেওয়া হয় (overfitting সঠিকভাবে ধরলে দ্বিগুণ reward)। Defects4J-ভিত্তিক standard dataset-এ এটা 83.1% accuracy ও 84.8% F1 পেয়ে আগের সব static APCA technique-কে ছাড়িয়ে গেছে।**
+
+**সহজ কথায়:** একটা ছোট AI model-কে বলা হয়েছে, "আগে ভেবে লেখো, তারপর বলো patch ঠিক নাকি ফাঁকি।" Model-কে এই কাজে ভালো করতে reward দিয়ে শেখানো হয়েছে, আর ফলে আগের সব tool-এর চেয়ে ভালো ফল এসেছে। (Chain of Thought = উত্তরের আগে ধাপে ধাপে ভাবা; GRPO = reward দিয়ে শেখার একটা পদ্ধতি; F1 = precision ও recall মিলিয়ে একটা নম্বর।)
 
 ### Supervisor-কে ৩০ সেকেন্ডে কীভাবে বলবো
 > "Sir, APR tool বা AI coding agent অনেক সময় এমন patch দেয় যেটা test pass করে কিন্তু আসলে bug ঠিক করে না — একে overfitting patch বলে। আমাদের আগের sub-domain-এ AutoCodeRover-এ দেখেছি test-pass করা patch-এর মাত্র 65.4% আসলে সঠিক। এই সমস্যা automatic ধরার field-কে বলে APCA। RePaCA হলো একটা static APCA — test চালায় না, শুধু buggy আর fixed code পাশাপাশি দেখে। তারা Qwen2.5-Coder-3B নামের ছোট model নিয়েছে, prompt-এ বলেছে আগে `<think>` এর ভেতরে যুক্তি দাও, তারপর `<answer>`-এ correct/overfitting বলো। তারপর DeepSeek-R1-এর মতো GRPO দিয়ে RL training করেছে: একই patch-এর জন্য 8টা উত্তর তৈরি করে, যেগুলো সঠিক label দেয় সেগুলোকে বেশি reward দেয়। 1,183টা Defects4J patch-এ 5-fold cross-validation-এ 83.1% accuracy, 84.8% F1 — আগের সেরা APPT-এর চেয়ে ভালো, আর statistical test-এ significant। অন্য dataset-এ (domain shift) APPT-এর AUC 55.4% মানে প্রায় random, RePaCA-র 72.3%। সাথে প্রতিটা সিদ্ধান্তের একটা human-readable ব্যাখ্যা দেয়। তবে এটা শুধু Java, ছোট single-method patch-এ test করা — SWE-bench-এর মতো Python, multi-file agent patch-এ কাজ করবে কিনা সেটাই আমাদের research প্রশ্ন।"
@@ -51,6 +106,8 @@
 | Ablation study | Sub-domain 1, Paper 01, Section ৫.৪ | Base model ও temperature ablation |
 | Data contamination | Sub-domain 1, Paper 01, Section ২.৯ | Defects4J পুরনো ও public — contamination ঝুঁকি (Section ১২) |
 
+**সহজ কথায়:** আগের paper-গুলোতে যা শিখেছো, এই paper সেগুলোর উপর দাঁড়িয়ে আছে। কোনো শব্দ ভুলে গেলে ওই section দেখে নাও।
+
 ### ২.২ Automated Program Repair (APR) — Generate-and-Validate pipeline
 APR মানে মানুষের সাহায্য ছাড়া bug ঠিক করা। Paper অনুযায়ী আধুনিক APR tool সাধারণত deep learning দিয়ে bug-fix pattern শেখে এবং repair-কে একটা **translation problem** হিসেবে দেখে (buggy code → fixed code, যেমন এক ভাষা থেকে আরেক ভাষায় অনুবাদ)। সাধারণ pipeline:
 
@@ -60,6 +117,8 @@ APR মানে মানুষের সাহায্য ছাড়া bug
 
 SWE-agent, AutoCodeRover, Agentless (Sub-domain 1) আসলে এই pipeline-এরই LLM-agent version।
 
+**সহজ কথায়:** APR হলো তিন ধাপের কাজ: bug কোথায় তা খোঁজা, ঠিক করার চেষ্টা করা, আর test চালিয়ে দেখা। অনেকটা গাড়ির মিস্ত্রির মতো: আগে সমস্যা খোঁজে, তারপর যন্ত্রাংশ বদলায়, শেষে গাড়ি চালিয়ে দেখে।
+
 ### ২.৩ Plausible, Correct ও Overfitting Patch
 
 | Patch type | সব test pass করে? | Bug আসলে ঠিক হয়? | উদাহরণ |
@@ -67,6 +126,8 @@ SWE-agent, AutoCodeRover, Agentless (Sub-domain 1) আসলে এই pipeline-
 | **Plausible** | হ্যাঁ | জানা নেই | Test suite-এর চোখে "সফল" |
 | **Correct** | হ্যাঁ | হ্যাঁ — সাধারণভাবে (সব input-এ) | Developer-এর fix-এর সমতুল্য |
 | **Overfitting** | হ্যাঁ | না — শুধু test-এর নির্দিষ্ট input-এ কাজ করে | Bug-ওয়ালা functionality-টাই মুছে দেওয়া; failing test-এর input-এর জন্য বিশেষ `if` লাগানো |
+
+**সহজ কথায়:** Plausible মানে "test-এর চোখে ঠিক"। তার মধ্যে কিছু আসলেই ঠিক (correct), কিছু শুধু ফাঁকি (overfitting)। সব সমস্যা এই ফাঁকিগুলো ধরা নিয়ে।
 
 Paper-এর উদাহরণ: কোনো functionality bug তৈরি করছে দেখে tool যদি সেই functionality-টাই বাদ দিয়ে দেয়, তাহলে test হয়তো pass করবে, কিন্তু program-এর সামগ্রিক আচরণ নষ্ট হবে। নামটা machine learning-এর "overfitting" থেকে এসেছে — model যেমন training data মুখস্থ করে, patch-ও তেমন test case "মুখস্থ" করে।
 
@@ -86,6 +147,8 @@ Plausible patch-এর মধ্যে কোনগুলো overfitting তা 
 | অসুবিধা | জটিল ও সময়সাপেক্ষ — patch build ও run করতে হয় | তথ্য কম, তাই সাধারণত কম accurate |
 | RePaCA কোন দিকে | — | **Static** |
 
+**সহজ কথায়:** Dynamic মানে গাড়ি চালিয়ে পরীক্ষা, Static মানে গাড়ি না চালিয়ে শুধু ইঞ্জিন খুলে দেখা। RePaCA দ্বিতীয়টা করে: সস্তা ও দ্রুত, কিন্তু কম তথ্য নিয়ে কাজ করতে হয়।
+
 Paper-এর যুক্তি: execution তথ্য পাওয়া সাধারণত patch code পাওয়ার চেয়ে অনেক বেশি ব্যয়বহুল, তাই তারা শুধু static setting-এ কাজ করেছে।
 
 **আমার পর্যবেক্ষণ:** SWE-bench-style agent setting-এ এই হিসাবটা একটু আলাদা — সেখানে Docker environment আর test ইতিমধ্যে আছে (Sub-domain 1, Paper 01 দেখো), তাই dynamic তথ্য তুলনামূলক সস্তা। তবুও static check সবচেয়ে সস্তা প্রথম স্তর হিসেবে কাজে লাগে।
@@ -102,6 +165,8 @@ Paper নিজেই এগুলোকে "কোন ধরনের evidence 
 | **INVALIDATOR** [10] | Program invariant + syntactic encoder | Test থেকে inferred program invariant (semantic) + CodeBERT দিয়ে syntactic বিশ্লেষণ |
 | **APPT** [11] | Fine-tuned pre-trained LM (token sequence) | BERT fine-tune করে code-কে token sequence হিসেবে দেখে, তার উপর LSTM layer, শেষে classification layer। RePaCA-র আগে static APCA-তে সেরা |
 | **LLM4PatchCorrect** [14] | In-context learning with retrieved labeled patches | Fine-tuning ছাড়া; bug তথ্যের সাথে semantically similar labeled patch যোগ করে prompt বানায় |
+
+**সহজ কথায়:** আগের tool-গুলো বেশিরভাগই চেহারা বা প্যাটার্ন মিলিয়ে রায় দেয়। কোনোটাই খোলাখুলি ভেবে বলে না যে এই পরিবর্তন bug-এর আসল কারণ ঠিক করল কিনা। RePaCA এই ফাঁকটা ভরাতে চায়।
 
 **Paper-এর মূল সমালোচনা:** এদের সবাই patch classify করে **syntactic/structural regularity আর learned correlation মিলিয়ে** — কেউ explicitly যুক্তি দেয় না যে "এই পরিবর্তন bug-এর **root cause** ঠিক করে কিনা"। RePaCA এই শূন্যস্থান পূরণ করতে চায়।
 
@@ -128,7 +193,11 @@ Code-এর grammar-এর একটা গাছ-আকৃতির (hierarchic
 - **Reasoning LLM:** যে model CoT-কে নিজের আচরণের অংশ বানিয়ে ফেলেছে, যেমন **DeepSeek-R1**। এর output format: `<think> ... </think>` (যুক্তি) তারপর `<answer> ... </answer>` (চূড়ান্ত উত্তর)। RePaCA হুবহু এই format ব্যবহার করে।
 - **DeepSeek-R1-Zero:** কোনো supervised fine-tuning ছাড়া **শুধু RL** দিয়ে reasoning শেখানো model। RePaCA-র training method এর উপর ভিত্তি করে।
 
+**সহজ কথায়:** R1-Zero মানে কেউ মুখস্থ না করিয়ে শুধু "ঠিক হলে নম্বর" দিয়ে ছাত্রকে নিজে ভাবতে শেখাচ্ছে। RePaCA-ও এই পথেই গেছে।
+
 **গুরুত্বপূর্ণ সতর্কতা (paper নিজেই বলেছে):** `<think>`-এর লেখা যুক্তি model-এর আসল internal decision process-এর **বিশ্বস্ত (faithful) ব্যাখ্যা নয়** — এটা শুধু developer-কে prediction বিশ্লেষণে সাহায্য করে।
+
+**সহজ কথায়:** মডেলের লেখা "ভাবনা" দেখে মনে হয় সে সত্যিই ভাবছে। কিন্তু সেই লেখা তার আসল সিদ্ধান্তের হুবহু কারণ না-ও হতে পারে। এটা মানুষকে বুঝতে সাহায্য করে, প্রমাণ নয়।
 
 ### ২.১১ Supervised Fine-Tuning (SFT) বনাম Reinforcement Learning (RL)
 
@@ -146,13 +215,21 @@ RL-এর পরিভাষা:
 
 ### ২.১২ PPO থেকে GRPO
 - **PPO (Proximal Policy Optimization):** জনপ্রিয় policy-gradient algorithm। Advantage হিসাব করতে একটা আলাদা **value model (critic)** লাগে, যেটা প্রায় policy-র সমান বড় — অর্থাৎ memory দ্বিগুণ। Update খুব বড় না হয় সেজন্য ratio-কে **clip** করে।
+
+**সহজ কথায়:** PPO-তে একজন আলাদা "বিচারক model" লাগে, যে নিজেই প্রায় শিক্ষার্থীর সমান বড়। তাই খরচ দ্বিগুণ।
 - **GRPO (Group Relative Policy Optimization),** DeepSeekMath paper-এ প্রস্তাবিত: value model বাদ। একই prompt-এর জন্য $G$টা output sample করে, তাদের reward-এর **group mean ও standard deviation** দিয়ে normalize করে advantage বের করে। অর্থাৎ "নিজের ভাইবোনদের তুলনায় কতটা ভালো" — এটাই "group relative"। RePaCA-তে $G = 8$।
+
+**সহজ কথায়:** একই প্রশ্নে 8টা উত্তর লেখাও। যে উত্তর 8টার গড়ের চেয়ে ভালো, তার মতো করে লিখতে উৎসাহ দাও। আলাদা "বিচারক model" লাগে না, তাই memory কম লাগে।
 
 ### ২.১৩ Reference Model ও KL Penalty
 Training-এর শুরুর model-এর একটা **frozen (অপরিবর্তিত) কপি** রাখা হয় — reference model। Policy যদি reference থেকে অনেক দূরে সরে যায় তাহলে **KL divergence** penalty দেওয়া হয়। এতে model "collapse" করে না (যেমন অর্থহীন কিন্তু reward পাওয়া text লেখা, বা ভাষা দক্ষতা হারানো)। Paper-এর Fig. 2-এ এটা দেখানো আছে।
 
+**সহজ কথায়:** শুরুর model-এর একটা ছবি তুলে রাখা হয়। Model বেশি দূরে সরে গেলে কান ধরে টেনে আনা হয়, যাতে সে reward-এর লোভে আজেবাজে লেখা শুরু না করে।
+
 ### ২.১৪ Reward Design ও Reward Hacking
 RL-এ model ঠিক সেটাই শেখে যার জন্য reward দেওয়া হয় — যা চাওয়া হয়েছে তা নয়। তাই reward ভুলভাবে বানালে model shortcut খোঁজে (**reward hacking**)। যেমন: শুধু format-এর জন্য reward দিলে model ফাঁকা `<think></think>` লিখতে পারে। RePaCA দুটো reward ব্যবহার করে — format ও accuracy (Section ৫.৪)। **গুরুত্বপূর্ণ:** কোনো reward `<think>`-এর যুক্তির **মান** যাচাই করে না — authors নিজেরাই future work-এ এটা স্বীকার করেছেন।
+
+**সহজ কথায়:** শিক্ষক যদি "পরিষ্কার হাতের লেখা"-র জন্য নম্বর দেন, ছাত্র সুন্দর লিখবে কিন্তু ভুল উত্তর দেবে। তাই কীসের জন্য নম্বর দেওয়া হচ্ছে, সেটা ভেবে ঠিক করতে হয়।
 
 ### ২.১৫ LoRA ও Unsloth (এই paper-এ কী জানা আছে)
 LoRA Sub-domain 1, Paper 01-এ ব্যাখ্যা করা। RePaCA paper **LoRA ব্যবহার করেছে কিনা বলেনি**। শুধু বলেছে training-এ **TRL library** (GRPO implementation) আর **Unsloth** (training optimization, কম VRAM ও দ্রুত training-এর library) ব্যবহার করা হয়েছে। Unsloth সাধারণত LoRA/QLoRA-ভিত্তিক training-এর জন্য পরিচিত, তাই LoRA ব্যবহারের সম্ভাবনা আছে — কিন্তু **এটা অনুমান, paper-এ লেখা নেই** (Section ১২-এ reproducibility সমস্যা হিসেবে উল্লেখ করেছি)।
@@ -163,8 +240,12 @@ Output-এর প্রতিটা token বাছাইয়ের সময�
 - $T$ বড় → বেশি বৈচিত্র্য, কিন্তু বেশি এলোমেলো/hallucination।
 RePaCA $T = 0.6$ ব্যবহার করে (ablation Section ৮.৭)।
 
+**সহজ কথায়:** Temperature হলো এলোমেলোতার নব। 0 হলে model সবসময় একই উত্তর দেয়। বেশি হলে নানা রকম উত্তর আসে, কিন্তু আজেবাজেও আসতে পারে।
+
 ### ২.১৭ Dataset-এর উৎসগুলো
 - **Defects4J (v1.2):** আসল Java bug-এর বহুল ব্যবহৃত benchmark (Commons Math, Commons Lang, Closure ইত্যাদি project)। বেশিরভাগ Java APR tool এর উপর evaluate হয়।
+
+**সহজ কথায়:** Defects4J হলো আসল Java bug-এর একটা সংগ্রহশালা, যেখানে সবাই নিজের repair tool পরীক্ষা করে। এখানে patch-এর উৎস পুরোনো APR tool।
 - **Tian et al. (1,000 patch) ও Wang et al. (902 patch):** আগের দুটো APCA study, যারা Defects4J-এর উপর বিভিন্ন APR tool-এর patch সংগ্রহ করে হাতে label করেছে।
 - **ManySStuBs4J:** 1,000-এর বেশি open-source Java project থেকে "single-statement bug" ও তাদের developer-fix — এখানে **correct patch**-এর উৎস।
 - **RepairThemAll:** অনেক Java APR tool-কে অনেক bug benchmark-এ চালানোর framework — এখানে **overfitting patch**-এর উৎস।
@@ -172,6 +253,8 @@ RePaCA $T = 0.6$ ব্যবহার করে (ablation Section ৮.৭)।
 
 ### ২.১৮ k-Fold Cross-Validation
 Dataset-কে $k$টা সমান ভাগে ভাগ করে, প্রতিবার একটা ভাগ test, বাকি $k-1$টা training — মোট $k$ বার; তারপর ফল গড় বা একত্রিত করা হয়। ছোট dataset-এ একটা "ভাগ্যবান" split-এর উপর নির্ভরতা কমায়। এখানে $k = 5$, অর্থাৎ প্রতি fold-এ প্রায় 946টা training ও 237টা test patch (আমার হিসাব: $1183 \times 0.8 \approx 946$)।
+
+**সহজ কথায়:** একবার পরীক্ষা করে ভাগ্যের উপর ভরসা না করে, data-কে 5 ভাগ করে 5 বার পরীক্ষা করা হয়। প্রতিবার আলাদা ভাগ পরীক্ষার জন্য রাখা হয়।
 
 ### ২.১৯ Confusion Matrix ও Classification Metric
 Paper-এর Table 2 অনুযায়ী **Overfitting = Positive, Correct = Negative**। সব সূত্র Section ৬.৮-এ।
@@ -181,12 +264,18 @@ Paper-এর Table 2 অনুযায়ী **Overfitting = Positive, Correct 
 | **Predicted Overfitting** | True Positive (TP) | False Positive (FP) — সঠিক patch-কে ভুল করে বাতিল |
 | **Predicted Correct** | False Negative (FN) — overfitting patch গ্রহণ হয়ে যায় | True Negative (TN) |
 
+**সহজ কথায়:** চারটা ঘর মনে রাখো: ঠিক ধরা (TP), ঠিক ছাড়া (TN), ভুল করে ধরা (FP, সঠিক patch বাতিল), আর ভুল করে ছাড়া (FN, ফাঁকি patch গৃহীত)। FN সবচেয়ে ক্ষতিকর, কারণ ভুল patch codebase-এ ঢুকে যায়।
+
 ### ২.২০ Statistical Test: McNemar ও Bootstrap
 - **McNemar's test:** একই instance-এর উপর দুটো classifier-এর paired তুলনা। শুধু সেই instance গুলো দেখে যেখানে দুটো classifier ভিন্ন উত্তর দিয়েছে।
 - **Bootstrap confidence interval:** test set থেকে replacement সহ বারবার (এখানে 10,000 বার) নমুনা নিয়ে metric হিসাব করে তার বিস্তার থেকে 95% CI বের করা। CI যদি 0 ধারণ না করে তাহলে পার্থক্য significant।
 
+**সহজ কথায়:** McNemar বলে "পার্থক্যটা কি ভাগ্যে?" আর Bootstrap বলে "পার্থক্যটা কত বড় হতে পারে, কোন সীমার মধ্যে?" দুটোই বোঝায় ফল কাকতালীয় নয় কিনা।
+
 ### ২.২১ Domain Shift / Out-of-Distribution (OOD)
 Training data আর test data যদি ভিন্ন উৎস/বৈশিষ্ট্যের হয় তাহলে model-এর performance পড়ে যায়। এখানে: small dataset = APR tool-এর patch; large dataset = GitHub developer-fix (correct) + RepairThemAll (overfitting)।
+
+**সহজ কথায়:** বাংলায় পড়ে ইংরেজিতে পরীক্ষা দিলে ফল খারাপ হয়, এটাও তেমনই। Training-এর data আর পরীক্ষার data আলাদা ধরনের হলে model-এর ফল পড়ে যায়।
 
 **আমার পর্যবেক্ষণ:** আমাদের জন্য এটা সবচেয়ে গুরুত্বপূর্ণ concept, কারণ Defects4J (Java, APR tool) → SWE-bench agent patch (Python, LLM agent) একটা অনেক বড় domain shift।
 
@@ -207,8 +296,12 @@ Model যখন input-এ নেই এমন তথ্য বানিয়ে
 4. **Superficial analysis:** আগের সব static technique syntactic/structural pattern মেলায়, root cause নিয়ে যুক্তি দেয় না।
 5. **In-context learning-এর অবাস্তব অনুমান:** LLM4PatchCorrect-এর মতো technique ধরে নেয় যে একই bug-এর জন্য হাতে-যাচাই করা অনুরূপ labeled patch আগে থেকে আছে — নতুন bug-এ এটা বাস্তবসম্মত নয়।
 
+**সহজ কথায়:** আগের tool-গুলোর সমস্যা ছিল পাঁচটা: ফাঁকি patch আসল সমস্যা, চালিয়ে যাচাই ধীর, কম-খরচের উপায়গুলো কম নির্ভুল ও কারণ বলে না, আর কোনোটা ভাবে না। সবশেষটা ছিল এমন পরিস্থিতি ধরে নেওয়া যা বাস্তবে নেই।
+
 ### ৩.২ Authors-এর Hypothesis
 > বেশিরভাগ static APCA tool জটিল overfitting patch-এর root cause বুঝতে পারে না; LLM-এর deep reasoning ক্ষমতা ব্যবহার করলে — অর্থাৎ code-এর পার্থক্য বিশ্লেষণ, edge case বিবেচনা, fix সাধারণভাবে প্রযোজ্য নাকি শুধু নির্দিষ্ট input-এ কাজ করে তা যাচাই — APCA-র কার্যকারিতা বাড়বে।
+
+**সহজ কথায়:** Authors-এর ধারণা: যদি AI-কে আগে ভাবতে বাধ্য করা যায়, তাহলে সে শুধু প্যাটার্ন না মিলিয়ে আসল কারণ বুঝে রায় দেবে, আর ফল ভালো হবে।
 
 ### ৩.৩ কেন এটা গুরুত্বপূর্ণ (আমাদের দৃষ্টিকোণ)
 Sub-domain 1-এ দেখেছি AutoCodeRover-এর test-pass করা patch-এর প্রায় ৩টার ১টা ভুল, আর SWE-bench-এ প্রায় 60% task-এ মাত্র ১টা F2P test। অর্থাৎ coding agent-এর জন্যও একই overfitting সমস্যা আছে। একটা সস্তা, ব্যাখ্যাযোগ্য static checker থাকলে agent-এর output-এর উপর প্রথম স্তরের assurance দেওয়া যায়।
@@ -226,6 +319,8 @@ Paper explicit RQ লেখেনি; Section 4-এর experiment অনুয�
 - **RQ4 (Qualitative):** Model-এর `<think>` যুক্তি কি অর্থবহ ও সঠিক?
 - **RQ5 (Ablation):** Base model নির্বাচন ও sampling temperature performance-এ কতটা প্রভাব ফেলে?
 
+**সহজ কথায়:** পাঁচটা প্রশ্ন: সাধারণ পরীক্ষায় জেতে কিনা, আরেকটা tool-এর সাথে কেমন, অন্য ধরনের data-তে কেমন, যুক্তিগুলো অর্থবহ কিনা, আর কোন ছোট সিদ্ধান্ত (model, temperature) কতটা প্রভাব ফেলে।
+
 ---
 
 ## ৫. Methodology — কীভাবে কাজটা করা হয়েছে
@@ -242,6 +337,8 @@ Paper explicit RQ লেখেনি; Section 4-এর experiment অনুয�
 | Output → Reasoning block | `<think> ... </think>` | ধাপে ধাপে বিশ্লেষণ; code-এর পার্থক্য; patch root cause ঠিক করে কিনা; fix সাধারণ নাকি নির্দিষ্ট input-এর জন্য |
 | Output → Final answer | `<answer> ... </answer>` | Correct / Overfitting |
 
+**সহজ কথায়:** Input হলো নিয়ম, একটা উদাহরণ আর দুই version code। Output হলো প্রথমে ভাবনা, তারপর এক লাইনের রায়।
+
 ### ৫.২ Prompt Design (Section 3.1)
 Prompt-এর ক্রম:
 1. **সমস্যার সংক্ষিপ্ত ব্যাখ্যা:** দুটো snippet আছে (buggy version ও proposed fix); লক্ষ্য হলো চিহ্নিত করা পরিবর্তন আসলে মূল সমস্যা সমাধান করে, নাকি শুধু নির্দিষ্ট test pass করার জন্য আচরণ বদলায় (= overfitting)।
@@ -250,6 +347,8 @@ Prompt-এর ক্রম:
 4. **One-shot example:** একই format-এ একটা সমাধান-করা উদাহরণ — উত্তরের consistency বাড়ায়।
 5. **Sample data:** buggy code ও fixed code।
 6. **শেষ নির্দেশ:** model-কে reasoning শুরু করতে বলা।
+
+**সহজ কথায়:** Prompt অনেকটা পরীক্ষার প্রশ্নপত্রের মতো: কাজ বুঝিয়ে দেওয়া, কীভাবে ভাবতে হবে বলা, উত্তরের ছাঁচ দেখানো, তারপর আসল প্রশ্ন।
 
 Paper জোর দিয়েছে যে **ছোট model-এ prompt-এর explicit guidance বেশি গুরুত্বপূর্ণ**।
 
@@ -276,6 +375,8 @@ Start your reasoning.
 ### ৫.৩ Training: RL-only GRPO (Section 3.2.1, Fig. 2)
 **মূল decision:** কোনো prior SFT ছাড়াই base instruct model-কে সরাসরি RL দিয়ে optimize করা (DeepSeek-R1-Zero-এর মতো) — "RL-only adaptation এই domain-এ কাজ করে কিনা" সেটা পরীক্ষা করাও একটা উদ্দেশ্য।
 
+**সহজ কথায়:** এখানে "SFT ছাড়া" মানে কোনো মানুষের লেখা সঠিক উত্তর দেখিয়ে শেখানো হয়নি। শুধু "ঠিক হলে নম্বর" দিয়ে শেখানো হয়েছে।
+
 Fig. 2 অনুযায়ী প্রতিটা training step:
 1. Input: Prompt + Buggy code + Patched code → RePaCA (policy)।
 2. Policy একই input-এর জন্য **G = 8টা candidate output** তৈরি করে (Output 1 … Output 8), প্রতিটায় `<think>…</think><answer>…</answer>`।
@@ -283,10 +384,11 @@ Fig. 2 অনুযায়ী প্রতিটা training step:
 4. দুটো যোগ করে প্রতিটা output-এর মোট reward $r_1, \ldots, r_8$ (Fig. 2-এর নমুনা: $r_1 = 2.0$, $r_8 = 1.0$)।
 5. **Group computation:** group-এর mean ও std দিয়ে normalize করে advantage $A_1, \ldots, A_8$ (Fig. 2-এর নমুনা: $A_1 = 0.7$, $A_8 = -0.3$)।
 6. Frozen **reference model** (শুরুর model-এর কপি) থেকে KL penalty হিসাব।
-7. Advantage ও KL দিয়ে policy-র gradient (Fig. 2-এ $
-abla	heta$) হিসাব করে update।
+7. Advantage ও KL দিয়ে policy-র gradient (Fig. 2-এ $\nabla_\theta$) হিসাব করে update।
 
 (Fig. 2-এর $r$ ও $A$ মানগুলো ছবির নমুনা — প্রকৃত training-এর সংখ্যা নয়।)
+
+**সহজ কথায়:** প্রতিটা training ধাপে model 8টা উত্তর লেখে, প্রতিটার নম্বর হয়, নম্বর গড়ের সাথে তুলনা করে model-কে একটু বদলানো হয়। শুরুর model-এর কপি পাহারাদারের কাজ করে।
 
 ### ৫.৪ Reward Functions (Section 3.2.2, Table 1)
 
@@ -297,6 +399,8 @@ abla	heta$) হিসাব করে update।
 | Output-এ `<think> ... </think>` আছে | +0.5 |
 | Output-এ `<answer> ... </answer>` আছে | +0.25 |
 | `<answer>`-এর ভেতরে নিচের keyword-এর অন্তত একটা আছে | +0.25 |
+
+**সহজ কথায়:** Format reward শুধু দেখে model ঠিক ছাঁচে লিখেছে কিনা (ভাবনা আছে, উত্তর আছে, উত্তরে রায়ের শব্দ আছে)। রায় ঠিক না ভুল তা এখানে দেখা হয় না।
 
 Keyword list: "overfitting", "fixed", "fix", "correct", "buggy", "incorrect", "wrong"। আগের কাজে (LLM4PatchCorrect) শুধু "correct" ও "wrong" ছিল; এখানে list বড় করা হয়েছে যাতে model নিজের ভাষায় রায় দিতে পারে — "fix"/"fixed" = correct-এর সমার্থক; "buggy"/"incorrect"/"overfitting" = overfitting-এর সমার্থক (paper অনুযায়ী)।
 
@@ -311,13 +415,19 @@ Keyword list: "overfitting", "fixed", "fix", "correct", "buggy", "incorrect", "w
 | Correct | Correct | 1.0 |
 | Overfitting | Overfitting | **2.0** |
 
+**সহজ কথায়:** ফাঁকি patch ঠিকঠাক ধরলে 2 নম্বর, সঠিক patch চিনলে 1 নম্বর, ভুল করলে 0। ফাঁকি ধরা কঠিন বলে সেটার পুরস্কার বেশি।
+
 **কেন asymmetric (অসম)?** Empirical পর্যবেক্ষণ: model-এর পক্ষে overfitting patch ধরা correct patch চেনার চেয়ে কঠিন। মানগুলো preliminary experiment থেকে: প্রথমে সমান reward, তারপর ধীরে ধীরে পার্থক্য বাড়িয়ে learning curve ও output correctness দেখা হয়েছে। Authors-এর দাবি: 2.0 "harder class"-এ উন্নতির জন্য যথেষ্ট প্রণোদনা দেয় **"bias তৈরি না করে"**, যা precision/recall-এর ভারসাম্যে দেখা যায়। (আমার বিশ্লেষণে এই দাবি পুরোপুরি টেকে না — Section ৬.৭ ও ১২.২ দেখো।)
+
+**সহজ কথায়:** Authors বলছেন ফাঁকি patch ধরা কঠিন, তাই বেশি পুরস্কার দিয়ে model-কে সেদিকে ঠেলেছেন। কিন্তু এতে model একটু বেশি সন্দেহপ্রবণ হয়ে যায়, যা ৬.৭-এ হিসাব করে দেখানো হয়েছে।
 
 ### ৫.৫ Base Model নির্বাচন (Section 3.3.1 ও 4.5.1)
 - Candidate: প্রায় 2B–3B parameter-এর lightweight instruct model — stable GRPO training ও practical deployment দুটোর জন্য।
 - নির্বাচনের মাপকাঠি: raw accuracy নয়, **class-balanced metric (F1, AUC)** — কারণ APCA-তে overfitting নির্ভরযোগ্যভাবে ধরা দরকার precision খুব না কমিয়ে।
 - চারটা candidate: Qwen2.5-3B (general), Qwen2.5-Coder-3B, Llama-3.2-3B, Gemma-2-2B।
 - বিজয়ী: **Qwen2.5-Coder-3B** — GRPO-র **আগেই** সবচেয়ে বেশি F1 (38.4%) ও AUC (53.6%)। কারণ হিসেবে authors code-heavy pre-training উল্লেখ করেছেন।
+
+**সহজ কথায়:** চার প্রার্থীর মধ্যে যে code-এ সবচেয়ে বেশি অভ্যস্ত, তাকেই নেওয়া হয়েছে। শুধু accuracy নয়, F1 আর AUC-ও দেখা হয়েছে, কারণ accuracy একা ধোঁকা দিতে পারে।
 
 ### ৫.৬ Hyperparameters ও Implementation (Section 3.3.4)
 
@@ -335,7 +445,11 @@ Keyword list: "overfitting", "fixed", "fix", "correct", "buggy", "incorrect", "w
 | Max completion length | **2048** token | Reasoning-এর জন্য যথেষ্ট জায়গা |
 | KL coefficient $\beta$, clip $\epsilon$, max prompt length, LoRA config, random seed | **Paper-এ উল্লেখ নেই** | — |
 
+**সহজ কথায়:** Training-এর সেটিংগুলোর বেশিরভাগ paper-এ আছে। কিন্তু কয়েকটা (যেমন KL-এর ওজন, clip, seed) নেই, তাই হুবহু একই ফল পুনরায় বের করা কঠিন।
+
 **আমার হিসাব:** প্রতি fold-এ প্রায় 946টা training patch × 20 epoch × 8 generation ≈ **1,51,000টা** (প্রায় 151K) completion generate করতে হয় — প্রতিটা 2048 token পর্যন্ত। 5টা fold মিলিয়ে প্রায় 7.6 লাখ completion। এজন্যই authors বলেছেন GRPO training ব্যয়বহুল। (TRL-এ batch size completion-এর হিসাবে নাকি prompt-এর হিসাবে — paper-এ পরিষ্কার নয়; উপরের হিসাব epoch-এর সংজ্ঞা থেকে।)
+
+**সহজ কথায়:** Training-এ প্রচুর উত্তর লিখতে হয় (প্রায় 1.5 লক্ষ প্রতি fold-এ)। এজন্য training ধীর ও ব্যয়বহুল। কিন্তু একবার train হলে ব্যবহার সস্তা।
 
 ### ৫.৭ Inference ও Parsing
 1. Prompt তৈরি (একই one-shot prompt) → model temperature 0.6-এ একটা output তৈরি করে।
@@ -343,6 +457,8 @@ Keyword list: "overfitting", "fixed", "fix", "correct", "buggy", "incorrect", "w
 3. Format ভুল হলে (প্রায় 1–1.7%) → re-sampling বা post-processing প্রস্তাবিত।
 
 Paper-এ parser-এর হুবহু নিয়ম নেই (যেমন "incorrect" শব্দে "correct" substring থাকলে কী হয়)।
+
+**সহজ কথায়:** Model-এর লেখা থেকে রায় বের করার ধাপটা (parsing) ছোট মনে হলেও ভুল হতে পারে। যেমন "incorrect" শব্দের ভেতরেই "correct" লুকিয়ে আছে।
 
 ### ৫.৮ Evaluation Protocol
 
@@ -355,7 +471,11 @@ Paper-এ parser-এর হুবহু নিয়ম নেই (যেমন 
 | E4: Qualitative | — | ২টা example | — | — |
 | E5: Ablation | Small | Small | ৪টা base model (GRPO-র আগে); ৭টা temperature | — |
 
+**সহজ কথায়:** পাঁচ ধরনের পরীক্ষা: সাধারণ পরীক্ষা, একটা tool-এর সাথে সরাসরি লড়াই, অন্য উৎসের data-তে পরীক্ষা, দুটো উদাহরণ ঘেঁটে দেখা, আর ছোট সিদ্ধান্ত বদলে ফল দেখা।
+
 **লক্ষ্য করো:** CACHE নিজে Large-এ train করে Small-এ test করেছিল; RePaCA ইচ্ছা করে উল্টো (Small → Large) করেছে — "high-quality curated data কম, অন্য domain-এ adapt করতে হবে" এমন বাস্তব পরিস্থিতি simulate করতে।
+
+**সহজ কথায়:** Authors ইচ্ছা করে কঠিন পরীক্ষা বেছেছেন: ছোট dataset-এ train করে বড় ও অচেনা dataset-এ পরীক্ষা। বাস্তবে ভালো label-করা data কমই পাওয়া যায়।
 
 ---
 
@@ -368,6 +488,8 @@ Paper নিজে কোনো numbered equation দেয়নি — reward-
 $$
 x = (c_b,\; c_f), \qquad y \in \{0, 1\}
 $$
+**এটা কী বোঝায়:** একটা patch মানে দুই টুকরো code (আগেরটা ও পরেরটা) আর একটা সত্যি-label (0 বা 1)।
+
 - $c_b$ = buggy code snippet, $c_f$ = fixed (patched) code snippet
 - $y = 1$ মানে **Overfitting (Positive)**, $y = 0$ মানে **Correct (Negative)**
 
@@ -375,16 +497,24 @@ $$
 $$
 h : (c_b, c_f) \to \{0, 1\}
 $$
+**এটা কী বোঝায়:** $h$ হলো একটা checker, যে দুই টুকরো code নিয়ে 0 (সঠিক) বা 1 (ফাঁকি) বলে দেয়।
+
 **Static** মানে $h$-এর input-এ কোনো execution তথ্য (test result, trace) নেই। Dataset $\mathcal{D} = \{(x_i, y_i)\}_{i=1}^{N}$; লক্ষ্য হলো generalization error কমানো:
 $$
 \min_{h} \; \mathbb{E}_{(x,y)} \left[ \mathbb{1}\left[ h(x) \neq y \right] \right]
 $$
+
+**এটা কী হিসাব করে:** পুরো dataset-এ গড়ে কতবার checker-এর রায় সত্যি-label-এর সাথে মেলে না, সেই হার। লক্ষ্য এটাকে যত কম করা যায়।
+
+**সহজ কথায়:** ক্লাসের পরীক্ষায় কতগুলো ভুল করলে, সেটাই কমাতে চাওয়া।
 
 ### ৬.২ RePaCA-র Output ও Prediction
 Prompt $q = \text{Prompt}(c_b, c_f)$। Policy $\pi_\theta$ একটা output $o$ sample করে, যার দুটো অংশ:
 $$
 o = (z,\; a) \sim \pi_\theta(\cdot \mid q)
 $$
+**এটা কী বোঝায়:** Model prompt দেখে একটা পুরো লেখা তৈরি করে, যার একটা অংশ ভাবনা ($z$) আর একটা অংশ উত্তর ($a$)।
+
 - $z$ = `<think>`-এর ভেতরের reasoning (CoT)
 - $a$ = `<answer>`-এর ভেতরের text
 
@@ -392,12 +522,16 @@ Prediction:
 $$
 \hat{y} = \text{parse}(a) \in \{0, 1, \text{None}\}
 $$
+**এটা কী বোঝায়:** উত্তরের লেখা থেকে 0 বা 1 বের করা হয়। পড়তে না পারলে "None"।
+
 এখানে None মানে unparseable (format ভুল) — paper-এর হিসাবে প্রায় 1–1.7% ক্ষেত্রে। (None label-টা আমার notation।)
 
 ### ৬.৩ Format Reward
 $$
 R_{\text{fmt}}(o) = 0.5 \cdot \mathbb{1}[\text{think tag present}] + 0.25 \cdot \mathbb{1}[\text{answer tag present}] + 0.25 \cdot \mathbb{1}[a \text{ contains a keyword}]
 $$
+**এটা কী হিসাব করে:** উত্তরে `<think>` থাকলে 0.5, `<answer>` থাকলে 0.25, আর `<answer>`-এ রায়ের একটা শব্দ থাকলে আরও 0.25 যোগ হয়। মোট সর্বোচ্চ 1।
+
 তাই $R_{\text{fmt}} \in \{0, 0.25, 0.5, 0.75, 1.0\}$। Keyword set $K$ = {overfitting, fixed, fix, correct, buggy, incorrect, wrong}।
 
 ### ৬.৪ Accuracy Reward (Table 1)
@@ -410,11 +544,15 @@ R_{\text{acc}}(\hat{y}, y) =
 \end{cases}
 $$
 
+**এটা কী হিসাব করে:** রায় ঠিক হলে কত নম্বর, সেটা। ফাঁকি patch ঠিক ধরলে 2, সঠিক patch ঠিক চিনলে 1, ভুল হলে 0।
+
 ### ৬.৫ মোট Reward
 Paper বলেছে "optimization is driven by both rewards" এবং "cumulative rewards" normalize করা হয় — অর্থাৎ যোগফল (TRL-এ একাধিক reward function-এর default আচরণও যোগ করা):
 $$
 r(o) = R_{\text{fmt}}(o) + R_{\text{acc}}(\hat{y}, y), \qquad r \in [0,\; 3]
 $$
+
+**এটা কী হিসাব করে:** একটা উত্তরের মোট নম্বর = format-এর নম্বর + রায়ের নম্বর। সর্বোচ্চ 3, সর্বনিম্ন 0।
 
 ### ৬.৬ GRPO Objective (DeepSeekMath-এর standard রূপ)
 একটা prompt $q$-এর জন্য পুরনো policy $\pi_{\theta_{\text{old}}}$ থেকে $G$টা output $\{o_1, \ldots, o_G\}$ sample করা হয়। প্রত্যেকটার reward $r_i$।
@@ -424,15 +562,21 @@ $$
 \hat{A}_{i} = \frac{r_i - \text{mean}(r_1, \ldots, r_G)}{\text{std}(r_1, \ldots, r_G)}
 $$
 
+**এটা কী হিসাব করে:** একটা উত্তর তার 8 ভাইবোনের গড়ের চেয়ে কত বেশি বা কম নম্বর পেয়েছে, সেটা মাপে। ধনাত্মক হলে ভালো, ঋণাত্মক হলে খারাপ।
+
 **Token-level probability ratio:**
 $$
 \rho_{i,t}(\theta) = \frac{\pi_\theta(o_{i,t} \mid q,\, o_{i,<t})}{\pi_{\theta_{\text{old}}}(o_{i,t} \mid q,\, o_{i,<t})}
 $$
 
+**এটা কী হিসাব করে:** নতুন model একটা token (শব্দাংশ) আগের model-এর চেয়ে কত বেশি সম্ভাবনায় লিখছে, তার অনুপাত।
+
 **Objective (maximize করা হয়):**
 $$
 J(\theta) = \mathbb{E}\left[ \frac{1}{G} \sum_{i=1}^{G} \frac{1}{L_i} \sum_{t=1}^{L_i} \left( \min\left( \rho_{i,t}\, \hat{A}_i,\; \text{clip}(\rho_{i,t},\, 1-\epsilon,\, 1+\epsilon)\, \hat{A}_i \right) - \beta\, D_{\text{KL}}\left( \pi_\theta ,\, \pi_{\text{ref}} \right) \right) \right]
 $$
+
+**এটা কী হিসাব করে:** ভালো উত্তরের token-গুলোকে বেশি সম্ভাবনা দেওয়া, কিন্তু এক ধাপে বেশি না বদলানো (clip), আর শুরুর model থেকে বেশি দূরে না যাওয়া (KL)। এটাই training-এর মূল লক্ষ্য।
 
 **KL estimator (DeepSeekMath-এ ব্যবহৃত, সবসময় ধনাত্মক):**
 $$
@@ -452,6 +596,10 @@ $$
 | $\beta$ | KL penalty-র ওজন (paper-এ মান নেই) |
 | $\pi_{\text{ref}}$ | Frozen reference model (শুরুর Qwen2.5-Coder-3B) |
 
+**এটা কী হিসাব করে (KL):** নতুন model আর শুরুর model-এর পছন্দ কতটা আলাদা, তার একটা মাপ। যত বেশি আলাদা, তত বড় শাস্তি।
+
+**সহজ কথায়:** ভালো উত্তর বেশি করে লেখো, খারাপ উত্তর কম, কিন্তু একবারে বেশি বদলিও না।
+
 **Intuition:** যে output group-এর গড়ের চেয়ে বেশি reward পেয়েছে ($\hat{A}_i > 0$), তার প্রতিটা token-এর probability বাড়ানো হয়; কম পেলে কমানো হয়। Clip ও KL নিশ্চিত করে যে এক ধাপে model খুব বেশি না বদলায়। Value model নেই — "baseline" হলো group-এর গড় reward।
 
 **Worked example ১ (আমার হিসাব, illustrative):** আসল label = Overfitting। 8টা output-এর সবগুলোর format নিখুঁত ($R_{\text{fmt}} = 1$)। 5টা বলেছে "overfitting" ($r = 1 + 2 = 3$), 3টা বলেছে "correct" ($r = 1 + 0 = 1$)।
@@ -466,17 +614,27 @@ $$
 
 **Worked example ৩ — শিক্ষা-সংকেত হারিয়ে যাওয়া:** যদি 8টা output-এর সবগুলো একই উত্তর দেয় (সবগুলো সঠিক বা সবগুলো ভুল) এবং format-ও সমান হয়, তাহলে std = 0 → সব advantage 0 (practically ছোট $\varepsilon$ যোগ করা হয়) → **ওই prompt থেকে কিছুই শেখা হয় না**। খুব সহজ বা খুব কঠিন patch তাই training-এ অবদান রাখে না। এজন্যই group-এর ভেতরে বৈচিত্র্য দরকার — temperature এখানে গুরুত্বপূর্ণ।
 
+**সহজ কথায়:** সব 8টা উত্তর একই হলে তুলনা করার কিছু থাকে না, তাই ওই patch থেকে model কিছু শেখে না। উত্তরে কিছুটা বৈচিত্র্য থাকতেই হবে।
+
 **একটা সূক্ষ্ম বিষয় (আমার পর্যবেক্ষণ):** Advantage group-এর ভেতরে normalize হয়, তাই একটা prompt-এর ভেতরে reward-এর **absolute scale** (2.0 বনাম 1.0) আংশিকভাবে মুছে যায় — worked example ১ ও ২-এ দুটোতেই সঠিক উত্তরের advantage ধনাত্মক। তবে asymmetry পুরো হারায় না: label overfitting হলে সঠিক ও ভুলের পার্থক্য (3 বনাম 1) বড়, তাই format-এর ছোট পার্থক্যের তুলনায় accuracy সিদ্ধান্ত বেশি প্রভাব ফেলে।
+
+**সহজ কথায়:** প্রতিটা প্রশ্নের ভেতরে নম্বর গড়ের সাথে তুলনা হয়। তাই "2 নম্বর বনাম 1 নম্বর"-এর পুরো ফারাক সবসময় প্রভাব ফেলে না। তবে ফারাকটা পুরোপুরি মুছেও যায় না।
 
 ### ৬.৭ আমার হিসাব: Asymmetric Reward কীভাবে Decision Threshold সরায়
 ধরো model-এর ভেতরে একটা patch overfitting হওয়ার subjective probability $p$। Format নিখুঁত ধরে expected accuracy reward:
 $$
 \mathbb{E}[R_{\text{acc}} \mid \text{answer Overfitting}] = 2p, \qquad \mathbb{E}[R_{\text{acc}} \mid \text{answer Correct}] = 1 \cdot (1 - p)
 $$
+**এটা কী হিসাব করে:** model যদি 100-র মধ্যে $p$ ভাগ নিশ্চিত হয় যে patch ফাঁকি, তাহলে "ফাঁকি" বললে গড়ে কত নম্বর, আর "সঠিক" বললে কত।
+
 Reward-maximizing policy "Overfitting" বলবে যখন:
 $$
 2p > 1 - p \quad \text{অর্থাৎ} \quad p > \frac{1}{3}
 $$
+**এটা কী হিসাব করে:** "ফাঁকি" বলা কখন লাভজনক, সেই সীমা। এটা 1/3। অর্থাৎ model মাত্র এক-তৃতীয়াংশ নিশ্চিত হলেই "ফাঁকি" বলে দেবে।
+
+**সহজ কথায়:** ফাঁকি ধরলে বেশি পুরস্কার, তাই model একটু সন্দেহ হলেই "ফাঁকি" বলতে ভালোবাসে। এজন্য সঠিক patch-ও বাতিল হয়।
+
 অর্থাৎ সমান reward-এ threshold হতো $p > 0.5$; এখানে threshold নেমে **$1/3$** হয়ে যায়। ফলে model বেশি করে "overfitting" বলবে → **Recall বাড়বে, Specificity কমবে।** Section ৮.৩-এর INVALIDATOR split-এ ঠিক এটাই দেখা যায়: Recall 97.2% কিন্তু correct patch-এর মাত্র 16/30 = 53.3% সঠিকভাবে চেনা গেছে। তাই authors-এর "without introducing bias" দাবি অন্তত এই split-এ দুর্বল। (এটা একটা আদর্শ-ক্ষেত্রের decision-theory যুক্তি; বাস্তব model পুরোপুরি এভাবে আচরণ নাও করতে পারে।)
 
 ### ৬.৮ Evaluation Metrics — সূত্র
@@ -493,6 +651,8 @@ $$
 \text{Specificity (TNR)} = \frac{TN}{TN + FP}, \qquad \text{FPR} = 1 - \text{Specificity}
 $$
 
+**এটা কী হিসাব করে:** Accuracy = কতগুলো রায় ঠিক। Precision = "ফাঁকি" বলা patch-গুলোর মধ্যে কতগুলো সত্যি ফাঁকি। Recall = সব ফাঁকি patch-এর মধ্যে কতগুলো ধরা পড়ল। F1 = precision ও recall-এর ভারসাম্যপূর্ণ গড়। Specificity = সঠিক patch-এর মধ্যে কতগুলো সঠিকভাবে ছাড়া হলো।
+
 | Metric | APCA-তে মানে (paper-এর ভাষায়) |
 |---|---|
 | Accuracy | মোট কত শতাংশ patch সঠিকভাবে classify হলো |
@@ -500,6 +660,8 @@ $$
 | Recall | সব overfitting patch-এর কত শতাংশ ধরা পড়লো — কম হলে ভুল patch codebase-এ ঢুকে যায় |
 | F1 | Precision ও Recall-এর harmonic mean |
 | AUC | সব decision threshold জুড়ে overfitting ও correct আলাদা করার ক্ষমতা |
+
+**সহজ কথায়:** Precision কম হলে ভালো patch অযথা বাতিল হয়। Recall কম হলে ভুল patch ঢুকে যায়। দুটোই দেখতে হয়।
 
 **AUC (ROC curve-এর নিচের ক্ষেত্রফল):**
 $$
@@ -511,12 +673,16 @@ $$
 $$
 \text{AUC}_{\text{hard}} = \frac{\text{TPR} + \text{TNR}}{2} = \text{Balanced Accuracy}
 $$
+**এটা কী হিসাব করে:** Classifier শুধু 0 বা 1 বললে AUC বের হয় দুটো হারের গড় থেকে: ফাঁকি কত ধরল ও সঠিক কত ছাড়ল।
+
 Section ৬.১১-এ দেখাবো যে small dataset-এর reported সংখ্যাগুলো এই ব্যাখ্যার সাথে প্রায় মেলে — অর্থাৎ RePaCA-র "AUC" সম্ভবত আসলে balanced accuracy।
 
 **MCC (Matthews Correlation Coefficient) — paper-এ নেই, আমি যোগ করেছি:**
 $$
 \text{MCC} = \frac{TP \cdot TN - FP \cdot FN}{\sqrt{(TP + FP)(TP + FN)(TN + FP)(TN + FN)}}
 $$
+**এটা কী হিসাব করে:** চারটা ঘর (TP, TN, FP, FN) একসাথে মিলিয়ে একটা নম্বর, যা একপাশে ঝুঁকে থাকা data-তেও ঠকায় না।
+
 Imbalanced dataset-এ চারটা ঘরই বিবেচনা করে বলে বেশি নির্ভরযোগ্য; −1 থেকে +1।
 
 ### ৬.৯ Worked Example — Paper-এর আসল Confusion Matrix (Fig. 3, INVALIDATOR test split, 139 patch)
@@ -527,6 +693,8 @@ Fig. 3 থেকে পড়া সংখ্যা (test split-এ 109টা ov
 |---|---|---|---|---|
 | INVALIDATOR | 86 | 23 | 3 | 27 |
 | RePaCA | 106 | 3 | 14 | 16 |
+
+**সহজ কথায়:** RePaCA 109টা ফাঁকি patch-এর 106টা ধরেছে, মাত্র 3টা মিস করেছে। কিন্তু 30টা সঠিক patch-এর 14টাকে ভুল করে ফাঁকি বলেছে। INVALIDATOR উল্টো: ফাঁকি বেশি মিস করেছে, সঠিক patch কম বাতিল করেছে।
 
 **RePaCA:**
 - Accuracy $= (106 + 16)/139 = 122/139 = 0.8777 \to$ **87.8%** ✓ (paper-এর সাথে মেলে)
@@ -545,12 +713,16 @@ Fig. 3 থেকে পড়া সংখ্যা (test split-এ 109টা ov
 
 **মূল শিক্ষা:** Accuracy ও F1-এ RePaCA এগিয়ে, কিন্তু **balanced accuracy-তে INVALIDATOR এগিয়ে (84.5% বনাম 75.3%)**, আর MCC প্রায় সমান (0.591 বনাম 0.606)। RePaCA 30টা correct patch-এর 14টাকে (46.7%) ভুল করে "overfitting" বলেছে।
 
+**সহজ কথায়:** RePaCA ফাঁকি ধরায় খুব ভালো, সঠিক patch ছাড়ায় তত ভালো নয়। কোন metric দেখছো তার উপর নির্ভর করে কে জিতল।
+
 ### ৬.১০ আমার হিসাব: Trivial Baseline-এর সাথে তুলনা
 যে classifier কিছু না দেখেই সব patch-কে "overfitting" বলে:
 - INVALIDATOR test split-এ: Accuracy $= 109/139 = 78.4\%$, Recall = 100%, Precision = 78.4%, F1 $= 218/(218 + 30) = 87.9\%$।
 - Small dataset-এ: Accuracy $= 648/1183 = 54.8\%$, F1 $= 1296/(1296 + 535) = 70.8\%$।
 
 তাই INVALIDATOR split-এ RePaCA-র F1 92.6% trivial baseline-এর 87.9% থেকে মাত্র 4.7 point বেশি; এই split-এ F1 metric-টা positive class-ভারী বলে অনেকটা "ফোলানো"। Small dataset-এ অবশ্য RePaCA (F1 84.8%, accuracy 83.1%) trivial baseline-এর অনেক উপরে।
+
+**সহজ কথায়:** যদি কেউ চোখ বন্ধ করে সবকিছুকে "ফাঁকি" বলে, সেও এই test-এ প্রায় ভালো দেখায়, কারণ বেশিরভাগ patch-ই ফাঁকি। তাই শুধু F1 দেখে মুগ্ধ হওয়া ঠিক নয়।
 
 ### ৬.১১ আমার হিসাব: Small Dataset-এর Confusion Matrix পুনর্গঠন
 Small dataset: 648 overfitting (P), 535 correct (N)। Reported Recall 85.7%, Precision 84.0% ধরে (20টা unparseable উপেক্ষা করে, তাই আনুমানিক):
@@ -562,12 +734,16 @@ Small dataset: 648 overfitting (P), 535 correct (N)। Reported Recall 85.7%, Pr
 
 অর্থাৎ small dataset-এ RePaCA-র ভারসাম্য INVALIDATOR split-এর চেয়ে অনেক ভালো (specificity ~80% বনাম 53.3%)। আর AUC ≈ balanced accuracy — Section ৬.৮-এর অনুমান সমর্থন করে।
 
+**সহজ কথায়:** Small dataset-এ RePaCA দুই দিকেই মোটামুটি ভালো। INVALIDATOR split-এ ভারসাম্য নষ্ট, কারণ সেখানে সঠিক patch মাত্র 30টা।
+
 ### ৬.১২ McNemar's Test
 দুটো classifier (A = APPT, B = RePaCA) একই $n$ instance-এ। $b$ = যেখানে A ঠিক কিন্তু B ভুল; $c$ = যেখানে A ভুল কিন্তু B ঠিক। (Continuity correction সহ) statistic:
 $$
 \chi^2 = \frac{\left( |b - c| - 1 \right)^2}{b + c}
 $$
 (Correction ছাড়া রূপ: $(b - c)^2/(b + c)$।) Null hypothesis-এ এটা 1 degree of freedom-এর $\chi^2$ distribution মানে। Paper শুধু ফল দিয়েছে: $\chi^2 = 25.90$, $p = 3.6 \times 10^{-7}$ (1,163 paired instance) — $b$ ও $c$-এর মান বা কোন রূপ ব্যবহার হয়েছে বলেনি।
+
+**এটা কী হিসাব করে:** দুই tool কোথায় ভিন্ন উত্তর দিয়েছে তা গুনে দেখে, একটা অন্যটার চেয়ে বেশিবার জিতেছে কিনা। $b$ ও $c$ কাছাকাছি হলে পার্থক্য কাকতালীয়; অনেক আলাদা হলে পার্থক্য বাস্তব।
 
 **Illustrative উদাহরণ (কাল্পনিক সংখ্যা):** $b = 40$, $c = 100$ হলে $\chi^2 = (60 - 1)^2/140 \approx 24.9$ — paper-এর মানের কাছাকাছি মাত্রা। অর্থাৎ RePaCA যেখানে APPT-এর চেয়ে ভালো এমন instance, উল্টোটার চেয়ে উল্লেখযোগ্যভাবে বেশি।
 
@@ -576,6 +752,8 @@ $B = 10{,}000$ বার test set থেকে replacement সহ $n$টা inst
 $$
 \text{CI}_{95} = \left[ \Delta_{(2.5\%)},\; \Delta_{(97.5\%)} \right]
 $$
+**এটা কী হিসাব করে:** পরীক্ষার data বারবার এলোমেলোভাবে বেছে 10,000 বার পার্থক্য মেপে, সেগুলোর মাঝের 95% সীমা বের করা। ওই সীমা 0 ছুঁলে বলা যায় না যে পার্থক্য আসল।
+
 CI-এর নিচের সীমা 0-এর উপরে হলে উন্নতি significant। Table 5-এ চারটা metric-এর সবগুলোর CI 0 বাদ দেয় (Section ৮.২)।
 
 ---
@@ -593,6 +771,8 @@ CI-এর নিচের সীমা 0-এর উপরে হলে উন্
 | **Metric** | Accuracy, Precision, Recall, F1, AUC; McNemar; bootstrap CI |
 | **Model** | Qwen2.5-Coder-3B-Instruct + GRPO |
 
+**সহজ কথায়:** মূল পরীক্ষা Defects4J-এর 1,183 patch-এ। তার সাথে আরও দুটো data: একটা অনেক বড় (49,694) আর একটা INVALIDATOR-এর নিজের।
+
 **Dataset statistics (Table 3):**
 
 | Dataset | Correct | Overfitting | Total | Overfitting % (আমার হিসাব) |
@@ -600,6 +780,8 @@ CI-এর নিচের সীমা 0-এর উপরে হলে উন্
 | Small | 535 | 648 | 1,183 | 54.8% |
 | Large | 25,589 | 24,105 | 49,694 | 48.5% |
 | INVALIDATOR test split | 30 | 109 | 139 | 78.4% (Fig. 3 থেকে) |
+
+**সহজ কথায়:** দুটো dataset প্রায় সমান ভাগে ভাগ (ঠিক ও ফাঁকি)। কিন্তু INVALIDATOR-এর test অংশে 78% patch-ই ফাঁকি, তাই সেখানকার ফল বুঝে পড়তে হবে।
 
 **Small dataset-এর উৎস:** Tian et al. (1,000 patch) + Wang et al. (902 patch) = 1,902 → filtering ও duplicate বাদ দিয়ে 1,183।
 **Large dataset-এর উৎস:** Correct patch মূলত ManySStuBs4J (developer fix, APR tool নয়); overfitting patch RepairThemAll framework থেকে; duplicate ও biased patch বাদ।
@@ -620,6 +802,8 @@ Authors দুটো dataset-কেই "balanced ও modest in size" বলে�
 | APPT | 79.7 | 80.8 | 83.2 | 81.8 | 82.5 |
 | **RePaCA (Ours)** | **83.1** | **84.0** | **85.7** | **84.8** | **82.8** |
 
+**সহজ কথায়:** RePaCA প্রায় প্রতিটা সূচকে সবার উপরে। আগের সেরা APPT-এর চেয়ে accuracy-তে প্রায় 3.4 পয়েন্ট এগিয়ে। AUC-তে অবশ্য ফারাক প্রায় নেই।
+
 Paper-এর বলা পার্থক্য (percentage point):
 
 | Metric | RePaCA − APPT | RePaCA − CACHE |
@@ -631,6 +815,8 @@ Paper-এর বলা পার্থক্য (percentage point):
 | AUC | +0.3 | +2.5 |
 
 **আমার পর্যবেক্ষণ:** AUC-তে APPT-এর উপর উন্নতি মাত্র 0.3 point — প্রায় সমান। আর ODS ও Quatrain-এর সংখ্যা মূল paper নয়, LLM4PatchCorrect paper থেকে নেওয়া — তাই সমান condition নিশ্চিত নয়।
+
+**সহজ কথায়:** অর্থাৎ "RePaCA অনেক ভালো" কথাটা সব সূচকে সত্যি নয়। AUC-তে ফারাক প্রায় নেই, আর কিছু প্রতিপক্ষের সংখ্যা অন্য paper থেকে নেওয়া।
 
 ### ৮.২ Statistical Significance (Table 5 ও McNemar)
 APPT-এর instance-level prediction মূল paper-এ নেই, তাই authors APPT-কে official code দিয়ে একই 5-fold split-এ নিজেরা চালিয়েছেন।
@@ -644,6 +830,8 @@ APPT-এর instance-level prediction মূল paper-এ নেই, তাই a
 | Recall | 79.4 [76.3, 82.5] | 85.7 [82.8, 88.3] | +6.24 [+2.3, +10.1] |
 | F1 | 77.8 [75.2, 80.2] | 84.8 [82.6, 86.9] | +7.02 [+4.3, +9.8] |
 
+**সহজ কথায়:** দুর্বলতর reproduction-এর বিরুদ্ধে সব পার্থক্যই নিরাপদভাবে 0-এর উপরে, মানে পার্থক্য আসল। কিন্তু আমরা জানি APPT-কে একটু দুর্বল ধরে তুলনা করা হয়েছে।
+
 সব CI 0 বাদ দেয় → statistically significant। (AUC-এর CI দেওয়া হয়নি।)
 
 **McNemar's test:**
@@ -652,6 +840,8 @@ APPT-এর instance-level prediction মূল paper-এ নেই, তাই a
 - Robustness check: ওই 20টাকে majority class-এ বসিয়ে আবার: $\chi^2 = 24.82$, $p = 6.3 \times 10^{-7}$ → এখনো significant।
 
 **আমার পর্যবেক্ষণ — দুটো গুরুত্বপূর্ণ বিষয়:**
+
+**সহজ কথায়:** প্রথমত, APPT-কে নিজেরা চালিয়ে দুর্বল ফল পাওয়া গেছে, তাই RePaCA-কে আরও ভালো দেখায়। দ্বিতীয়ত, একই সংখ্যা দুই জায়গায় সামান্য আলাদা, যা ছোট অসঙ্গতি।
 1. APPT-এর reproduction published সংখ্যার চেয়ে কম: Accuracy 79.7 → 75.0 (−4.7), Precision 80.8 → 76.2, Recall 83.2 → 79.4, F1 81.8 → 77.8। তাই "RePaCA APPT-এর চেয়ে কত ভালো" — published-এর তুলনায় +3.4, reproduction-এর তুলনায় +8.1 accuracy point। Significance test দুর্বল reproduction-এর বিরুদ্ধে করা — authors নিজেই এটা threat হিসেবে স্বীকার করেছেন।
 2. Table 5-এ RePaCA-র precision **83.9**, কিন্তু Table 4 ও text-এ **84.0** — ছোট অসঙ্গতি (সম্ভবত rounding বা unparseable instance-এর ভিন্ন handling)।
 
@@ -668,6 +858,8 @@ APPT-এর instance-level prediction মূল paper-এ নেই, তাই a
 | Specificity (আমার হিসাব) | **90.0%** | 53.3% |
 | Balanced accuracy (আমার হিসাব) | **84.5%** | 75.3% |
 
+**সহজ কথায়:** RePaCA ফাঁকি ধরার হারে (recall) জেতে, কিন্তু সঠিক patch ছাড়ার হারে (specificity) হারে। কোন দিকটা তোমার কাছে বেশি জরুরি, সেটাই প্রশ্ন।
+
 **Authors-এর ব্যাখ্যা:** RePaCA বেশিরভাগ overfitting patch ধরে (recall অনেক বেশি), বিনিময়ে কিছু সঠিক patch-কে ভুল করে overfitting বলে (precision কম)। তাদের মতে এটা গ্রহণযোগ্য trade-off, কারণ overfitting patch-এর "নীরবে codebase-এ ঢুকে পড়া" ঠেকানো বেশি গুরুত্বপূর্ণ — software-এর behavioral integrity-কে patch acceptance rate-এর উপর অগ্রাধিকার।
 
 **আমার পর্যবেক্ষণ:** Test split-এ মাত্র 30টা correct patch — তাই specificity-র অনিশ্চয়তা অনেক বড়। আর Section ৬.৭-এর threshold বিশ্লেষণ বলে এই recall-ভারী আচরণ asymmetric reward-এরই প্রত্যাশিত ফল।
@@ -678,6 +870,8 @@ APPT-এর instance-level prediction মূল paper-এ নেই, তাই a
 |---|---|---|---|---|---|
 | APPT (reproduction) | 60.5 | 59.1 | **90.2** | 71.4 | 55.4 |
 | **RePaCA** | **72.7** | **72.4** | 78.7 | **75.4** | **72.3** |
+
+**সহজ কথায়:** অচেনা ধরনের data-তে APPT প্রায় সবকিছুকেই "ফাঁকি" বলছিল (AUC প্রায় আন্দাজ)। RePaCA তুলনামূলক ভারসাম্য রেখেছে, যদিও নিজেরও প্রায় 10 পয়েন্ট পড়েছে।
 
 - Accuracy +12.2 point, F1 +4.0 point, AUC +16.9 point।
 - APPT-এর recall বেশি (90.2%) কিন্তু precision 59.1% — প্রায় সব কিছুকেই overfitting বলছে; AUC 55.4% প্রায় random। Authors-এর মতে এটা APPT-এর OOD data-তে "architectural vulnerability"।
@@ -694,7 +888,11 @@ APPT-এর instance-level prediction মূল paper-এ নেই, তাই a
 | **Code 2 — Correct** | `Complex` class-এর `add(Complex rhs)`: আগে `checkNotNull`, তারপর real ও imaginary অংশ যোগ। Patch (line 3–5) — current object বা `rhs` NaN হলে সঙ্গে সঙ্গে NaN return | মূল সমস্যা (NaN handling নেই) চিহ্নিত; fix generic (নির্দিষ্ট মানের উপর নির্ভর করে না) → সঠিক label | — |
 | **Code 3 — "Indistinguishable" overfitting** (Section 6) | খুব ছোট, context-হীন patch | — | Authors-এর মতে এমন patch নির্ভরযোগ্যভাবে classify করা প্রায় অসম্ভব — আশেপাশের method/class-এর context লাগবে |
 
+**সহজ কথায়:** Paper-এ দেখানো হয়েছে একটা ফাঁকি patch সঠিক ধরেছে (যুক্তিতে কিছু ভুল সহ), একটা সঠিক patch সঠিক চিনেছে, আর একটা patch এত ছোট যে code দেখে ধরা প্রায় অসম্ভব।
+
 **আমার পর্যবেক্ষণ:** মাত্র ২টা সফল example দেখানো হয়েছে (cherry-picked হওয়ার সম্ভাবনা)। ভুল classification-এর কোনো systematic error analysis (কত শতাংশ reasoning-এ hallucination, কত শতাংশে যুক্তি ও label-এর বিরোধ) নেই। Code 1-এ label সঠিক হলেও যুক্তিতে ভুল আছে — অর্থাৎ **"সঠিক উত্তর, ভুল কারণ"** সম্ভব।
+
+**সহজ কথায়:** দুটো ভালো উদাহরণ দেখিয়ে সবটা প্রমাণ হয় না। কতবার যুক্তিতে ভুল হয়েছে তার কোনো হিসাব নেই। "সঠিক উত্তর, ভুল কারণ"-ও সম্ভব।
 
 ### ৮.৬ Ablation ১ — Base Model (Table 7, GRPO-র আগে, small dataset)
 
@@ -705,9 +903,13 @@ APPT-এর instance-level prediction মূল paper-এ নেই, তাই a
 | Qwen2.5 | 3B | **56.7** | 14.4 | 52.5 |
 | **Qwen2.5-Coder** | 3B | 55.9 | **38.4** | **53.6** |
 
+**সহজ কথায়:** Training-এর আগে চারটা model-ই প্রায় আন্দাজে বলছিল। Training-এর পরেই RePaCA-র পুরো উন্নতি এসেছে, মানে training-ই আসল নায়ক।
+
 - General Qwen2.5-এর accuracy সবচেয়ে বেশি, কিন্তু F1 মাত্র 14.4% — authors-এর মতে majority class-এর দিকে প্রবল bias, overfitting চিনতে ব্যর্থ।
 - Qwen2.5-Coder সেরা ভারসাম্য → নির্বাচিত।
 - **GRPO-র প্রভাব (আমার হিসাব):** Qwen2.5-Coder-3B GRPO-র আগে → পরে: Accuracy 55.9 → 83.1 (+27.2), F1 38.4 → 84.8 (+46.4), AUC 53.6 → 82.8 (+29.2)। অর্থাৎ পুরো উন্নতির প্রায় সবটাই training থেকে এসেছে; base model-গুলো প্রায় random (AUC 50–54%)।
+
+**সহজ কথায়:** Training-এর আগে-পরে তুলনা: accuracy 55.9 থেকে 83.1, F1 38.4 থেকে 84.8। সব উন্নতি training থেকেই এসেছে।
 
 **আমার হিসাব — আরেকটা অসঙ্গতি:** Small dataset-এ overfitting (positive) = 648, correct = 535। যদি F1 overfitting class-এর জন্য হয়, তাহলে F1 = 14.4% হলে accuracy সর্বোচ্চ প্রায় 49.5% হতে পারে — কিন্তু reported 56.7%। একইভাবে Gemma (F1 18.1 → সর্বোচ্চ ~50.7%, reported 55.8) ও Llama (F1 16.0 → সর্বোচ্চ ~50.0%, reported 54.2)। সম্ভাব্য ব্যাখ্যা: base model-এর অনেক unparseable output বাদ দিয়ে হিসাব, ভিন্ন subset, বা F1 অন্য class-এর জন্য। আরও লক্ষণীয়: majority class হলো overfitting (54.8%) — model যদি "majority class-এর দিকে bias" থাকে তাহলে বেশিরভাগ "overfitting" বলবে, যা overfitting-এর F1 **বাড়াবে**, কমাবে না। তাই Table 7-এর সংখ্যা ও তার ব্যাখ্যা পুরোপুরি সামঞ্জস্যপূর্ণ নয় — নিশ্চিত দাবি না করে "প্রশ্ন" হিসেবে রাখা উচিত।
 
@@ -724,9 +926,13 @@ Temperature 0.0 থেকে 1.2 পর্যন্ত (0.2 ধাপে) পর
 | 1.0 | ~0.813 | ~0.826 | ~0.812 |
 | 1.2 | ~0.799 | ~0.809 | ~0.798 |
 
+**সহজ কথায়:** Temperature (উত্তরের এলোমেলোতা) বদলালে ফল সামান্য ওঠানামা করে। 0.6-এ সবচেয়ে ভালো, কিন্তু পুরো পরিসরে পার্থক্য মাত্র 3 পয়েন্টের মতো।
+
 **Authors-এর ব্যাখ্যা:** কম temperature-এ বৈচিত্র্য কম → performance কম; বেশি temperature-এ reasoning অসংলগ্ন ও hallucinatory → "sharp decline"।
 
 **আমার পর্যবেক্ষণ:** পুরো range-এ accuracy মাত্র ~0.80 থেকে 0.83 — প্রায় 3 point-এর পার্থক্য। T = 0.2 থেকে 1.0 পর্যন্ত মান প্রায় সমান (~0.81–0.82), শুধু 0.6-এ একটা চূড়া। এটা "highly sensitive" দাবির চেয়ে বরং **single-run noise**-এর মতো দেখায় — একাধিক seed-এর গড় ও error bar ছাড়া বলা কঠিন। তাছাড়া temperature-টা **test fold-এর ফল দেখেই বাছাই করা হয়েছে** বলে মনে হয় (Section ১২.২)।
+
+**সহজ কথায়:** Temperature-এ 0.6 সেরা, কিন্তু অন্য মানগুলোও কাছাকাছি। সম্ভবত এটা কাকতালীয় ওঠানামা, কোনো গভীর কারণ নয়। বারবার চালিয়ে না দেখলে বলা কঠিন।
 
 ### ৮.৮ Format Failure
 - Text-এ "around 1%" (Section 3.1, 5.2) এবং Section 4.1-এ 20/1,183 = **1.7%** unparseable।
@@ -745,6 +951,8 @@ Temperature 0.0 থেকে 1.2 পর্যন্ত (0.2 ধাপে) পর
 7. **Context-poor patch মৌলিক সীমা:** খুব ছোট patch শুধু code দেখে classify করা প্রায় অসম্ভব — repository context দরকার।
 8. **Training ব্যয়বহুল, inference সস্তা:** H100-এ GRPO training, কিন্তু inference 8 GB VRAM-এর consumer GPU-তে — APR pipeline-এ post-generation filter হিসেবে বসানো যায়।
 
+**সহজ কথায়:** আটটা কথা এক নিঃশ্বাসে: ছোট model ভালো ফল দিয়েছে, ফল কাকতালীয় নয়, শুধু reward দিয়েই শেখা সম্ভব, অন্য data-তে ভালো টেকে কিন্তু নিজেও কমে, ফাঁকি বেশি ধরে কিন্তু সঠিকও বাতিল করে, ব্যাখ্যা বিশ্বাসযোগ্য নয়, ছোট patch ধরা কঠিন, আর training ব্যয়বহুল হলেও চালানো সস্তা।
+
 ---
 
 ## ১০. কেন এই Solution অন্যগুলোর থেকে ভালো?
@@ -759,7 +967,11 @@ Temperature 0.0 থেকে 1.2 পর্যন্ত (0.2 ধাপে) পর
 | Small dataset accuracy | 62.3 / 75.4 | 69.4 | ভিন্ন dataset | 79.7 | তুলনা করা হয়নি | তুলনা করা হয়নি | **83.1** |
 | OOD robustness | — | — | — | AUC 55.4 | — | — | **AUC 72.3** |
 
+**সহজ কথায়:** RePaCA একসাথে অনেক সুবিধা দেয়: test লাগে না, bug report লাগে না, আগের উদাহরণ লাগে না, যুক্তি দেখায়, আর অচেনা data-তে বেশি টেকে। আর কেউ এই সবগুলো একসাথে দেয় না।
+
 **মূল শক্তি:**
+
+**সহজ কথায়:** মূল শক্তি এক বাক্যে: শুধু code দেখে, কম খরচে, ব্যাখ্যা-সহ, আর অচেনা data-তেও তুলনামূলক ভালো রায়।
 1. **শুধু code-ই যথেষ্ট** — কোনো test, execution, bug report বা retrieval pool লাগে না; তাই যেকোনো APR pipeline-এ plug-in করা যায়।
 2. **Reasoning → generalization:** pattern-matching-এর চেয়ে semantic বোঝাপড়া, যা domain shift-এ ভালো টেকে।
 3. **Transparency:** প্রতিটা সিদ্ধান্তের সাথে human-readable rationale।
@@ -787,6 +999,8 @@ Temperature 0.0 থেকে 1.2 পর্যন্ত (0.2 ধাপে) পর
 - **Calibrated confidence দরকার হলে** — শুধু hard label, কোনো probability নেই।
 - **Explanation-কে প্রমাণ হিসেবে ব্যবহার** — CoT faithful নয়।
 
+**সহজ কথায়:** ছোট Java patch, স্পষ্ট কারণ আর মানুষ পাশে থাকলে ভালো। বড় বা অন্য ভাষার patch, অথবা যখন নিশ্চয়তা-র মাপ চাই, তখন সীমিত।
+
 ---
 
 ## ১২. Limitations — দুর্বলতা
@@ -803,9 +1017,13 @@ Temperature 0.0 থেকে 1.2 পর্যন্ত (0.2 ধাপে) পর
 9. **Reward শুধু format ও final answer দেখে, reasoning-এর যৌক্তিকতা নয়** — reasoning quality reward দরকার।
 10. **বড়/বিশেষায়িত reasoning model পরীক্ষা করা হয়নি।**
 
+**সহজ কথায়:** Authors নিজেই স্বীকার করেছেন: যুক্তিতে ভুল হয়, data ছোট, Java-ছাড়া অন্যত্র পরীক্ষা হয়নি, আর বাস্তব pipeline-এ বসিয়ে দেখা হয়নি। নিচে ১২.২-এ আমি যে বাড়তি দুর্বলতাগুলো পেয়েছি সেগুলো আরও গুরুত্বপূর্ণ।
+
 ### ১২.২ আমার Critical Analysis (Professor-level observation)
 
 **(ক) Evaluation design**
+
+**সহজ কথায়:** এখানে মূল চিন্তা: temperature test data দেখেই বাছাই করা হয়েছে, বারবার চালানো হয়নি, আর কয়েকটা জরুরি তুলনা (SFT, `<think>` ছাড়া) করা হয়নি।
 1. **Hyperparameter test set দেখে বাছাই (সবচেয়ে গুরুত্বপূর্ণ):** Temperature ablation-এর সেরা মান (0.6)-এর ফল **হুবহু** headline সংখ্যা (83.1 / 84.8 / 82.8)। Base model ablation-ও small dataset-এই। আলাদা held-out set-এ tuning-এর উল্লেখ নেই (epoch সংখ্যার জন্য "validation split of the training data" বলা আছে, temperature-এর জন্য নেই)। এতে reported সংখ্যা আশাবাদী (optimistic) হতে পারে — বিশেষ করে temperature curve-এর পার্থক্য ছোট (~3 point) হওয়ায়।
 2. **Variance/seed report নেই:** Temperature 0.6-এ sampling stochastic, অথচ একটা run। একই patch-এ বারবার চালালে label বদলায় কিনা (run-to-run consistency) মাপা হয়নি — এটা ঠিক আমাদের **CG4**।
 3. **Baseline-এর সমতা:** ODS ও Quatrain-এর সংখ্যা তৃতীয় paper থেকে, CACHE/APPT মূল paper থেকে, INVALIDATOR মূল paper থেকে — একই split, একই preprocessing নিশ্চিত নয় (Sub-domain 1 Summary-র **CG8**-এর মতো সমস্যা)।
@@ -818,18 +1036,24 @@ Temperature 0.0 থেকে 1.2 পর্যন্ত (0.2 ধাপে) পর
 6. **Trivial baseline report করা হয়নি:** INVALIDATOR split-এ "সব overfitting" বললেই F1 87.9% (Section ৬.১০)।
 
 **(খ) Metric ও internal consistency**
+
+**সহজ কথায়:** এখানে মূল চিন্তা: AUC আসলে balanced accuracy হওয়ার সম্ভাবনা, আর কিছু table-এর সংখ্যা একে অন্যের সাথে পুরোপুরি মেলে না।
 7. **AUC hard label থেকে:** RePaCA probability দেয় না; reported AUC সম্ভবত balanced accuracy (small dataset-এ পুনর্গঠন 83.0% বনাম reported 82.8%)। APPT-এর AUC আসল ROC-AUC (continuous score) হলে দুটো সরাসরি তুলনীয় নয়।
 8. **ছোট সংখ্যাগত অসঙ্গতি:** precision 84.0 (Table 4) বনাম 83.9 (Table 5); CACHE-এর তুলনায় accuracy পার্থক্য 7.8 বলা, কিন্তু 83.1 − 75.4 = 7.7; INVALIDATOR F1 87.0 বনাম Fig. 3 থেকে 86.9; "~1%" বনাম 1.7% format failure।
 9. **Table 7 ও Table 6-এর সম্ভাব্য অসঙ্গতি** (Section ৮.৪ ও ৮.৬-এ আমার হিসাব) — class distribution-এর সাথে reported accuracy/F1 মেলে না। এগুলো unparseable handling-এর কারণে হতে পারে; paper-এ পরিষ্কার নেই।
 10. **Unparseable output-এর handling metric-এ অস্পষ্ট:** McNemar-এ 20টা বাদ, কিন্তু Table 4-এ কীভাবে গণনা হলো (ভুল ধরা, বাদ দেওয়া?) বলা নেই। Deployment-এ "উত্তর নেই" একটা বাস্তব ঘটনা।
 
 **(গ) Method design**
+
+**সহজ কথায়:** এখানে মূল চিন্তা: অতিরিক্ত পুরস্কার model-কে বেশি সন্দেহপ্রবণ করে, আর যুক্তির মান কোথাও মাপা হয়নি।
 11. **Asymmetric reward → bias:** Section ৬.৭-এ দেখিয়েছি এটা decision threshold 0.5 থেকে 1/3-এ নামায়; INVALIDATOR split-এর specificity 53.3% এর সাথে সামঞ্জস্যপূর্ণ। "Without introducing bias" দাবি সব dataset-এ টেকে না।
 12. **Keyword-ভিত্তিক format reward দুর্বল:** "correct" ও "incorrect" দুটোই keyword; "incorrect" শব্দে "correct" substring আছে — parser সতর্ক না হলে label ভুল পড়া সম্ভব। Paper parser-এর নিয়ম দেয়নি।
 13. **Reasoning-এর মানের কোনো reward বা metric নেই:** Explanation quality-র দাবি শুধু ২টা হাতে-বাছাই example-এ; কোনো human evaluation, faithfulness বা consistency metric নেই।
 14. **Calibration/confidence নেই:** Assurance-এর জন্য "কতটা নিশ্চিত" জানা দরকার (**CG7**); hard label সেটা দেয় না।
 
 **(ঘ) Data ও validity**
+
+**সহজ কথায়:** এখানে মূল চিন্তা: Defects4J পুরোনো ও public, তাই model আগে দেখে থাকতে পারে। আর code public না হওয়ায় অন্য কেউ হুবহু পুনরায় চালাতে পারবে না।
 15. **Contamination ঝুঁকি:** Defects4J ও তার patch অনেক পুরনো ও public; Qwen2.5-Coder-এর pre-training data-তে থাকতে পারে। Paper এটা আলোচনা করেনি।
 16. **Label noise:** Small dataset-এর label আগের study-গুলোর manual/semi-automatic label; Large-এ "correct" = developer fix (ManySStuBs4J) — APR tool-এর correct patch-এর থেকে ভিন্ন distribution, ফলে model "কে লিখেছে" (style) শিখে ফেলতে পারে, "সঠিক কিনা" নয়।
 17. **Language ও scope:** শুধু Java, শুধু Defects4J-ধরনের ছোট patch; multi-hunk/multi-file patch-এর আলাদা ফল নেই।
@@ -852,6 +1076,8 @@ Temperature 0.0 থেকে 1.2 পর্যন্ত (0.2 ধাপে) পর
 | G8 | **Fair, reproducible APCA benchmark** — একই split, একই preprocessing, variance সহ | Paper-ভেদে baseline সংখ্যা মেলে না | CG8, CG6 | Coding-Agent Evaluation & Reliability |
 | G9 | **Cost-sensitive / threshold-tunable APCA** — reward asymmetry বা threshold দিয়ে precision-recall নিয়ন্ত্রণ | ভিন্ন project-এর ভিন্ন ঝুঁকি-সহনশীলতা | CG1, CG7 | — (খোলা) |
 
+**সহজ কথায়:** সবচেয়ে বড় সুযোগ: Python agent patch-এ কাজ করা, নিশ্চয়তার মাপ (score) দেওয়া, আর test-এর তথ্যের সাথে মিলিয়ে নেওয়া।
+
 ---
 
 ## ১৪. কী করলে আরও ভালো হবে — Improvement Ideas
@@ -871,6 +1097,8 @@ Temperature 0.0 থেকে 1.2 পর্যন্ত (0.2 ধাপে) পর
 7. **SFT/CoT ablation:** একই 3B model-এ (ক) classification head, (খ) SFT, (গ) GRPO without think, (ঘ) GRPO with think — reasoning-এর আসল অবদান মাপা।
 8. **Cross-language transfer:** Java-তে train করে Python patch-এ zero-shot test; তারপর অল্প Python label দিয়ে GRPO।
 
+**সহজ কথায়:** আটটা idea-র সার কথা: একটা রায়ের বদলে বহুবার রায় নিয়ে score বানানো, সীমা বদলানো, যুক্তির মান মাপা, বেশি context দেওয়া, test-এর তথ্য মেশানো, আর পরীক্ষাটা আরও সৎভাবে করা।
+
 ---
 
 ## ১৫. কোন Gap-এ Research করলে ভালো Result ও Publication আসতে পারে
@@ -885,6 +1113,8 @@ Temperature 0.0 থেকে 1.2 পর্যন্ত (0.2 ধাপে) পর
 | G5: LLM judge-এর run-to-run consistency study | ✅ সহজ | মাঝারি | ⭐⭐⭐ |
 | GRPO দিয়ে নিজে Python APCA model train করা | ⚠️ কঠিন — H100-শ্রেণির GPU, অনেক labeled data লাগে | উচ্চ | ⭐⭐⭐ (resource-এর উপর নির্ভর) |
 
+**সহজ কথায়:** সবচেয়ে সহজ ও দ্রুত কাজ হলো training ছাড়া prompt দিয়েই Python agent patch পরীক্ষা করা। Training-এর কাজ কঠিন ও ব্যয়বহুল।
+
 **সম্ভাব্য venue (general guidance):**
 - **Journal:** *Neurocomputing* নিজেই এই ধরনের কাজ নিয়েছে (undergraduate first author সহ!); এছাড়া Information and Software Technology (IST), Journal of Systems and Software (JSS), Empirical Software Engineering (EMSE), Automated Software Engineering journal।
 - **Conference/Workshop:** ICSE/FSE/ASE/ISSTA-এর workshop (যেমন LLM4Code, APR workshop) — student-এর জন্য শুরু করা সহজ।
@@ -896,6 +1126,8 @@ Temperature 0.0 থেকে 1.2 পর্যন্ত (0.2 ধাপে) পর
 ### ১৬.১ RePaCA কি আমাদের Assurance Layer-এর Overfitting-Detection Component হতে পারে?
 
 **সংক্ষিপ্ত উত্তর (আমার মূল্যায়ন):** ধারণা হিসেবে **হ্যাঁ** — এটাই সবচেয়ে সস্তা প্রথম স্তর (execution লাগে না, 8 GB GPU, ব্যাখ্যা দেয়)। কিন্তু **RePaCA-কে হুবহু SWE-bench agent patch-এ বসালে অনেক কিছু ভাঙবে**; তাই এটাকে "plug-in" নয়, "শুরুর ভিত্তি" হিসেবে দেখতে হবে।
+
+**সহজ কথায়:** RePaCA আমাদের Assurance Layer-এর প্রথম ধাপ হতে পারে, কিন্তু বিনা পরিবর্তনে বসালে ভাঙবে। তাই এটাকে তৈরি-করা যন্ত্র নয়, শুরুর বিন্দু হিসেবে নিতে হবে।
 
 **কী ভাঙবে — বিস্তারিত:**
 
@@ -910,6 +1142,8 @@ Temperature 0.0 থেকে 1.2 পর্যন্ত (0.2 ধাপে) পর
 | Domain shift প্রমাণ | Java → Java-তেই ~10 point পতন | Java → Python + tool → agent | আরও বড় পতনের সম্ভাবনা |
 | Test-এর উপস্থিতি | Static, test ব্যবহার করে না | F2P/P2P ও Docker environment আছে | Static-only হওয়া এখানে অপ্রয়োজনীয় সীমাবদ্ধতা — hybrid ভালো |
 
+**সহজ কথায়:** Java থেকে Python, ছোট থেকে বড় patch, আর APR tool থেকে AI agent — প্রতিটা বদলে সমস্যা বাড়ে। তাই RePaCA-কে সরাসরি বসানো যায় না, শুরুর ভিত্তি হিসেবে নিতে হয়।
+
 **আমার হিসাব — hypothetical "what-if" (AutoCodeRover-এর 78টা plausible patch: 51 correct, 27 overfitting):**
 
 এটা শুধু একটা চিন্তা-পরীক্ষা — RePaCA-র Java-তে মাপা rate হুবহু Python agent patch-এ খাটবে না।
@@ -920,7 +1154,11 @@ Temperature 0.0 থেকে 1.2 পর্যন্ত (0.2 ধাপে) পর
 | Small dataset rate (Recall 85.7%, Specificity ≈80.2%) | ≈23.1 | ≈10.1 | ≈40.9/(40.9 + 3.9) ≈ **91.3%** |
 | INVALIDATOR split rate (Recall 97.2%, Specificity 53.3%) | ≈26.2 | ≈23.8 | ≈27.2/(27.2 + 0.7) ≈ **97.4%** |
 
+**সহজ কথায়:** Filter বসালে গৃহীত patch-এর বিশুদ্ধতা 65% থেকে 90%-এর উপরে ওঠে। কিন্তু দাম দিতে হয়: অনেক সঠিক patch-ও বাদ পড়ে।
+
 **শিক্ষা:** একটা static judge গৃহীত patch-এর "বিশুদ্ধতা" 65.4% থেকে 90%-এর উপরে নিতে পারে — **কিন্তু দাম হলো অনেক সঠিক patch হারানো** (10 থেকে 24টা)। Agent-এর resolve rate তাই কমে যাবে। এজন্য assurance layer-এ hard reject না করে **score + abstention ("মানুষ দেখুক")** ভালো design — এবং এটাই আমাদের CG7-এর সাথে মেলে।
+
+**সহজ কথায়:** সোজা কথা: filter বসালে গৃহীত patch-এ ভুল কমে, কিন্তু agent-এর সফল patch-ও কমে। তাই সরাসরি বাতিল না করে "নিশ্চিত নই, মানুষ দেখুক" বলার জায়গা রাখা ভালো।
 
 ### ১৬.২ প্রস্তাবিত Module (SPL3-feasible)
 
@@ -928,7 +1166,11 @@ Temperature 0.0 থেকে 1.2 পর্যন্ত (0.2 ধাপে) পর
 2. **Prompt Builder:** RePaCA-র format (`<think>`/`<answer>`) + one-shot; Python-এর জন্য উদাহরণ; ঐচ্ছিক context: issue text, পরিবর্তিত function-এর পুরো body, multi-file diff।
 3. **Judge Backend:** (ক) Qwen2.5-Coder-3B-Instruct locally (8 GB GPU) — base, prompt-only; (খ) একটা বড় LLM API — তুলনার জন্য; (গ) সময়/resource থাকলে TRL + Unsloth দিয়ে ছোট GRPO run।
 4. **Parser + Re-sampler:** strict regex (`incorrect`-কে `correct`-এর আগে check), unparseable হলে re-sample।
+
+**সহজ কথায়:** Parser হলো model-এর লেখা থেকে রায় তুলে আনার অংশ। পড়তে না পারলে আবার জিজ্ঞেস করা হয়।
 5. **Self-consistency Scorer:** $k$ = 5–8 sample → overfitting score $s(x)$, agreement rate।
+
+**সহজ কথায়:** একই patch-এ 5–8 বার রায় নিয়ে কতবার "ফাঁকি" এসেছে তা গুনলে একটা নিশ্চয়তার score পাওয়া যায়।
 6. **Evaluation module:** Accuracy, Precision, Recall, F1, Specificity, Balanced accuracy, MCC, ROC-AUC (score থেকে), calibration; trivial baseline; bootstrap CI ও McNemar।
 7. **Assurance integration:** score অনুযায়ী তিন ভাগ — Accept / Human review / Reject; Agentless-এর candidate re-ranking-এ score ব্যবহার।
 8. **Dashboard:** প্রতিটা patch-এর score, `<think>` rationale, সিদ্ধান্ত।
@@ -961,6 +1203,8 @@ def assess_patch(buggy, patched, issue=None, k=8, temp=0.6):
 5. **Step 5 — Re-ranking:** Agentless-এর candidate-এ score দিয়ে বাছাই করে resolved সংখ্যা।
 
 **Practical সতর্কতা:**
+
+**সহজ কথায়:** ছোট করে: GRPO training আমাদের জন্য ভারী হতে পারে, তাই প্রথমে prompt-only পরীক্ষা করব। আর Python patch-এর সঠিক label জোগাড় করাটাই সবচেয়ে কঠিন কাজ।
 - GRPO training (paper-এর মতো) H100-শ্রেণির GPU চায় — SPL3-তে inference + prompt-only বা খুব ছোট-scale training-ই বাস্তবসম্মত।
 - Python agent patch-এর **নির্ভরযোগ্য correctness label** পাওয়া সবচেয়ে বড় বাধা — ছোট কিন্তু পরিষ্কার label set (দুইজন মিলে label, agreement মাপা) পরিকল্পনা করতে হবে।
 - Windows-এ local model চালাতে GPU driver/CUDA বা WSL2 লাগবে।
@@ -972,6 +1216,8 @@ def assess_patch(buggy, patched, issue=None, k=8, temp=0.6):
 - Paper-টা খুব নতুন (online July 2026), তাই citation-ভিত্তিক প্রভাব এখনো বলা যায় না। এর অবস্থান বোঝা যায় APCA-র ধারাবাহিকতায়: **hand-crafted feature (ODS) → learned embedding (CACHE) → NLP correlation (Quatrain) → invariant + PLM (INVALIDATOR) → fine-tuned PLM (APPT) → in-context LLM (LLM4PatchCorrect) → RL-trained reasoning LLM (RePaCA)**।
 - এটা বৃহত্তর একটা প্রবণতার অংশ: DeepSeek-R1-এর পরে GRPO দিয়ে ছোট model-কে বিশেষ কাজে reasoning শেখানো, এবং **LLM-as-a-Judge** দিয়ে code/patch মূল্যায়ন। আমাদের Patch Validation folder-এর "Human-in-the-Loop LLM-as-a-Judge" paper-টা একই দিকের, এবং সেটার সাথে তুলনা করা দরকার হবে।
 - Authors-এর নিজের প্রস্তাবিত পরের ধাপ: বড় ও সমৃদ্ধ dataset, repository context, reasoning-quality reward, APR pipeline-এ integration, বড়/বিশেষায়িত reasoning model।
+
+**সহজ কথায়:** লক্ষ্যণীয়: authors-এর পরের ধাপগুলো আমাদের gap-গুলোর সাথেই মেলে। তাই আমাদের পরিকল্পনা paper-এর দিকনির্দেশের সাথে সামঞ্জস্যপূর্ণ।
 - **আমাদের জন্য গুরুত্ব:** coding agent-এর score যত বাড়ছে, প্রশ্ন তত "কত % solve" থেকে "**solve করা patch কতটা বিশ্বাসযোগ্য**"-এর দিকে যাচ্ছে (Sub-domain 1, Paper 01, Section ১৭)। RePaCA দেখায় যে একটা ছোট, সস্তা, ব্যাখ্যাযোগ্য judge বানানো সম্ভব — কিন্তু agent setting-এ এর validity এখনো খোলা প্রশ্ন।
 
 ---
@@ -979,40 +1225,76 @@ def assess_patch(buggy, patched, issue=None, k=8, temp=0.6):
 ## ১৮. Supervisor-এর সম্ভাব্য প্রশ্ন ও উত্তর (Viva Prep)
 
 **Q1. Static আর dynamic APCA-র পার্থক্য কী, আর RePaCA কেন static?**
+
 A: Dynamic APCA patch execute করে runtime তথ্য বা নতুন test-এর ফল দেখে; static শুধু buggy ও fixed code তুলনা করে। Paper-এর যুক্তি: execution তথ্য পাওয়া code পাওয়ার চেয়ে অনেক ব্যয়বহুল ও জটিল। RePaCA দেখাতে চেয়েছে reasoning দিয়ে static approach-এর accuracy-র ঘাটতি পূরণ করা যায়।
 
+**সহজ কথায়:** Dynamic হলো code চালিয়ে পরীক্ষা, Static হলো না চালিয়ে শুধু পড়ে বিচার। RePaCA দ্বিতীয়টা, কারণ চালানো ব্যয়বহুল।
+
 **Q2. GRPO কী, আর PPO থেকে কীভাবে আলাদা?**
+
 A: দুটোই policy-gradient RL algorithm। PPO-তে advantage হিসাবের জন্য আলাদা value model লাগে। GRPO একই prompt-এর জন্য $G$টা output (এখানে 8) তৈরি করে, তাদের reward-এর mean ও std দিয়ে normalize করে advantage বানায় — value model লাগে না, তাই memory কম। PPO-র মতো clipping ও reference model-এর KL penalty রাখে।
 
+**সহজ কথায়:** GRPO-তে একই প্রশ্নে অনেক উত্তর নিয়ে নিজেদের মধ্যে তুলনা করা হয়। আলাদা বিচারক model লাগে না।
+
 **Q3. Reward কীভাবে design করা হয়েছে, আর overfitting-এ 2.0 কেন?**
+
 A: দুটো reward — format (think tag 0.5, answer tag 0.25, answer-এ keyword 0.25; মোট 1.0) আর accuracy (ভুল 0, সঠিক correct 1.0, সঠিক overfitting 2.0)। Authors দেখেছেন model-এর পক্ষে overfitting ধরা কঠিন, তাই preliminary experiment-এ ধীরে ধীরে পার্থক্য বাড়িয়ে 2.0 বেছেছেন। তবে আমার হিসাবে এটা decision threshold-কে 0.5 থেকে 1/3-এ নামায় — model বেশি "overfitting" বলে; INVALIDATOR split-এ specificity 53.3% এর সাথে মেলে।
 
+**সহজ কথায়:** format ঠিক হলে 1 পর্যন্ত, ঠিক রায়ে 1 বা 2। ফাঁকি ধরলে বেশি নম্বর, তাই model একটু বেশি সন্দেহপ্রবণ।
+
 **Q4. ফলাফল কি সত্যিই significant?**
+
 A: APPT-এর নিজেদের reproduction-এর বিরুদ্ধে হ্যাঁ — McNemar $\chi^2 = 25.90$, $p = 3.6 \times 10^{-7}$ (1,163 instance); 20টা unparseable-কে majority class-এ দিলেও $p = 6.3 \times 10^{-7}$; সব bootstrap CI 0 বাদ দেয়। তবে reproduction published APPT-এর চেয়ে প্রায় 4.7 accuracy point কম, তাই published সংখ্যার সাথে পার্থক্য (+3.4) ছোট এবং সেটার significance test করা হয়নি। এছাড়া temperature test fold দেখে বাছাই হওয়ায় সংখ্যা কিছুটা আশাবাদী হতে পারে।
 
+**সহজ কথায়:** হ্যাঁ, কিন্তু APPT-কে দুর্বল reproduction ধরে। পুরোপুরি স্বাধীন যাচাই নয়।
+
 **Q5. INVALIDATOR-এর চেয়ে কি সত্যিই ভালো?**
+
 A: Accuracy (87.8 বনাম 81.2) ও F1 (92.6 বনাম 87.0)-এ হ্যাঁ, কারণ recall অনেক বেশি (97.2 বনাম 78.9)। কিন্তু precision কম (88.3 বনাম 96.6), 30টা correct patch-এর 14টা ভুল করে বাতিল। Balanced accuracy-তে INVALIDATOR এগিয়ে (84.5 বনাম 75.3, আমার হিসাব), MCC প্রায় সমান। আর test split-এ 78.4% patch overfitting, তাই "সব overfitting" বললেই F1 87.9% — F1 এখানে অনেকটা ফোলানো।
 
+**সহজ কথায়:** কিছু সূচকে হ্যাঁ, সবটায় নয়। সঠিক patch ছাড়ার ক্ষেত্রে INVALIDATOR ভালো।
+
 **Q6. `<think>` block-এর ব্যাখ্যা কি বিশ্বাস করা যায়?**
+
 A: পুরোপুরি না। Authors নিজেই বলেছেন এটা internal decision process-এর faithful ব্যাখ্যা নয়। Code 1-এ label সঠিক হলেও model একটা পুরনো variable-কে "নতুন" বলেছে; কিছু ক্ষেত্রে যুক্তি বলে patch সঠিক কিন্তু label overfitting। Reward reasoning-এর মান যাচাই করে না। তাই এটা developer-এর সহায়ক, প্রমাণ নয়।
 
+**সহজ কথায়:** ব্যাখ্যা পড়ে সাহায্য পাওয়া যায়, কিন্তু অন্ধভাবে বিশ্বাস করা যায় না।
+
 **Q7. AUC কীভাবে হিসাব হলো, যেখানে model শুধু label দেয়?**
+
 A: Paper বলেনি। Hard label থেকে AUC = (TPR + TNR)/2 = balanced accuracy। Small dataset-এ আমার পুনর্গঠনে balanced accuracy ≈ 83.0%, reported AUC 82.8% — প্রায় মেলে। তাই সম্ভবত এটাই; APPT-এর continuous-score AUC-এর সাথে তুলনা তাই পুরোপুরি সমান নয়। আসল AUC পেতে $k$টা sample-এর ভোট বা token probability থেকে score বানানো যায়।
 
+**সহজ কথায়:** model শুধু 0 বা 1 বলে, তাই AUC সম্ভবত দুই হারের গড় (balanced accuracy)। সাধারণ ROC-AUC-এর সাথে সরাসরি তুলনা করা যায় না।
+
 **Q8. Domain shift-এ robustness-এর দাবি কতটা শক্ত?**
+
 A: আপেক্ষিকভাবে শক্ত — APPT-এর AUC 55.4% (প্রায় random), RePaCA 72.3%। কিন্তু absolute অর্থে RePaCA-ও প্রায় 10 point পড়েছে (83.1 → 72.7 accuracy)। আর এটা Java → Java shift; আমাদের Java → Python, APR tool → LLM agent shift আরও বড়।
 
+**সহজ কথায়:** অচেনা data-তে RePaCA APPT-এর চেয়ে ভালো, কিন্তু নিজেও প্রায় 10 পয়েন্ট পড়ে। আমাদের shift আরও বড়।
+
 **Q9. RePaCA কি SWE-bench agent-এর patch যাচাই করতে পারবে?**
+
 A: সরাসরি নয়। চারটা বড় বাধা: (১) Python বনাম Java; (২) agent patch গড়ে 1.7 file, 32.8 line — দুটো snippet-এ আঁটে না; (৩) repository context লাগে, যেখানে RePaCA context-poor patch-এ নিজেই ব্যর্থ; (৪) LLM agent-এর overfitting-এর ধরন APR tool থেকে ভিন্ন। তবে ধারণাটা — reasoning judge, ব্যাখ্যা, সস্তা inference — assurance layer-এর প্রথম স্তর হিসেবে খুব উপযোগী। আমি এটাকে issue text ও context যোগ করে, score + abstention সহ, Python patch-এ transfer study হিসেবে পরীক্ষা করতে চাই।
 
+**সহজ কথায়:** সরাসরি পারবে না, কারণ ভাষা, patch-এর আকার, context আর patch-এর ধরন সবই আলাদা। তবে ধারণাটা কাজে লাগবে।
+
 **Q10. SFT না করে শুধু RL কেন?**
+
 A: APCA dataset-এ শুধু label আছে, মানুষের লেখা reasoning নেই — SFT দিয়ে CoT শেখাতে সেই text লাগতো। RL-এ শুধু reward লাগে, আর একই patch-এর জন্য অনেক বৈধ যুক্তি থাকতে পারে, RL সেটা অনুমোদন করে। তবে paper SFT বনাম RL-এর ablation করেনি — তাই "RL-ই কারণ" প্রমাণিত নয়।
 
+**সহজ কথায়:** মানুষের লেখা যুক্তি ছিল না, শুধু label ছিল। RL-এ label-ই যথেষ্ট।
+
 **Q11. এই paper থেকে তুমি কী implement করবে?**
+
 A: RePaCA-style prompt (think/answer + one-shot) দিয়ে একটা ছোট local judge (Qwen2.5-Coder-3B, 8 GB GPU), self-consistency score ও abstention সহ; প্রথমে Java small dataset-এ base result reproduce, তারপর SWE-bench agent patch-এ transfer — এবং Agentless candidate re-ranking-এ ব্যবহার। এটা আমাদের assurance layer-এর component 1 (overfitting detection) ও component 5 (confidence) একসাথে পূরণ করবে।
 
+**সহজ কথায়:** ছোট local model + prompt, বহু-রায়ের score, তারপর Python agent patch-এ পরীক্ষা।
+
 **Q12. Temperature 0.6 কেন, আর এটা কতটা নির্ভরযোগ্য?**
+
 A: Fig. 4-এ 0.6-এ সেরা (Accuracy 83.1, F1 84.8, AUC 82.8)। কিন্তু 0.0 থেকে 1.2 পুরো range-এ accuracy মাত্র ~80–83%, আর single run — তাই পার্থক্যটা noise হতে পারে। এছাড়া এটা test fold-এর ফল দেখে বাছাই — আলাদা validation set-এ tune করা উচিত ছিল।
+
+**সহজ কথায়:** 0.6-এ ফল সেরা, কিন্তু পার্থক্য ছোট ও test data দেখে বাছাই, তাই পুরোপুরি নির্ভরযোগ্য নয়।
 
 ---
 
@@ -1088,6 +1370,8 @@ RePaCA তিনটা paper-এর মধ্যে সবচেয়ে নত
 | Judge চালানোর খরচ | 3B model, 8 GB VRAM-এ inference | Opus 5.5: 4 USD input / 20 USD output প্রতি million token (secondary, search-snippet only); GPT-6.1 Terra: 1 USD / 5 USD (vendor-reported); Qwen3.8-27B Apache-2.0 open weight (secondary) | §1 |
 | Current-generation validation | — | **পাওয়া যায়নি:** Opus 5.5 বা GPT-6-প্রজন্মের agent patch-এ LLM-judge patch assessment যাচাইয়ের কোনো 2026 study | §4 — fact sheet নিজেই "Not found" বলেছে |
 
+**সহজ কথায়:** 2026 সালে agent আগের চেয়ে অনেক বদলেছে। অথচ আজকের agent-এর patch-এ LLM judge কতটা নির্ভুল তার কোনো স্বাধীন study পাওয়া যায়নি। ঠিক এই ফাঁকটাতেই আমরা কাজ করতে পারি।
+
 ### ২১.২ কোন Finding এখনো সত্য, কোনটা পুরনো হয়ে গেছে
 
 **এখনো সত্য:**
@@ -1120,6 +1404,8 @@ RePaCA তিনটা paper-এর মধ্যে সবচেয়ে নত
 | CG10 — Assurance tool-এর নিজের evaluation validity | **খোলা** | ComPass baseline 62.14%; judge-execution অমিল |
 | CG11 — Verifier health | **খোলা** | Inherited test-এ 32.4% অমিল; 27–34% broken task |
 | CG12 — Verifier-এর বিরুদ্ধে optimization pressure | **খোলা, judge-এর জন্য একেবারেই মাপা হয়নি** | Test-ভিত্তিক verifier-এ প্রমাণ আছে (GLM-5.2 78.80% থেকে 57.32%; METR অন্তত 16%); LLM judge-কে ঠকানোর কোনো মাপ fact sheet-এ নেই |
+
+**সহজ কথায়:** RePaCA-র আসল gap গুলোর বেশিরভাগ 2026-এও খোলা। আংশিক উন্নতি হয়েছে শুধু hybrid grading আর benchmark-এর মান যাচাইয়ে।
 
 ### ২১.৪ বর্তমান Model দিয়ে আবার পরীক্ষা করলে — SPL3 Idea
 

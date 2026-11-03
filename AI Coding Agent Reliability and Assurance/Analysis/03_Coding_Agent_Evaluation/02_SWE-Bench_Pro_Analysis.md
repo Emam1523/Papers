@@ -21,9 +21,71 @@
 
 ---
 
+## ★ সহজ ভাষায় পুরো Paper (প্রথমবার পড়ার জন্য)
+
+### ক. Paper-টা কী নিয়ে?
+
+- এটা একটা **benchmark paper**। Benchmark মানে AI-কে পরীক্ষা করার একটা "প্রশ্নপত্র"। এখানে নতুন কোনো AI agent বানানো হয়নি।
+- বানিয়েছে **Scale AI** কোম্পানির একদল researcher। Paper-এর নাম SWE-Bench Pro।
+- প্রশ্নপত্রটায় আছে 1,865টা software-এর কাজ (bug ঠিক করা, নতুন feature যোগ করা)। কাজগুলো এসেছে 41টা আসল project থেকে।
+- আগের পরীক্ষাগুলো ছিল বেশি সহজ আর অনেক AI সেগুলোর উত্তর হয়তো আগেই দেখে ফেলেছিল। এই paper একটা বেশি কঠিন আর বেশি "ন্যায্য" পরীক্ষা বানিয়েছে।
+- তারপর সেরা AI agent-দের এই পরীক্ষায় বসিয়ে দেখেছে তারা কতটা পারে আর কোথায় আটকে যায়।
+- এটা arXiv-এ প্রকাশিত preprint (peer review হওয়া conference paper নয়)।
+
+### খ. সমস্যাটা কী ছিল?
+
+ধরো স্কুলে একটা পরীক্ষা বহু বছর ধরে একই প্রশ্নে হচ্ছে। প্রশ্ন ফাঁস হয়ে গেছে, আর অর্ধেক প্রশ্ন একদম সহজ। তখন সবাই 90 পায়, কিন্তু কে আসলে ভালো তা বোঝা যায় না। AI agent-দের বেলায় ঠিক এটাই হচ্ছিল।
+
+- আগের benchmark SWE-bench Verified-এ সেরা AI-রা 70%-এর বেশি পাচ্ছিল। তাই নতুন AI-দের মধ্যে পার্থক্য ধরা কঠিন হয়ে গিয়েছিল।
+- Verified-এর 500টা task-এর মধ্যে 161টাতে মাত্র 1-2 line বদলাতে হয়। আসল কোম্পানির কাজে প্রায়ই শত শত line আর কয়েকটা file বদলাতে হয়।
+- Project-গুলো MIT বা Apache-এর মতো খোলা license-এর। তাই এগুলো AI-র training data-তে ঢুকে থাকার সম্ভাবনা বেশি। মানে AI আগেই উত্তর "দেখে" এসে থাকতে পারে।
+- অনেক task-এর বর্ণনা অসম্পূর্ণ। যেমন একটা commit-এ শুধু লেখা "enable vCard v4.0 contact import" আর কোনো বিবরণ নেই। AI-র কী করতে হবে সেটাই বোঝা যায় না।
+- Test অনেক সময় একটা নির্দিষ্ট function-এর নাম আশা করে। AI অন্য নামে ঠিক কাজ করলেও test ভুল ধরে নেয়।
+
+### গ. Paper কী solve করেছে?
+
+- **নতুন ও কঠিন benchmark:** 41টা repository, 1,865টা task। প্রতিটা task-এ গড়ে 107.4 line আর 4.1টা file বদলাতে হয়।
+- **Contamination কমানোর চেষ্টা:** GPL license-এর public repo আর startup-দের কাছ থেকে কিনে আনা private repo ব্যবহার করা হয়েছে। (Contamination মানে AI আগে থেকেই উত্তর দেখে ফেলা।)
+- **মানুষ দিয়ে task পরিষ্কার করা:** প্রতিটা task-এর বর্ণনা নতুন করে লেখা হয়েছে, requirements আর interface (function-এর নাম) যোগ হয়েছে, আর test হাতে যাচাই হয়েছে।
+- **নতুন হিসাব:** সেরা AI-রাও এই পরীক্ষায় অনেক কম পেয়েছে। কেন ব্যর্থ হয় তার ধরনও ভাগ করে দেখানো হয়েছে।
+
+সবচেয়ে গুরুত্বপূর্ণ তিনটা সংখ্যা:
+
+- **43.6%** (public set-এ সেরা Claude Sonnet 4.5): মানে 100টা task-এর মধ্যে প্রায় 44টা solve হয়েছে, বাকি 56টা হয়নি।
+- **17.8%** (commercial set-এ সেরা Claude Opus 4.1): মানে startup-এর আসল private code-এ 100টার মধ্যে মাত্র প্রায় 18টা solve হয়েছে।
+- **25.9% থেকে 8.4%** (GPT-5, requirements আর interface সরিয়ে নিলে): মানে স্পষ্ট নির্দেশ না দিলে 100টার মধ্যে 26টার জায়গায় মাত্র প্রায় 8টা solve হয়।
+
+### ঘ. কীভাবে solve করেছে?
+
+1. **Repository বাছাই:** যেসব project এখনো সক্রিয়ভাবে চলছে, ব্যবহারকারী অনেক, documentation ভালো, সেগুলো নেওয়া হয়েছে। এক repo থেকে সর্বোচ্চ 100টা task, যাতে একটা repo-র উপর সব score নির্ভর না করে।
+2. **Task বানানো:** repo-র history থেকে পরপর দুটো commit-এর জোড়া নেওয়া হয়েছে। এর মধ্যে test-এর অংশটা আলাদা করা হয়েছে (test patch), বাকিটা সঠিক উত্তর (gold patch)।
+3. **সহজ task বাদ:** যেসব task-এ 10 line-এর কম বদলাতে হয়, সেগুলো ফেলে দেওয়া হয়েছে।
+4. **বর্ণনা নতুন করে লেখা:** মানুষ একটা পরিষ্কার problem statement লিখেছে। সাথে requirements (কী behaviour চাই) আর interface (কোন function বা class-এর কী নাম) যোগ করেছে।
+5. **পরীক্ষার ঘর বানানো:** প্রতিটা project-এর জন্য Docker environment বানানো হয়েছে। (Docker হলো একটা সিল করা বাক্স, যেখানে সব software একসাথে থাকে, তাই যেকোনো কম্পিউটারে একই ফল আসে।)
+6. **Test যাচাই:** সঠিক উত্তর দিয়ে test কয়েকবার চালানো হয়েছে। কখনো fail করলে সেই task বাদ। তারপর মানুষ দেখেছে test-টা task-এর সাথে মেলে কিনা।
+7. **AI চালানো:** সব model-কে একই কাঠামোতে (SWE-agent) একই prompt দিয়ে চালানো হয়েছে। সর্বোচ্চ 50 ধাপ, প্রতি task-এ 2 USD খরচের সীমা।
+8. **ব্যর্থতা ভাগ করা:** ব্যর্থ হওয়া agent-দের কাজের লগ GPT-5-কে পড়িয়ে বলতে বলা হয়েছে, কেন ব্যর্থ হলো (ভুল উত্তর, tool ভুল ব্যবহার, loop-এ আটকে যাওয়া ইত্যাদি)।
+
+### ঙ. এরপর কী করা যায়?
+
+- **Authors যা বলেছেন:** শুধু test pass করলেই patch ঠিক, এই ধারণার বাইরে যেতে হবে। Code quality, security, performance আর readability-ও মাপতে হবে।
+- **Authors আরও বলেছেন:** Java, C++, Rust-এর মতো language যোগ করা দরকার। আর একাধিক agent বা মানুষ-agent একসাথে কাজ করার ক্ষেত্রও দেখা দরকার।
+- **এখনো খোলা:** Contamination সত্যিই কমেছে কিনা, তার কোনো পরীক্ষা paper-এ নেই। Held-out set-এর ফলও দেওয়া হয়নি।
+- **এখনো খোলা:** একই task একাধিকবার চালালে ফল কতটা বদলায় (reliability), সেটা কেউ মাপেনি।
+- **আমরা SPL3-তে করতে পারি:** SWE-Bench Pro-র ছোট একটা subset-এ আমাদের patch-correctness যাচাইয়ের tool চালিয়ে দেখা। Python থেকে Go, JS, TS-এ সেটা কতটা কাজ করে, তা মাপা।
+- **আমরা আরও করতে পারি:** Test পাস করা patch-গুলোর মধ্যে কতগুলো আসলে ভুল, সেটা বের করা (false positive)। আর agent-এর কাজের লগ দেখে "এই patch-এ ভরসা কম" বলার একটা signal বানানো।
+
+> **মনে রাখো:**
+> SWE-Bench Pro হলো বেশি কঠিন, বেশি বড় task-এর একটা AI পরীক্ষা। সেরা AI-ও এখানে 100টার মধ্যে 44টার বেশি পারেনি (paper-এর সময়ে)।
+> Spec স্পষ্ট না থাকলে score প্রায় তিন ভাগের এক ভাগে নেমে যায়, আর test নিজেও ভুল করতে পারে। তাই score দেখে সরাসরি ভরসা করা যায় না। এখানেই আমাদের assurance কাজের জায়গা।
+
+---
+
 ## ১. এক লাইনে Paper (TL;DR)
 
 **SWE-Bench Pro হলো 41টা repository থেকে নেওয়া 1,865টা কঠিন, বড় (গড়ে 107.4 line, 4.1 file), মানুষ দিয়ে যাচাই ও বিস্তারিত করা software engineering task-এর benchmark — যেটা contamination কমাতে GPL-licensed public repo আর কিনে আনা private startup repo ব্যবহার করে; SWE-agent scaffold-এ সেরা model public set-এ 43.6% আর commercial set-এ 20%-এর কম solve করে।**
+
+**সহজ কথায়:** Scale AI একটা কঠিন পরীক্ষা বানিয়েছে। সেখানে সেরা AI মাত্র 44% task পারে। আসল startup-এর private code-এ পারে 20%-এরও কম। আর নির্দেশ কমিয়ে দিলে ফল আরও খারাপ হয়।
 
 ### Supervisor-কে ৩০ সেকেন্ডে কীভাবে বলবো
 > "Sir, Sub-domain 1-এ আমরা দেখেছি SWE-bench এখন অনেকটা 'saturated' — Verified-এ score অনেক উঁচু, আর অনেক task মাত্র 1–2 line-এর পরিবর্তন (Verified-এর 500-এর মধ্যে 161টা)। তাছাড়া repository-গুলো MIT/BSD-এর মতো permissive license-এর, তাই model-এর training data-তে ঢুকে থাকার সম্ভাবনা বেশি। Scale AI-এর SWE-Bench Pro তিনটা কাজ করেছে: (১) শুধু GPL-এর মতো copyleft license-এর repo আর startup থেকে কেনা private repo নিয়েছে, যাতে contamination কম হয়; (২) 10 line-এর কম পরিবর্তনের task বাদ দিয়েছে — গড় patch 107.4 line, 4.1 file; (৩) প্রতিটা task-এ মানুষ দিয়ে issue আবার লিখিয়েছে, requirements আর interface (function/class-এর নাম) যোগ করেছে, আর test হাতে যাচাই করেছে। 1,865 task তিন ভাগে: public 731, commercial 276, held-out 858। SWE-agent দিয়ে public set-এ সেরা Claude Sonnet 4.5 পেয়েছে 43.6%, commercial set-এ সেরা model 20%-এর নিচে। Requirements/interface সরিয়ে দিলে GPT-5-এর score 25.9% থেকে 8.4%-এ নামে — অর্থাৎ test-based verifier-এর false negative বড় সমস্যা। আমাদের assurance research-এর জন্য এটা গুরুত্বপূর্ণ কারণ এটা multi-language, বড় patch-এর একটা পরিষ্কার test bed দেয়, কিন্তু patch correctness (CG1), variance (CG4) আর security (CG5) এখনো খোলা রেখে দেয়।"
@@ -46,6 +108,8 @@ SWE-bench, Issue/PR, Patch, F2P/P2P test, Resolved metric, Contamination, Benchm
 | **Permissive** | MIT, Apache 2.0, BSD | প্রায় যেকোনো কাজে ব্যবহার করা যায়, শুধু credit দিতে হয় | Web-crawl করা training corpus-এ সহজে ঢোকে (paper বলছে এরা "prime candidates") |
 | **Copyleft (strong)** | GPL | এই code থেকে derived কিছু বিতরণ করলে সেটাকেও একই license-এ open করতে হয় ("share-alike") | Authors-এর যুক্তি: এই শর্ত commercial (proprietary) model-এর training corpus-এ ঢোকানোর পথে **আইনি বাধা** তৈরি করে |
 
+**সহজ কথায়:** Permissive license মানে "যা খুশি করো", তাই এই code AI-র training data-তে সহজে ঢোকে। GPL মানে "ব্যবহার করলে তোমার কাজও খোলা রাখতে হবে"। Authors ভেবেছেন, এই শর্তের ভয়ে কোম্পানিরা GPL code training-এ কম নেবে। এটা শুধু অনুমান।
+
 - **Contamination defence হিসেবে copyleft:** Authors ধরে নিয়েছেন যে proprietary model কোম্পানিগুলো আইনি ঝুঁকির কারণে GPL code training-এ কম ব্যবহার করবে। এটা একটা **আইনি/নীতিগত অনুমান**, কোনো পরীক্ষা দিয়ে প্রমাণ করা নয় (Section ১২-এ বিস্তারিত সমালোচনা)।
 - **Commercial repo:** Startup-দের সাথে formal partnership করে তাদের private engineering repo **কেনা** হয়েছে। এগুলো internet-এ নেই, তাই training data-তে থাকার সম্ভাবনা খুব কম — এটা **access restriction** দিয়ে contamination defence।
 
@@ -55,6 +119,8 @@ SWE-bench, Issue/PR, Patch, F2P/P2P test, Resolved metric, Contamination, Benchm
 | **Public** | 731 | 11 (GPL/copyleft) | Task + ফলাফল দুটোই | সবাই নিজের agent চালাতে পারবে |
 | **Commercial** | 276 | 18 (startup-এর private) | শুধু ফলাফল (code private, আইনি কারণে) | Enterprise-ধরনের codebase-এ বাস্তব ক্ষমতা মাপা |
 | **Held-out** | 858 | 12 (public set-এর মতো, কিন্তু আলাদা repo) | কিছুই না | ভবিষ্যতে public set-এ **overfitting** হচ্ছে কিনা পরীক্ষা |
+
+**সহজ কথায়:** Public set সবাই দেখতে পায়, তাই কেউ সেটার জন্য AI-কে "মুখস্থ" করিয়ে ফেলতে পারে। Held-out set হলো তালা দেওয়া আরেকটা পরীক্ষার খাতা, যেটা পরে দেখে নেওয়া যাবে কেউ ঠকিয়েছে কিনা। Commercial set-এ আসল startup-এর private code আছে, তাই কেউ সেটা চালাতে পারে না।
 
 - **Held-out set-এর যুক্তি:** কোনো public benchmark জনপ্রিয় হলে model developer-রা (ইচ্ছায় বা অনিচ্ছায়) সেটার জন্য tune করে ফেলে। তখন public score বাড়ে কিন্তু আসল ক্ষমতা বাড়ে না। একটা গোপন, একই ধরনের set-এ score যদি অনেক কম হয়, তাহলে বোঝা যাবে public set-এ overfitting হয়েছে। (Machine learning-এর train/validation/test ধারণার মতো, কিন্তু এখানে "test" set-টা ভবিষ্যতের জন্য তালাবদ্ধ।)
 
@@ -80,6 +146,8 @@ Test suite আসলে একটা **verifier** — patch সঠিক কি�
 |---|---|---|
 | **Patch আসলে সঠিক** | ✅ True positive | ❌ **False negative** — সঠিক solution, কিন্তু test অন্য নাম/structure আশা করছিল |
 | **Patch আসলে ভুল** | ❌ **False positive** — patch overfitting / plausible-but-wrong (আমাদের CG1) | ✅ True negative |
+
+**সহজ কথায়:** Test হলো বিচারক। বিচারক কখনো সঠিক patch-কে ভুল বলে (false negative), কখনো ভুল patch-কে সঠিক বলে (false positive)। এই paper প্রথমটা কমাতে চেয়েছে। আমরা বেশি চিন্তিত দ্বিতীয়টা নিয়ে।
 
 - SWE-Bench Pro মূলত **false negative** কমানোর দিকে মনোযোগ দিয়েছে (interface ও requirements দিয়ে)।
 - আমাদের Sub-domain 1 ও 2-এর মূল চিন্তা ছিল **false positive** (AutoCodeRover-এর test pass করা patch-এর মাত্র 65.4% সঠিক — Sub-domain 1 summary দেখো)। এই দুইয়ের পার্থক্য মনে রাখা দরকার — Section ১২ ও ১৩-এ কাজে লাগবে।
@@ -128,6 +196,8 @@ Patch size-এর মতো data-তে কয়েকটা খুব বড�
 4. **Underspecified task description:** আসল commit message প্রায়ই অগোছালো, অসম্পূর্ণ বা একদম নেই; আসল issue বোঝার জন্য অনেক আলোচনা, screenshot, link লাগে। ফলে agent task বুঝতে না পেরে ব্যর্থ হয় — এটা agent-এর দোষ নয়, benchmark-এর দোষ (Sub-domain 1, Paper 04-এ Agentless দেখিয়েছিল Lite-এর 10.0% issue-তে যথেষ্ট তথ্য নেই)।
 5. **Test-এর false negative:** নতুন feature-এর test নির্দিষ্ট class/function নাম আশা করে; agent অন্য নামে সঠিক solution দিলেও fail।
 
+**সহজ কথায়:** সমস্যাগুলো হলো: AI আগে থেকেই উত্তর দেখে ফেলতে পারে, task বেশি সহজ, পরীক্ষা saturated, বর্ণনা অস্পষ্ট, আর test অতিরিক্ত কড়া। এই পাঁচটাই এক এক করে ধরার চেষ্টা করেছে SWE-Bench Pro।
+
 ### ৩.২ কেন এটা গুরুত্বপূর্ণ?
 Benchmark score দেখে কোম্পানি ও researcher-রা সিদ্ধান্ত নেয় কোন agent production-এ ব্যবহার করবে। Score যদি contamination বা সহজ task-এর কারণে ফোলা হয়, তাহলে agent-এর উপর ভুল আস্থা তৈরি হয় — যা সরাসরি আমাদের **reliability ও assurance** domain-এর সমস্যা।
 
@@ -149,6 +219,8 @@ Paper-এর implicit RQ:
 - **RQ4:** Human augmentation (requirements + interface) কতটা দরকারি? (Table 3)
 - **RQ5:** Agent-রা কোন কারণে ব্যর্থ হয়? (Table 4, LLM-as-judge)
 
+**সহজ কথায়:** পাঁচটা প্রশ্নের মোটামুটি রূপ: AI কত পারে? আসল কোম্পানির code-এ কত পারে? কোন language আর কত বড় patch-এ কত পারে? স্পষ্ট নির্দেশ কতটা কাজে লাগে? আর ব্যর্থ হলে কেন?
+
 ---
 
 ## ৫. Methodology — কীভাবে কাজটা করা হয়েছে
@@ -166,6 +238,8 @@ Paper-এর implicit RQ:
 3. দুই commit-এর মধ্যে test-সংক্রান্ত file-এর diff = **test patch** (নতুন বা পরিবর্তিত test)।
 4. বাকি diff = **gold patch** (reference solution)।
 
+**সহজ কথায়:** দুটো commit-এর মধ্যে যা বদলেছে তার test-এর অংশ হলো "প্রশ্নের যাচাই-সূত্র" আর বাকিটা "সঠিক উত্তর"। AI শুধু প্রশ্ন দেখে, উত্তর দেখে না।
+
 **SWE-bench-এর সাথে পার্থক্য:** SWE-bench issue-linked merged PR থেকে শুরু করে (Sub-domain 1, Paper 01-এর Section ৫.১); SWE-Bench Pro **commit pair** থেকে শুরু করে, আর মানুষ দিয়ে issue লিখিয়ে নেয় — তাই এমন পরিবর্তনও task হতে পারে যার কোনো GitHub issue নেই।
 
 ### ৫.৩ Complexity Filter
@@ -181,6 +255,8 @@ Paper-এর implicit RQ:
 | 3 | **Requirements** লেখা — gold patch ও test-এর প্রত্যাশার উপর ভিত্তি করে, behaviour বলে কিন্তু implementation বলে না |
 | 4 | **Interface** (দরকার হলে) — নতুন/পরিবর্তিত class ও function-এর নাম, signature, file path |
 
+**সহজ কথায়:** মানুষ এখানে তিনটা জিনিস লিখে দিয়েছে: সমস্যাটা কী, কী behaviour চাই, আর কোন function বা class-এর কী নাম হবে। এতে AI-কে অনুমান করতে হয় না। কিন্তু একই কারণে কাজটা সহজও হয়ে যায়।
+
 **Appendix-এর উদাহরণ (Open Library, Internet Archive-এর একটা full-stack web app):** "BookWorm-এ Google Books-কে fallback metadata source হিসেবে যোগ করো"।
 - Requirements-এ ৮টা bullet, যেমন: `openlibrary/core/imports.py`-এর `STAGED_SOURCES` tuple-এ `"google_books"` থাকতে হবে; Google Books একটা ISBN-এর জন্য একাধিক result দিলে warning log করে staging skip করতে হবে; parsed field-এর তালিকা (`isbn_10`, `isbn_13`, `title`, `subtitle`, `authors`, `source_records`, `publishers`, `publish_date`, `number_of_pages`, `description`)।
 - Interface-এ ৪টা function (`fetch_google_book`, `process_google_book`, `stage_from_google_books`, `get_current_batch`) আর ২টা class (`BaseLookupWorker`, `AmazonLookupWorker`) ও তাদের `run` method — সবই `scripts/affiliate_server.py`-এ।
@@ -190,6 +266,8 @@ Paper-এর implicit RQ:
 2. **Environment verification (automatic, in-house pipeline):** gold patch-সহ test **কয়েকবার** চালানো; সবসময় pass না করলে (flaky) task বাদ।
 3. **Test verification (human):** প্রতিটা fail2pass test-এর relevance ও breadth যাচাই; irrelevant বা too broad test বাদ; সব বাদ পড়লে task বাদ।
 - প্রতিটা task-এ **fail2pass** (issue ঠিক হলো কিনা) ও **pass2pass** (কিছু ভাঙলো কিনা) test।
+
+**সহজ কথায়:** Fail2pass test হলো "সমস্যাটা সারলে এই test পাস করবে"। Pass2pass test হলো "আগে যা ঠিক ছিল তা যেন না ভাঙে"। দুটো মিলিয়েই patch-এর বিচার।
 
 **আমার পর্যবেক্ষণ:** কয়টা commit pair থেকে শুরু করে প্রতিটা ধাপে কয়টা বাদ পড়েছে (funnel), কয়জন annotator, annotator-দের মধ্যে agreement — এসব সংখ্যা paper-এ নেই। SWE-bench (Paper 01) অন্তত ~90,000 PR থেকে 2,294-এ আসার funnel দিয়েছিল।
 
@@ -208,12 +286,16 @@ Paper-এর implicit RQ:
 | **Metric** | Pass@1 resolve rate |
 | **Analysis set** | সব analysis শুধু public set-এ (commercial set-এর সাথে leakage এড়াতে); held-out ভবিষ্যতের জন্য রাখা |
 
+**সহজ কথায়:** সবার জন্য একই নিয়ম: একই কাঠামো, একই prompt, একই ধাপ-সীমা। তাই পার্থক্য model-এর, কাঠামোর নয়। তবে সব নির্দেশ দেওয়া থাকে, তাই এখানে অস্পষ্ট নির্দেশ বোঝার ক্ষমতা মাপা হয় না।
+
 ### ৫.৭ Failure-mode Analysis পদ্ধতি (Section 6.3, Appendix C)
 1. Heuristic ও random sample trajectory দেখে হাতে failure bucket বানানো।
 2. প্রতিটা model-এর শুধু **unresolved** instance নেওয়া।
 3. প্রতিটা trajectory-র **শেষ 20 turn** নেওয়া — 10 ও 40 turn-এর তুলনায় 20 turn-এ মানুষের validation-এর সাথে সবচেয়ে বেশি মিল (সংখ্যা দেওয়া নেই)।
 4. GPT-5 judge-কে system prompt-এ bucket-এর কঠোর বর্ণনা, SWE-agent format, tool-এর বর্ণনা, problem statement, exit status দেওয়া।
 5. Judge আগে এক paragraph reasoning (`<description>` tag-এ), তারপর **ঠিক একটা** category দেয়; নতুন category বানানো নিষেধ, না মিললে "other"।
+
+**সহজ কথায়:** প্রতিটা ব্যর্থ agent-এর শেষ 20 ধাপ GPT-5-কে পড়িয়ে বলা হয়েছে "কোন ধরনের ভুল?"। এভাবে হাজার হাজার লগ মানুষ না পড়েই ভাগ করা গেছে। তবে judge নিজেও ভুল করতে পারে।
 
 Judge prompt-এর ১০টা category (Appendix C.1): `identified_incorrect_file`, `missed_edge_case`, `misunderstood_problem_statement`, `wrong_solution`, `tool_error`, `infinite_loop`, `endless_file_reading`, `context_overflow_from_listing`, `syntax_error`, `other`।
 
@@ -228,6 +310,9 @@ Table 4-এর ৯টা column: Submitted-এর ভেতরে — Wrong Solu
 Benchmark paper হওয়ায় paper-এ কোনো equation নেই। নিচের সব সূত্র paper-এর বর্ণনাকে formal ভাবে লেখা (আমার formalisation); সংখ্যাগুলো paper-এর। যেখানে নিজের statistical হিসাব, সেখানে **"আমার হিসাব"** লেখা।
 
 ### ৬.১ একটা Task Instance
+
+**এটা কী হিসাব করে:** একটা task আসলে সাতটা জিনিসের একটা প্যাকেজ: code, সমস্যার বর্ণনা, requirements, interface, test, সঠিক উত্তর আর Docker environment। Agent শুধু প্রথম চারটা দেখে।
+
 $$
 I = \left( C,\; P,\; Q,\; F,\; T,\; \delta,\; E \right)
 $$
@@ -247,6 +332,9 @@ $$
 $$
 
 ### ৬.২ Commit Pair থেকে Task (Section 4.1)
+
+**এটা কী হিসাব করে:** দুই commit-এর মোট পরিবর্তনকে দুই ভাগ করা হয়: test-এর অংশ আর উত্তরের অংশ। কোনো পরিবর্তন দুই ভাগে পড়ে না।
+
 $c_b$ = base commit, $c_i$ = instance commit, $\Delta = \text{diff}(c_b, c_i)$। Test-সংক্রান্ত file-এর diff test patch, বাকিটা gold patch:
 $$
 \Delta = T \cup \delta, \qquad T \cap \delta = \{\,\}
@@ -254,6 +342,9 @@ $$
 ($\{\,\}$ মানে ফাঁকা সেট; সহজ ভাষায় — একই পরিবর্তন দুই ভাগে পড়ে না।)
 
 ### ৬.৩ Complexity ও Diversity Constraint
+
+**এটা কী হিসাব করে:** এখানে দুটো নিয়ম লেখা আছে। এক, প্রতি task-এ অন্তত 10 line বদলাতে হবে। দুই, প্রতি repo থেকে 50 থেকে 100টা task নেওয়া হবে।
+
 $\text{LOC}(\delta)$ = gold patch-এ পরিবর্তিত line, $\text{Files}(\delta)$ = পরিবর্তিত file সংখ্যা, $n_r$ = repo $r$ থেকে নেওয়া task সংখ্যা:
 $$
 \text{LOC}(\delta) \geq 10, \qquad 50 \leq n_r \leq 100
@@ -262,12 +353,15 @@ $$
 
 **আমার হিসাব:**
 - Mean অনুপাত: $107.4 / 11.6 \approx 9.26$ গুণ; median অনুপাত: $55.0 / 4.5 \approx 12.2$ গুণ।
-- Mean/median = $107.4 / 55.0 \approx 1.95$ → গড় median-এর প্রায় দ্বিগুণ → কয়েকটা খুব বড় patch গড়কে টেনে তুলেছে (right-skewed)।
+- Mean/median = $107.4 / 55.0 \approx 1.95$ → গড় median-এর প্রায় দ্বিগুণ → কয়েকটা খুব বড় patch গড়কে টেনে তুলেছে (right-skewed — মানে বেশিরভাগ patch ছোট, কয়েকটা অনেক বড়)।
 - Verified-এ trivial task-এর অনুপাত: $161 / 500 = 32.2\%$।
 
 **আমার পর্যবেক্ষণ — $n_r$ constraint সব split-এ খাটে না:** Commercial set-এ $276 / 18 \approx 15.3$ task/repo, যা "50–100" নিয়মের অনেক নিচে। Public-এ $731 / 11 \approx 66.5$, held-out-এ $858 / 12 = 71.5$ — এই দুটো নিয়মের মধ্যে। অর্থাৎ repo cap নিয়মটা মূলত public ও held-out-এর জন্য।
 
 ### ৬.৪ Split-এর Formal রূপ
+
+**এটা কী হিসাব করে:** সব task তিন ভাগে (public, held-out, commercial) ভাগ হয়। আর একই repo দুই ভাগে একসাথে থাকে না।
+
 $$
 \mathcal{D} = \mathcal{D}_{\text{pub}} \cup \mathcal{D}_{\text{held}} \cup \mathcal{D}_{\text{com}}, \qquad \text{Repos}(\mathcal{D}_{x}) \cap \text{Repos}(\mathcal{D}_{y}) = \{\,\} \;\; (x \neq y)
 $$
@@ -280,9 +374,14 @@ $$
 | Held-out | 858 | 12 | $858/1865 \approx 46.0\%$ |
 | **মোট** | **1,865** | **41** | 100% |
 
+**সহজ কথায়:** তিন ভাগের সংখ্যা যোগ করলে ঠিক 1,865 আর 41 মেলে। মানে হিসাবে কোনো গোলমাল নেই। সবচেয়ে বড় অংশ held-out (46%), যেটার ফল কেউ দেখেনি।
+
 যাচাই: $731 + 276 + 858 = 1865$ ✓, $11 + 18 + 12 = 41$ ✓।
 
 ### ৬.৫ Flaky Test Filter
+
+**এটা কী হিসাব করে:** Flaky test মানে যে test কখনো pass, কখনো fail করে। সঠিক উত্তর দিয়ে বারবার চালিয়ে একবারও fail করলে সেই task ফেলে দেওয়া হয়।
+
 Gold patch-সহ environment-এ $k$ বার test চালানো ($k$-এর মান paper বলেনি — "several times")। $\text{pass}_j(I)$ = $j$-তম run-এ সব test pass করলে 1:
 $$
 \text{Keep}(I) = \prod_{j=1}^{k} \text{pass}_j(I)
@@ -290,6 +389,9 @@ $$
 গুণফল 1 হবে শুধু তখনই যখন **প্রতিটা** run pass করে — একবার fail করলেই task বাদ।
 
 ### ৬.৬ Human Test Verification
+
+**এটা কী হিসাব করে:** মানুষ প্রতিটা test দেখে বাদ দেয় যেগুলো task-এর সাথে সম্পর্কহীন বা অতিরিক্ত বড়। একটা test-ও না থাকলে পুরো task বাদ।
+
 $\text{F2P}$ = gold patch-এ fail থেকে pass হওয়া test-এর set (সংজ্ঞা Paper 01, Section ৬.২)। Human verification-এর পর:
 $$
 \text{F2P}' = \{\, t \in \text{F2P} \;:\; \text{Relevant}(t, P, Q) \land \neg\, \text{TooBroad}(t) \,\}
@@ -299,6 +401,9 @@ $$
 $$
 
 ### ৬.৭ Resolve Rate (Pass@1)
+
+**এটা কী হিসাব করে:** একবার চেষ্টায় কত শতাংশ task সফল হলো, সেটা গোনা হয়। মানে (সফল task সংখ্যা ÷ মোট task) × 100।
+
 Resolved-এর শর্ত SWE-bench-এর মতোই (Paper 01, Section ৬.৩): $\hat{\delta}$ apply হয় এবং $\text{F2P}' \cup \text{P2P}$-এর সব test pass করে। তারপর:
 $$
 \text{Resolve}(A, \mathcal{D}_x) = \frac{1}{N_x} \sum_{i=1}^{N_x} \text{Resolved}\left(\hat{\delta}_i\right) \times 100
@@ -309,6 +414,9 @@ Commercial (Table 2): Claude Opus 4.1, $N = 276$, 17.8% → $276 \times 0.178 \a
 **আমার পর্যবেক্ষণ:** কিছু শতাংশ কোনো পূর্ণসংখ্যা count-এর সাথে মেলে না — যেমন Table 1-এ GPT-5 (High) 41.8% ($305/731 = 41.7\%$, $306/731 = 41.9\%$), Kimi K2 27.7%, GPT-OSS 120B 16.2%; Table 2-এ GPT-5 (High) 15.7% ($43/276 = 15.6\%$, $44/276 = 15.9\%$)। সম্ভাব্য কারণ: কিছু instance evaluation থেকে বাদ পড়েছে, বা একাধিক run-এর গড় — paper ব্যাখ্যা দেয়নি।
 
 ### ৬.৮ Budget-সীমিত Agent Run
+
+**এটা কী হিসাব করে:** Agent-এর চালানো সীমিত: সর্বোচ্চ 50 ধাপ আর মোট 2 USD খরচ। সীমা পেরোলে সে থামে, আর তখন সাধারণত কোনো patch জমা পড়ে না। তাই score আসলে সীমার উপরও নির্ভর করে।
+
 Trajectory $\tau = (a_1, o_1, a_2, o_2, \ldots, a_L, o_L)$, যেখানে $a_j$ = action, $o_j$ = observation। Run বৈধ থাকে যতক্ষণ:
 $$
 L \leq 50 \quad \land \quad \sum_{j=1}^{L} \text{cost}(a_j) \leq 2 \;\text{USD}
@@ -318,12 +426,15 @@ $$
 \text{Resolve} = f\left(\text{model},\; \text{scaffold},\; L_{\max},\; \text{cost}_{\max}\right)
 $$
 **Worked example (আমার হিসাব):** একই model, একই public set — Table 1 (cost cap উল্লেখ নেই) বনাম Table 5 (2 USD cap):
-- Claude Sonnet 4: $42.7 - 17.6 = 25.1$ percentage point (pp) পার্থক্য।
+- Claude Sonnet 4: $42.7 - 17.6 = 25.1$ percentage point (pp) পার্থক্য (pp মানে শতাংশের সরাসরি বিয়োগ; 42.7% থেকে 17.6%-এ নামলে 25.1 pp কমা)।
 - GPT-5 (High): $41.8 - 25.9 = 15.9$ pp পার্থক্য।
 
 Paper এই পার্থক্যের কারণ স্পষ্ট করে বলেনি; cost cap ছাড়াও version/সময়ের পার্থক্য থাকতে পারে। কিন্তু এটা দেখায় যে **"score" একটা একক সংখ্যা নয় — budget না বললে তুলনা অর্থহীন** (আমাদের CG8)।
 
 ### ৬.৯ Sampling Uncertainty: Standard Error ও Wilson Interval (আমার হিসাব)
+
+**এটা কী হিসাব করে:** Score হলো মাত্র 731টা task থেকে পাওয়া একটা সংখ্যা। অন্য 731টা task নিলে সংখ্যাটা একটু বদলাতে পারত। SE (standard error) বলে সংখ্যাটা কতটা নড়তে পারে। Wilson interval বলে আসল ক্ষমতা সম্ভবত কোন সীমার ভেতরে (CI মানে confidence interval)। এখানে pp মানে percentage point, অর্থাৎ শতাংশের সরাসরি বিয়োগ।
+
 Paper কোনো confidence interval দেয়নি। Resolve rate $\hat{p}$, task সংখ্যা $n$ হলে:
 $$
 SE = \sqrt{\frac{\hat{p}\left(1 - \hat{p}\right)}{n}}
@@ -338,9 +449,17 @@ Interval হলো $m - h$ থেকে $m + h$; 95%-এর জন্য $z = 1.
 - Sonnet 4.5 (public): $\hat{p} = 0.436$, $n = 731$ → $SE = \sqrt{0.436 \times 0.564 / 731} \approx 0.0183$ (1.83 pp) → 95% Wilson CI ≈ **40.0% থেকে 47.2%**।
 - Sonnet 4 (42.7%) → CI ≈ 39.2%–46.3%; GPT-5 High (41.8%) → CI ≈ 38.3%–45.4%।
 - **সিদ্ধান্ত:** Table 1-এর শীর্ষ তিনটা model-এর CI প্রায় পুরোপুরি overlap করে। Sonnet 4.5 বনাম GPT-5 (High)-এর two-proportion z ≈ 0.70 — statistically আলাদা বলা যায় না। অর্থাৎ "Sonnet 4.5 সেরা" দাবিটা এই data দিয়ে শক্ত নয়।
+
+**সহজ কথায়:** সেরা তিন model-এর score এত কাছাকাছি যে এক মাপে আরেকটাকে হারিয়েছে বলা যায় না। "Sonnet 4.5 সেরা" দাবিটা এই data-তে শক্ত নয়।
+
 - Commercial set ছোট ($n = 276$), তাই অনিশ্চয়তা বেশি: Opus 4.1 (17.8%) → CI ≈ 13.7%–22.7%; GPT-5 High (15.7%) → CI ≈ 11.9%–20.5% — এখানেও শীর্ষ দুটো আলাদা করা যায় না।
 
+**সহজ কথায়:** Commercial set-এ task কম, তাই সংখ্যাটা বেশি নড়বড়ে। শীর্ষ দুটো model-কে আলাদা করা যায় না।
+
 ### ৬.১০ Public বনাম Commercial Gap (আমার হিসাব)
+
+**এটা কী হিসাব করে:** প্রথম সূত্র দুই score-এর পার্থক্য বলে (সরাসরি আর অনুপাতে)। দ্বিতীয় সূত্র (z-test) বলে এই পার্থক্য কাকতালীয় হতে পারে কিনা। z বড় হলে পার্থক্য কাকতালীয় নয়, এটা বেশি নিশ্চিত।
+
 $$
 \text{Gap}_{\text{abs}} = R_{\text{pub}} - R_{\text{com}}, \qquad \text{Gap}_{\text{rel}} = 1 - \frac{R_{\text{com}}}{R_{\text{pub}}}
 $$
@@ -356,6 +475,9 @@ $\bar{p} = (189.3 + 43.3) / 1007 \approx 0.231$; $SE = \sqrt{0.231 \times 0.769 
 পুরো ফলাফল Section ৮.৩-এর table-এ।
 
 ### ৬.১১ Augmentation Ablation (Table 3)
+
+**এটা কী হিসাব করে:** স্পষ্ট নির্দেশসহ score থেকে নির্দেশ ছাড়া score বাদ দেওয়া হয়। ফলটা বলে নির্দেশ কতটা সাহায্য করেছে। ρ বলে কত গুণ বেশি সাহায্য।
+
 $$
 \Delta_{\text{aug}} = R\left(P, Q, F\right) - R\left(P\right), \qquad \rho = \frac{R\left(P, Q, F\right)}{R\left(P\right)}
 $$
@@ -364,6 +486,8 @@ $$
 - Claude Opus 4.1: $22.7 - 8.2 = 14.5$ pp; $\rho \approx 2.77$ গুণ। Count-এ: প্রায় 166 বনাম 60 task।
 - Unpaired z-test ধরলেও z ≈ 8.9 ও 7.7 — পার্থক্য খুবই significant (paired data থাকলে McNemar test আরও উপযুক্ত হতো, কিন্তু paper per-instance data দেয়নি)।
 
+**সহজ কথায়:** স্পষ্ট নির্দেশ থাকলে score প্রায় তিন গুণ। পার্থক্যটা এত বড় যে এটা কাকতালীয় হতে পারে না। কিন্তু এর কতটা test-এর দোষ আর কতটা কাজ সহজ হওয়ায়, সেটা আলাদা করা যায়নি।
+
 **ব্যাখ্যার সতর্কতা (আমার পর্যবেক্ষণ):** $\Delta_{\text{aug}}$-কে authors পুরোপুরি "false negative" বলে ব্যাখ্যা করেছেন। কিন্তু এই পার্থক্যে দুটো জিনিস মিশে আছে:
 $$
 \Delta_{\text{aug}} = \Delta_{\text{FN}} + \Delta_{\text{easy}}
@@ -371,6 +495,9 @@ $$
 **প্রথম অংশ $\Delta_{\text{FN}}$:** agent সঠিক কাজ করেছিল কিন্তু test অন্য নাম আশা করছিল (false negative কমা)। **দ্বিতীয় অংশ $\Delta_{\text{easy}}$:** requirements/interface file path ও function নাম বলে দেয়, ফলে localization (Paper 01-এর মূল bottleneck) সহজ হয়ে যায়। Paper এই দুটো আলাদা করে মাপেনি — যেমন "Problem statement only" setting-এ ব্যর্থ patch-গুলো হাতে দেখে কতগুলো আসলে সঠিক ছিল, সেটা গোনা হয়নি।
 
 ### ৬.১২ Failure-mode Distribution (Table 4)
+
+**এটা কী হিসাব করে:** ব্যর্থ হওয়া agent-দের কাজের লগ থেকে প্রতিটা ভুলের ধরনের শতাংশ বের করা হয়। Table 4-এর শতাংশ নিজের group-এর ভেতরে (submitted বা not-submitted), পুরো failure-এর ভেতরে নয়।
+
 Judge $J$ প্রতিটা unresolved trajectory $\tau$-কে একটা category $c \in \mathcal{C}$ দেয়। Model $m$-এর জন্য:
 $$
 \text{Share}_{\text{sub}}(c) = \frac{\left|\{\tau \;:\; J(\tau) = c\}\right|}{N_{\text{sub}}}, \qquad \text{Share}_{\text{overall}}(c) = \text{Share}_{\text{sub}}(c) \times \frac{N_{\text{sub}}}{N_{\text{sub}} + N_{\text{not}}}
@@ -381,7 +508,12 @@ Table 4-এর প্রতিটা category-র % **নিজের group-এ�
 
 যাচাই (আমার হিসাব): $257 + 160 + 25 + 14 + 4 + 51 = 511$ ✓ এবং $121 + 51 + 6 = 178$ ✓। ছয়টা model-এর সবকটার row-sum এভাবে মেলে।
 
+**সহজ কথায়:** Table 4-এর সংখ্যাগুলো নিজেদের মধ্যে ঠিকঠাক যোগ হয়। কিন্তু মোট ব্যর্থ task-এর সংখ্যা 731-এর সাথে মেলে না (Section ৮.৮ দেখো)।
+
 ### ৬.১৩ LLM-judge-এর নির্ভরযোগ্যতা
+
+**এটা কী হিসাব করে:** Judge আর মানুষ কতবার একই label দিয়েছে, সেটা গুনে শতাংশ করা হয়। যত বেশি মিল, judge-কে তত বেশি বিশ্বাস করা যায়।
+
 Agreement rate:
 $$
 \text{Agree} = \frac{1}{M} \sum_{i=1}^{M} \mathbb{1}\left[J(\tau_i) = H(\tau_i)\right]
@@ -389,11 +521,16 @@ $$
 $H$ = মানুষের label, $M$ = মানুষের label করা trajectory সংখ্যা। Paper নিজে $M$ বা Agree-এর মান দেয়নি — শুধু SWE-agent-এর 87% cite করেছে (সেখানে $M = 15$; Sub-domain 1, Paper 02 দেখো)। আর "20 turn সবচেয়ে ভালো" দাবির পক্ষেও সংখ্যা নেই।
 
 ### ৬.১৪ Reliability-এর জন্য দরকারি কিন্তু অনুপস্থিত Metric: pass^k
+
+**এটা কী হিসাব করে:** একই task k বার চালালে সবকটাতেই সফল হওয়ার সম্ভাবনা কত, সেটা বের করে। এটা "কখনো পারে" নয়, "প্রতিবার পারে" মাপে।
+
 Paper শুধু Pass@1 দেয়। একই task $k$ বার চালালে, $c$ বার সফল হলে, **সবকটা run সফল** হওয়ার সম্ভাবনার unbiased estimate:
 $$
 \text{pass}^{k} = \frac{\binom{c}{k}}{\binom{n}{k}}
 $$
 **উদাহরণ (কাল্পনিক, শুধু বোঝানোর জন্য):** $n = 5$ run, $c = 3$ সফল → pass@1 ≈ $3/5 = 0.6$, কিন্তু $\text{pass}^2 = \binom{3}{2}/\binom{5}{2} = 3/10 = 0.3$। অর্থাৎ "প্রতিবার নির্ভরযোগ্যভাবে" সফল হওয়ার হার অনেক কম। SWE-Bench Pro এটা মাপেনি (CG4 খোলা)।
+
+**সহজ কথায়:** ধরো একটা AI 5 বার চেষ্টা করে 3 বার পারল। "একবার চেষ্টায় পারে" বললে 60%। কিন্তু "পরপর দুবারই পারে" বললে মাত্র 30%। Reliability দেখতে হলে এই দ্বিতীয় সংখ্যাটা দরকার।
 
 ---
 
@@ -413,6 +550,8 @@ $$
 | **Judge** | GPT-5, শেষ 20 turn |
 | **Hardware (open models)** | vLLM, 1 node × 8 H100 |
 
+**সহজ কথায়:** সব model একই কাঠামো, একই prompt, একই ধাপ-সীমায় চালানো হয়েছে। Open model-গুলো নিজেদের GPU-তে চালানো, বাকিগুলো API দিয়ে।
+
 ### ৭.১ Dataset Statistics (Public set; Figure 1, Figure 2, Section 1)
 | Attribute | মান | উৎস |
 |---|---|---|
@@ -424,6 +563,8 @@ $$
 | Task/repo | 50–100 (cap 100) | Section 1 |
 | তুলনা: SWE-Bench Verified lines (mean / median) | 11.6 / 4.5 | Figure 1 |
 | তুলনা: Verified-এ 1–2 line task | 161 / 500 | Section 1 |
+
+**সহজ কথায়:** Pro-র গড় patch Verified-এর প্রায় 9 গুণ বড় (107.4 line বনাম 11.6 line)। এটাই "long-horizon" (লম্বা কাজ) বলার মূল কারণ।
 
 ### ৭.২ Figure 1 — Repo-ভিত্তিক Task সংখ্যা (আনুমানিক, bar chart থেকে)
 | Public repo | আনুমানিক task | Language (Figure 3 label) |
@@ -439,6 +580,8 @@ $$
 | navidrome | ≈60 | Go |
 | element-web | ≈55 | JS |
 | NodeBB | ≈48 | JS |
+
+**সহজ কথায়:** Pro-তে task মোটামুটি সমানভাবে ছড়ানো। Verified-এ একা django-ই ছিল প্রায় অর্ধেক।
 
 Verified-এর দিকে (একই Figure-এ) django একাই ≈230 task, তারপর sympy ≈75 — অর্থাৎ Verified এক repo-তে অনেক বেশি কেন্দ্রীভূত; Pro অনেক সমান।
 
@@ -458,6 +601,8 @@ Verified-এর দিকে (একই Figure-এ) django একাই ≈230 t
 | 10–19 | ≈35 |
 | 20+ | ≈7 |
 
+**সহজ কথায়:** অনেক task-এ এক-দুটো file বদলাতে হয়, আবার কিছু task-এ বিশের বেশি। তাই "multi-file" একটা প্রবণতা, কঠোর নিয়ম নয়।
+
 - **Task type (Figure 2 ডান):** 32টা label (bug/feat/enh-এর বিভিন্ন রূপ)। সবচেয়ে বড়: core_feat (≈225), code_quality_enh (≈215), refactoring_enh (≈160), major_bug (≈150), integration_feat (≈110), edge_case_bug (≈105)। Security-সংক্রান্ত label (security_feat, security_enh, security_bug) তুলনামূলক ছোট।
 - **আমার পর্যবেক্ষণ:** Task-type bar-গুলো যোগ করলে ≈1,950, যা task সংখ্যার অনেক বেশি → এক task-এর একাধিক label (multi-label), গড়ে ২-এর বেশি। Paper এটা বলেনি; label কে দিয়েছে (মানুষ না LLM) তাও নেই।
 - **আমার পর্যবেক্ষণ — contradiction:** Authors বলছেন "we require edits to span multiple files" ও "retain only problems requiring substantial, multi-file modifications", কিন্তু Figure 2 অনুযায়ী ≈187টা task (≈22%) **single-file**। তাই "multi-file" একটা প্রবণতা, কঠোর filter নয়।
@@ -476,6 +621,8 @@ Verified-এর দিকে (একই Figure-এ) django একাই ≈230 t
 | Kimi K2 Instruct | 27.7 | ≈202 |
 | OpenAI GPT-OSS 120B | 16.2 | ≈118 |
 
+**সহজ কথায়:** সেরা model প্রায় 100টার মধ্যে 44টা পারে। সবচেয়ে দুর্বল open model পারে 16টা। আর শীর্ষ তিনটা model-এর পার্থক্য এত ছোট যে সেটা কাকতালীয়ও হতে পারে।
+
 Abstract: "below 45% (Pass@1)"।
 
 **আমার পর্যবেক্ষণ:** Table 1-এ Claude Sonnet 4.5 ও Haiku 4.5 আছে, অথচ setting-এ লেখা "latest versions as of September 18th, 2025"। আমার জানা মতে এই দুই model ঐ তারিখের পরে এসেছে — তাই v2-তে Table 1 update করা হয়েছে, কিন্তু setting-এর তারিখ বদলানো হয়নি বলে মনে হয়। Conclusion-এ এখনো লেখা "Opus 4.1 ও GPT-5 ≈23%" — যা Table 5 (budget-সীমিত) setting-এর সংখ্যা।
@@ -493,6 +640,8 @@ Abstract: "below 45% (Pass@1)"।
 | OpenAI GPT-4o | 4.9 | ≈36 |
 | Qwen-3 32B | 3.4 | ≈25 |
 
+**সহজ কথায়:** সীমা (50 ধাপ, 2 USD) থাকলে সংখ্যা অনেক কমে যায়। সেরা এখানে 25.9%। একই model-এর দুই table-এ আলাদা সংখ্যা, তাই score দেখলে সবসময় জিজ্ঞেস করতে হবে: সীমা কী ছিল?
+
 **আমার পর্যবেক্ষণ:**
 - Claude Sonnet 4: Table 1-এ 42.7%, Table 5-এ 17.6% — একই benchmark-এ 25.1 pp পার্থক্য। GPT-5 (High): 41.8% বনাম 25.9%।
 - Table 1-এ GPT-OSS **120B** = 16.2%, Table 5-এ GPT-OSS **20B** = 16.2% — হুবহু একই সংখ্যা দুটো আলাদা model-এর জন্য; typo নাকি কাকতালীয়, paper থেকে বোঝা যায় না।
@@ -508,6 +657,8 @@ Abstract: "below 45% (Pass@1)"।
 | OpenAI GPT-4o | 3.6 | 4.9 | 1.3 | 26.5% | 0.88 | 0.377 |
 
 (প্রথম দুই সংখ্যার column paper-এর; বাকি column **আমার হিসাব**, Section ৬.১০-এর সূত্রে।)
+
+**সহজ কথায়:** Startup-এর private code-এ প্রায় সব model-এর score কমেছে। কিন্তু কমার পরিমাণ সবার সমান নয়। আর কিছু model-এর কমা এত ছোট যে সেটা কাকতালীয়ও হতে পারে (p বড় হলে এমন হয়)।
 
 - **Authors:** best model commercial set-এ 20%-এর কম — enterprise codebase navigate করা কঠিন।
 - **আমার পর্যবেক্ষণ:**
@@ -526,6 +677,8 @@ Abstract: "below 45% (Pass@1)"।
 | GPT-5 | ≈30 | ≈17 | ≈28 | ≈33 |
 | Claude Sonnet 4 | ≈15 | ≈14 | ≈12 | ≈27 |
 | Claude Opus 4.1 | ≈24 | ≈18.5 | ≈32 | ≈32 |
+
+**সহজ কথায়:** Python-এ সব model সবচেয়ে ভালো। Go অনেক model-এর জন্য কঠিন। আর TypeScript-এ একটাই repo, তাই সেটা থেকে বড় সিদ্ধান্ত নেওয়া ঠিক নয়।
 
 - **Authors:** "Go and Python generally show higher resolve rates"; JS/TS-এ variable (প্রায় 0% থেকে 30%-এর বেশি)। Caption: "models currently perform better at Python"।
 - **আমার পর্যবেক্ষণ — text ও figure-এর অমিল:** Figure অনুযায়ী Python সত্যিই সবচেয়ে ভালো, কিন্তু **Go** frontier model-দের জন্য (GPT-5, Opus 4.1) **সবচেয়ে খারাপ বা প্রায় সবচেয়ে খারাপ** language (≈17–18.5%), JS ও TS-এর চেয়ে কম। তাই "Go-তে বেশি" দাবিটা figure-এর সাথে মেলে না।
@@ -546,6 +699,8 @@ Abstract: "below 45% (Pass@1)"।
 | NodeBB (JS) | ≈30 | ≈32 | ≈14 | ≈12 | ≈4–12 |
 | webclients (JS) | **≈54** | ≈24 | ≈26 | ≈19 | ≈5 |
 
+**সহজ কথায়:** একই language-এর ভেতরেও repo-ভেদে বিশাল পার্থক্য। মানে language-এর চেয়ে কোন project সেটাই বেশি গুরুত্বপূর্ণ হতে পারে।
+
 - **Authors:** কিছু repo-তে সব model-এর resolve rate 10%-এর নিচে; অন্য কিছুতে কিছু model 50%-এর বেশি পায়। Repo-specific factor (codebase complexity, documentation, problem type) গুরুত্বপূর্ণ।
 - **আমার পর্যবেক্ষণ:** 50%-এর বেশি — webclients-এ GPT-5 (≈54%) — figure-এ দেখা যায় ✓। কিন্তু "সব model 10%-এর নিচে" এমন কোনো repo figure-এ আমি খুঁজে পাইনি — সবচেয়ে কঠিন teleport-এও GPT-5 ≈11% আর Opus ≈18%। সম্ভবত authors ছোট model-দের কথা বা গড় বুঝিয়েছেন।
 - একই language-এর ভেতরেও বিশাল পার্থক্য: JS-এ webclients (GPT-5 ≈54%) বনাম element-web (≈20%) → language-এর চেয়ে **repo** বড় factor হতে পারে।
@@ -561,6 +716,8 @@ Abstract: "below 45% (Pass@1)"।
 | 5–9 | ≈3 | ≈2.5 | ≈5 | ≈11 | ≈17 | ≈8 | ≈15.5 |
 | 10+ | ≈11 | ≈5 | ≈5 | ≈7.5 | ≈26 | ≈5 | ≈17.5 |
 
+**সহজ কথায়:** File বাড়লে score সাধারণত কমে। কিন্তু 10+ file-এর task খুব কম, তাই সংখ্যাগুলো এলোমেলো।
+
 **Lines of code:**
 | LOC | Qwen3 32B | GPT-4o | SWE-Smith | Gemini 2.5 | GPT-5 | Sonnet 4 | Opus 4.1 |
 |---|---|---|---|---|---|---|---|
@@ -569,6 +726,8 @@ Abstract: "below 45% (Pass@1)"।
 | 51–100 | ≈2 | ≈1 | ≈5 | ≈10 | ≈19 | ≈12 | ≈21 |
 | 101–500 | ≈1 | ≈1 | ≈2 | ≈3.5 | ≈12.5 | ≈4.5 | ≈10.5 |
 | 500+ | 0 | 0 | 0 | ≈4 | ≈12.5 | ≈6 | ≈0 |
+
+**সহজ কথায়:** Patch যত বড়, score তত কম। এটাই paper-এর সবচেয়ে পরিষ্কার প্রমাণ যে বড় কাজ AI-র জন্য কঠিন।
 
 - **Authors:** single-file-এ performance তুলনামূলক stable, file বাড়লে তীব্র পতন; 3 file-এর পরে frontier ও ছোট model-এর gap অনেক বাড়ে; Opus 4.1 ও GPT-5 10+ file-এও 10%-এর বেশি, open-source alternative প্রায় শূন্যের কাছে। Caption: 10+ file ও 500+ LOC category-তে মাত্র 20–30টা example, তাই variance বেশি।
 - **আমার পর্যবেক্ষণ:**
@@ -581,6 +740,8 @@ Abstract: "below 45% (Pass@1)"।
 |---|---|---|
 | OpenAI GPT-5 (High) | **25.9%** | 8.40% |
 | Claude Opus 4.1 | **22.7%** | 8.20% |
+
+**সহজ কথায়:** নির্দেশ খুলে নিলে score প্রায় তিন ভাগের এক ভাগ হয়ে যায়। কিন্তু এখানে দুটো কারণ মেশানো: test-এর কড়াকড়ি আর কাজ সহজ হওয়া।
 
 - **Authors:** augmentation ছাড়া দুটো model-ই "significantly degraded"; agent কম constrained থাকে, বিশেষ করে feature addition-এ বিভিন্ন রকম solution দেয়; unit test একটা সরু solution set আশা করে → verifier-এর false negative → কম pass rate। Augmentation solution space সীমিত করে verifier-কে robust করে।
 - **আমার হিসাব:** score প্রায় **3 গুণ** (3.08×, 2.77×) বাড়ে; শূন্য-augmentation-এ দুই model প্রায় সমান (8.4 বনাম 8.2)।
@@ -596,6 +757,8 @@ Abstract: "below 45% (Pass@1)"।
 | GPT-4o | 72.1% (569) | 27.9% (220) | 45.2% (257) | 36.7% (209) | 11.2% (64) | 6.2% (35) | 0.0% (0) | 0.7% (4) | 100.0% (220) | 0.0% (0) | 0.0% (0) |
 | Qwen3 32B | 47.3% (304) | 52.7% (339) | 25.0% (76) | 48.7% (148) | 19.7% (60) | 1.6% (5) | 0.7% (2) | 4.3% (13) | 78.8% (267) | 1.5% (5) | 19.8% (67) |
 
+**সহজ কথায়:** প্রতিটা model আলাদা ধরনে ব্যর্থ হয়। কেউ ভুল উত্তর দেয় (Opus), কেউ tool ঠিকমতো চালাতে পারে না (GPT-5), কেউ context ভরে গিয়ে আটকে যায় (Sonnet 4)। একই সংখ্যা দেখে একই কারণ ধরে নেওয়া যাবে না।
+
 (Wrong Solution থেকে Other পর্যন্ত % **submitted-এর ভেতরে**; Tool-Use, Long-Context, Stuck in Loop % **not-submitted-এর ভেতরে**। Bracket-এ count।)
 
 **পুরো failure-এর মধ্যে share (আমার হিসাব, Section ৬.১২-এর সূত্রে):**
@@ -607,6 +770,8 @@ Abstract: "below 45% (Pass@1)"।
 | Gemini 2.5 Pro Preview | 712 | 18.5% | 29.9% | **39.3%** | 6.7% | 1.0% | 1.4% |
 | GPT-4o | 789 | 32.6% | 26.5% | 27.9% | 0.0% | 0.0% | 0.5% |
 | Qwen3 32B | 643 | 11.8% | 23.0% | **41.5%** | 0.8% | 10.4% | 2.0% |
+
+**সহজ কথায়:** পুরো ব্যর্থতার ভেতরে ভাগ দেখলে আরও পরিষ্কার: GPT-5-এর ব্যর্থতার 70% tool-use, মানে তার উত্তর ভুল ছিল না, সে কাঠামোটা ঠিকমতো চালাতে পারেনি। এটা scaffold-নির্ভরতার ইঙ্গিত।
 
 **Authors-এর ব্যাখ্যা:**
 - Opus 4.1: মূলত semantic understanding-এ ব্যর্থ — wrong solution 35.9%, syntax error 24.2% (text-এর সংখ্যা) → technical execution ভালো, কিন্তু problem comprehension ও algorithmic correctness-এ সমস্যা।
@@ -636,6 +801,8 @@ Abstract: "below 45% (Pass@1)"।
 7. **Failure-এর ধরন model-ভেদে আলাদা:** Opus — ভুল solution; GPT-5 — tool-use; Sonnet 4 — context overflow ও loop; ছোট model — syntax ও tool। তাই একটা assurance layer-কে বিভিন্ন ধরনের failure ধরতে হবে।
 8. **Scaffold ও budget-ই অর্ধেক গল্প:** Agentless multi-file-এ পারে না বলে বাদ; একই model-এর Table 1 বনাম Table 5-এ 16–25 pp পার্থক্য।
 
+**সহজ কথায়:** আটটা পয়েন্টের সারকথা: কাজ বড় হলে AI দুর্বল, নির্দেশ অস্পষ্ট হলে আরও দুর্বল, আর score এত নির্ভর করে সীমা আর কাঠামোর উপর যে একটা সংখ্যা দেখে সিদ্ধান্ত নেওয়া ঝুঁকিপূর্ণ।
+
 ---
 
 ## ১০. কেন এই Solution অন্যগুলোর থেকে ভালো?
@@ -654,6 +821,8 @@ Abstract: "below 45% (Pass@1)"।
 | Contamination defence | নতুন PR দিয়ে refresh সম্ভব | নেই বিশেষ | **GPL repo + private commercial + held-out** |
 | Enterprise code | না | না | **হ্যাঁ (18টা startup repo)** |
 | Failure analysis | Patch তুলনা | — | **Trajectory-level LLM judge** |
+
+**সহজ কথায়:** SWE-bench ছিল ছোট, শুধু Python, আর একটা repo-র আধিপত্য ছিল। Pro বড়, চার language-এর, বেশি repo-র, আর task-এর বর্ণনা মানুষ দিয়ে পরিষ্কার করা।
 
 **মূল শক্তি:**
 1. **Realism:** feature, refactoring, enhancement — শুধু bug fix নয়; enterprise code-ও।
@@ -684,6 +853,8 @@ Abstract: "below 45% (Pass@1)"।
 - **Commercial set-এ নিজের agent চালাতে চাইলে** — সম্ভব নয়, শুধু Scale AI-এর report করা ফল।
 - **TypeScript-এর সাধারণ সিদ্ধান্ত** — মাত্র একটা TS repo।
 
+**সহজ কথায়:** Benchmark-টা ভালো হলো বড় আর কঠিন কাজে AI-দের তুলনা করতে। কিন্তু অস্পষ্ট নির্দেশ বোঝা, ভুল patch ধরা বা নির্ভরযোগ্যতা মাপার জন্য এটা যথেষ্ট নয়।
+
 ---
 
 ## ১২. Limitations — দুর্বলতা
@@ -693,6 +864,8 @@ Abstract: "below 45% (Pass@1)"।
 2. **Dependency on test suite:** fail2pass ও pass2pass-এর উপর নির্ভরতা; বাস্তবে অনেক সঠিক solution থাকতে পারে যেগুলো মূল test pass করে না। আদর্শভাবে এমন verifier দরকার যা যেকোনো valid solution যাচাই করতে পারে।
 3. **Future work:** test-এর বাইরে evaluation — rubric, code quality, **security analysis**, performance, best practice, maintainability/readability/architecture-এর human evaluation; multi-agent ও human-agent collaboration (code review, merge conflict, distributed workflow)।
 4. (Section 3.1-এ) বাস্তব task underspecified হতে পারে, আর requirements ছাড়া setting-টাও আকর্ষণীয় — অর্থাৎ তারা স্বীকার করেন default setting বাস্তবের চেয়ে বেশি spec দেয়।
+
+**সহজ কথায়:** Authors নিজেরাই বলেছেন: শুধু test-এর উপর নির্ভর করা সীমাবদ্ধতা, language কম, আর security-র মতো জিনিস মাপা হয়নি।
 
 ### ১২.২ আমার Critical Analysis (Professor-level observation)
 1. **Contamination-resistance দাবি করা হয়েছে, মাপা হয়নি (CG6-এর জন্য সবচেয়ে গুরুত্বপূর্ণ):**
@@ -723,6 +896,8 @@ Abstract: "below 45% (Pass@1)"।
 11. **Commercial set যাচাই-অযোগ্য:** বাইরের কেউ চালাতে পারে না; শুধু Scale AI-এর report-এর উপর আস্থা। Commercial set-এ 18 repo-তে মাত্র 276 task (≈15.3/repo) — repo cap নিয়ম এখানে খাটে না।
 12. **Conflict of interest-এর প্রশ্ন (নিরপেক্ষভাবে):** Benchmark-এর মালিক একটা data/evaluation কোম্পানি, আর held-out ও commercial set শুধু তাদের হাতে — এটা অন্যায় কিছু নয়, কিন্তু স্বাধীন replication-এর সুযোগ কমায়।
 
+**সহজ কথায়:** আমি যা খুঁজে পেয়েছি, তার সারকথা: contamination কমার দাবি প্রমাণিত নয়। নির্দেশ দেওয়ায় কাজ সহজ হয়েছে। কিছু সংখ্যা মেলে না। একবার চালানো, তাই ranking শক্ত নয়। আর judge-এর মান যাচাই করা হয়নি।
+
 ---
 
 ## ১৩. Research Gaps — কোথায় কাজ করার সুযোগ আছে
@@ -741,6 +916,8 @@ Abstract: "below 45% (Pass@1)"।
 | G9 | **Failure-mode-aware abstention** — trajectory signal (loop, context overflow, tool error) দেখে agent-এর patch-এ আস্থা কমানো | Not-submitted/loop-এ পড়া trajectory থেকে আসা patch সম্ভবত কম বিশ্বাসযোগ্য | Trustworthy AI for SE; AI Coding Agents |
 | G10 | **Ambiguity-resolution benchmark** — requirements ছাড়া setting-কে আলাদা track হিসেবে | বাস্তবে spec কম থাকে | AI Coding Agents; Trustworthy AI for SE |
 
+**সহজ কথায়:** Gap-গুলো মূলত তিন দিকে: patch আসলে ঠিক কিনা (G1, G3, G6), AI কতটা নির্ভরযোগ্য আর নিরাপদ (G4, G5, G9), আর benchmark নিজে কতটা ভালো (G7, G8, G10)।
+
 ### ১৩.২ আগের Sub-domain-এর Common Gap (CG1–CG10)-এর সাথে সম্পর্ক
 | CG | Gap | SWE-Bench Pro কী করে | অবস্থা (আমার মূল্যায়ন) |
 |---|---|---|---|
@@ -754,6 +931,8 @@ Abstract: "below 45% (Pass@1)"।
 | CG8 | Evaluation-এর সমতা ও statistical rigor | Unified scaffold ও prompt — ভালো; কিন্তু CI নেই, budget-নির্ভরতা, সংখ্যার অসংগতি | **আংশিক** — নতুন প্রমাণ: budget বদলালে 16–25 pp |
 | CG9 | APCA-কে Python repo-level ও অন্য language-এ নেওয়া | ৪টা language-এ একই format-এর task ও Docker environment দেয় | **Test bed পাওয়া গেল** — সমাধান নয়, কিন্তু experiment করার জায়গা |
 | CG10 | Assurance tool-এর evaluation validity | Repo-disjoint split (public/held-out/commercial) একটা ভালো মডেল: আমাদের detector-ও repo-disjoint split-এ যাচাই করা উচিত | **ধারণা পাওয়া গেল** |
+
+**সহজ কথায়:** আগের sub-domain-এর অনেক খোলা gap এই paper বন্ধ করেনি। এটা শুধু একটা ভালো test bed দিয়েছে, বিশেষ করে CG6 আর CG9-এর জন্য।
 
 **Agentless-এর "underspecified issue" সমস্যা (Sub-domain 1, Paper 04):** SWE-Bench Pro এটা সরাসরি সমাধান করেছে — বাদ না দিয়ে (Lite-S-এর মতো) বরং মানুষ দিয়ে **তথ্য যোগ করে**। কিন্তু এর দাম: বাস্তবের চেয়ে বেশি spec, আর localization সহজ।
 
@@ -769,7 +948,11 @@ Abstract: "below 45% (Pass@1)"।
 | Infrastructure খরচ | পরিচিত harness | ৪ language-এর Docker image, বড় | Lite/Verified |
 | Spec থাকায় generated test লেখা | কঠিন (interface অজানা) | সহজ (interface দেওয়া) | **Pro** (কিন্তু bias সাবধান) |
 
+**সহজ কথায়:** দুটোর মধ্যে কোনটা "ভালো" তা নির্ভর করে কী করতে চাই তার উপর। আগের কাজের সাথে তুলনা করতে Verified সুবিধার, কিন্তু বড় patch আর অন্য language দেখতে Pro ভালো।
+
 **আমার সিদ্ধান্ত:** একটা নয়, **দুটো একসাথে**। Verified/Lite — আগের কাজের সাথে তুলনা ও calibration-এর জন্য; SWE-Bench Pro public-এর একটা ছোট subset (যেমন Python-এর ৩টা repo দিয়ে শুরু, পরে একটা Go ও একটা JS repo) — generalisation ও CG9-এর জন্য। এভাবে "আমাদের assurance layer ছোট patch থেকে বড় patch-এ এবং Python থেকে অন্য language-এ কতটা টেকে" — এই প্রশ্নটাই একটা publishable contribution।
+
+**সহজ কথায়:** Verified দিয়ে আমরা তুলনা করবো, আর Pro-র ছোট একটা অংশ দিয়ে দেখবো আমাদের tool বড় patch আর অন্য language-এ টেকে কিনা।
 
 ---
 
@@ -784,6 +967,8 @@ Abstract: "below 45% (Pass@1)"।
 7. **Contamination probe:** public বনাম held-out-এর ফল প্রকাশ; memorisation test (যেমন gold patch-এর অংশ দিয়ে বাকিটা complete করতে পারে কিনা)।
 8. **Non-functional metric:** security scanner (Semgrep/CodeQL), complexity, duplication — authors-এর future work-এর বাস্তব রূপ।
 9. **Data consistency:** figure, table ও text একই dataset version থেকে তৈরি করা; dataset version number দেওয়া।
+
+**সহজ কথায়:** এই নয়টা idea প্রায় সবই "paper যা মাপেনি তা মাপো": ভুল patch ধরা, একাধিকবার চালানো, খরচ বদলে দেখা, আর judge যাচাই করা।
 
 ---
 
@@ -802,6 +987,8 @@ Abstract: "below 45% (Pass@1)"।
 
 **সম্ভাব্য venue (general guidance, Paper 01-এর মতো):** ICSE, FSE, ASE, ISSTA এবং তাদের workshop (যেমন LLM4Code) — student-এর জন্য শুরু করা সহজ; journal: TOSEM, TSE, EMSE, JSS, IST।
 
+**সহজ কথায়:** সবচেয়ে সম্ভাবনাময় idea: Python-এ যাচাই করা আমাদের tool অন্য language-এর বড় patch-এ কতটা কাজ করে, সেটা মাপা। কাজটা ছোট subset-এই করা যায়।
+
 ---
 
 ## ১৬. SPL3 Implementation Perspective — Software-এ কীভাবে আনবো
@@ -818,6 +1005,8 @@ Abstract: "below 45% (Pass@1)"।
 7. **(Gap solve অংশ) Assurance layer:** interface-guided extra test (G2), static correctness judge (RePaCA-ধরনের, CG1/CG9), security scan (CG5), trajectory-signal confidence (G9)।
 8. **Dashboard:** language × repo × LOC heatmap, plausible-বনাম-verified-correct, CI সহ।
 
+**সহজ কথায়:** মানে প্রথমে data আনা, তারপর ছোট subset বাছা, patch চালানো, statistics হিসাব করা আর শেষে আমাদের নিজের যাচাই-ধাপ যোগ করা। আর সব ফল এক জায়গায় ছবি আকারে দেখানো।
+
 **Practical সতর্কতা:**
 - ৪টা language-এর Docker image — disk space অনেক লাগবে; Windows-এ WSL2 + Docker Desktop। শুরুতে একটা Python repo (যেমন qutebrowser বা openlibrary), তারপর একটা Go ও একটা JS repo।
 - 50 turn × বড় context — API খরচ বেশি; paper-এর 2 USD/task cap-কে ধরে 100 task-এ প্রায় 200 USD পর্যন্ত লাগতে পারে (আমার মোটা হিসাব) — তাই ছোট/সস্তা model বা প্রকাশিত trajectory/patch থাকলে সেগুলো ব্যবহার। Model patch বা trajectory public আছে কিনা repository/leaderboard-এ যাচাই করতে হবে।
@@ -832,6 +1021,8 @@ Abstract: "below 45% (Pass@1)"।
 - Related work-এ authors Multi-SWE-bench (Java, TS, JS, Go, Rust, C, C++; 1,632 instance) উল্লেখ করেছেন — multi-language দিকটা আগে থেকেই একটা সক্রিয় ধারা; SWE-Bench Pro তার সাথে human augmentation ও contamination defence যোগ করেছে।
 - একই sub-domain-এর SWE-rebench (Sub-domain 3, Paper 01) contamination সমস্যায় ভিন্ন পথ নেয় — continuously নতুন task সংগ্রহ (আলাদা analysis-এ বিস্তারিত)। দুটো মিলিয়ে CG6-এর দুই ধরনের সমাধান: "**নতুন রাখো**" বনাম "**লুকিয়ে রাখো / আইনি বাধা দাও**"।
 - Field-এর প্রশ্ন এখন "কত % solve" থেকে "কোন ধরনের task-এ, কোন budget-এ, কতটা নির্ভরযোগ্যভাবে, আর solve করা patch কতটা সঠিক ও নিরাপদ" — যেটা ঠিক আমাদের **assurance** domain-এর প্রশ্ন।
+
+**সহজ কথায়:** Benchmark-এর ইতিহাস: SWE-bench, তারপর Verified, তারপর Pro। প্রতি ধাপে আগের ধাপের সমস্যা (সহজ task, contamination) ঠিক করার চেষ্টা হয়েছে। এখন প্রশ্ন "কত শতাংশ" নয়, "কতটা ভরসা করা যায়"।
 
 ---
 
@@ -910,6 +1101,8 @@ A: Figure 3-এর LOC breakdown — Opus 4.1 প্রায় 47% (11–25 li
 | **Main limitation** | Contamination-resistance মাপা হয়নি; false positive উপেক্ষিত; CI/variance নেই; spec localization সহজ করে; figure-table-text-এ সংখ্যার অসংগতি |
 | **আমাদের জন্য gap** | Multi-language, বড়-patch test bed-এ assurance layer (CG1 + CG9), interface-guided test augmentation, pass^k, security scan |
 
+**সহজ কথায়:** পুরো paper তিন লাইনে: কঠিন ও বড় task, মানুষ দিয়ে পরিষ্কার করা, আর সেরা AI-ও 44%-এর বেশি পারেনি। আমাদের কাজ হলো সেই পাস করা patch-এর মধ্যে কোনগুলো আসলে ভুল, সেটা ধরা।
+
 ---
 
 ## ২১. বর্তমান (2026) প্রেক্ষাপট — আজকের Model ও Agent-দের সাথে তুলনা
@@ -931,6 +1124,8 @@ A: Figure 3-এর LOC breakdown — Opus 4.1 প্রায় 47% (11–25 li
 | Contamination বা leakage | GPL + private repo + held-out — empirically মাপা হয়নি | SWE-Bench Pro Verified (arXiv 2609.08149): চারটা leakage channel — local file, `.git` history, network, metadata; GLM-5.2 baseline 78.80% → anti-hacking safeguard দিলে 57.32% → Verified set-এ 59.51%; DeepSeek-V4-Pro 49.98 / 49.11 / 49.93 (স্বাধীন) | §3 |
 | অগ্রগতির গতি | — | Public split-এ pass rate আট মাসে 23.3% থেকে 80.3% (search-snippet only, secondary) | §3 |
 
+**সহজ কথায়:** Paper-এর পরে অনেক কিছু বদলেছে: নতুন model-এর score vendor-রা অনেক উঁচু বলছে, কিন্তু স্বাধীন board-এ কম। আর audit দেখিয়েছে অনেক task নিজেই ভুল। এই table পড়ার সময় "কোম্পানির দাবি" আর "স্বাধীনভাবে মাপা" আলাদা রাখো।
+
 **আমার হিসাব ও পর্যবেক্ষণ:**
 - **Vendor বনাম স্বাধীন — সরাসরি তুলনা করা যায় না।** Vendor-এর সর্বোচ্চ 89.9% (Opus 5.5) আর Scale-এর সর্বোচ্চ 61.50% (Muse Spark 1.1)-এর ফাঁক 28.4 pp, কিন্তু দুটো **ভিন্ন model**। একই model-এর দুই রকম সংখ্যা fact sheet-এ নেই — Opus 5.5 Scale board-এ নেই। এই "জোড়া না থাকা"-টাই এখনকার সবচেয়ে বড় evaluation gap।
 - **Scale board-এর শীর্ষ দুটোও আলাদা নয়।** 61.50 ± 3.10 বনাম 59.10 ± 3.56: ± থেকে SE ধরে $\approx 1.58$ ও $1.82$, পার্থক্যের SE $\approx \sqrt{1.58^2 + 1.82^2} \approx 2.41$, তাই $z \approx 2.4/2.41 \approx 1.0$ — significant নয়। Paper-এর Q7-এর (Sonnet 4.5 বনাম GPT-5) একই সমস্যা আজও।
@@ -951,6 +1146,8 @@ A: Figure 3-এর LOC breakdown — Opus 4.1 প্রায় 47% (11–25 li
 3. **Human-verified test মানেই নির্ভরযোগ্য test** — 27–34% broken audit-এর পর এটা আর ধরে নেওয়া যায় না।
 4. **আমার নিজের আগের মূল্যায়ন সংশোধন (Section ১৩.৩):** সেখানে "Test-এর মান: প্রায় সমান / Pro" আর "Contamination ঝুঁকি: কম (দাবি অনুযায়ী)" লিখেছিলাম। 2026-এর audit ও leakage প্রমাণের পর দুটোই দুর্বল; Pro ব্যবহার করলে **SWE-Bench Pro Verified-এর সংশোধিত task আর anti-hacking safeguard** সহ ব্যবহার করতে হবে (আমার পর্যবেক্ষণ)।
 
+**সহজ কথায়:** যে দাবিগুলো paper-এর সময় ঠিক মনে হয়েছিল (contamination কম, test নির্ভরযোগ্য), সেগুলো এখন দুর্বল। আর যে সমস্যাগুলো paper নিজে বলেছিল (false negative, scaffold-নির্ভরতা), সেগুলো আরও শক্ত প্রমাণ পেয়েছে।
+
 ### ২১.৩ এই Paper-এর Gap-গুলো আজও খোলা কিনা
 
 | Gap | 2026-এ অবস্থা | প্রমাণ |
@@ -969,6 +1166,8 @@ A: Figure 3-এর LOC breakdown — Opus 4.1 প্রায় 47% (11–25 li
 | CG10 — repo-disjoint evaluation | **আংশিক** | Repo-disjoint split-এর ধারণা টিকে আছে, কিন্তু leakage-মুক্ত container না হলে অর্থহীন |
 | CG12 — verifier gaming | **খোলা, সরাসরি প্রমাণসহ** | GLM-5.2: 78.80% → 57.32%; DeepSWE-এর cheating trial-এর 87% `.git` থেকে gold commit পড়েছে (search-snippet only) |
 
+**সহজ কথায়:** Paper-এর বেশিরভাগ gap এখনো খোলা। যে দুটো কিছুটা বন্ধ হয়েছে (test-এর false negative মাপা, leakage মাপা), সেগুলো এসেছে অন্যদের কাজ থেকে।
+
 ### ২১.৪ বর্তমান Model দিয়ে আবার পরীক্ষা করলে — SPL3 Idea
 
 1. **একই model-এর vendor-বনাম-স্বাধীন ফাঁক মাপা।** Opus 5.5-ই একমাত্র বর্তমান model যার vendor-reported SWE-Bench Pro সংখ্যা (89.9%) আছে। Public set-এর 20টা task-এর stratified subset (Python, Go, JS, TS থেকে 5টা করে), mini-SWE-agent, 3 run। **খরচ:** আগে 3টা task-এ pilot করে মাপবো; ভারী long-horizon task-এ খরচ বেশি হতে পারে — reference হিসেবে Vals-এ Terminal-Bench 4.0-তে Opus 5.5-এর খরচ 13.20 USD/test (ভিন্ন benchmark)। **নতুন gap:** একই model-এ vendor বনাম স্বাধীন সংখ্যার প্রথম জোড়া (G8, CG8)।
@@ -976,6 +1175,8 @@ A: Figure 3-এর LOC breakdown — Opus 4.1 প্রায় 47% (11–25 li
 3. **Table 3-এর requirements ablation বর্তমান model-এ।** 30টা task, full spec বনাম শুধু problem statement, একটা সস্তা বর্তমান model (যেমন GPT-6.1 Terra — API দাম 1 USD input / 5 USD output প্রতি million token, কোম্পানির নিজের দাবি)। ব্যর্থ patch-গুলো Pro Verified-এর সংশোধিত test দিয়ে আবার চালিয়ে false negative গোনা। **নতুন gap:** 2025-এর "≈3 গুণ" প্রভাব শক্তিশালী model-এ টেকে কিনা, আর তার কত অংশ test-এর দোষ (G3, CG11)।
 4. **Broken-task-aware rescoring।** নিজের run-এর ফলকে দুইভাবে score করা — মূল test বনাম Pro Verified-এর সংশোধিত test। **খরচ:** শূন্য বাড়তি API খরচ। **নতুন gap:** benchmark-এর ত্রুটি score ও ranking-কে কত pp সরায় (CG6, CG11)।
 5. **LOC bucket অনুযায়ী pass^3।** Figure 3-এর মতো LOC bucket-এ 8টা করে task, সস্তা model, 3 run। **নতুন gap:** patch যত বড়, flip rate কি তত বেশি — long-horizon reliability, যা paper কখনো মাপেনি (G4, CG4)।
+
+**সহজ কথায়:** পাঁচটা idea-র মূল কথা: একই model-এর vendor বনাম স্বাধীন সংখ্যা মেলানো, leakage ধরা, নির্দেশ-সরানো পরীক্ষা এখনকার model-এ আবার চালানো, ভুল task বাদ দিয়ে নতুন করে score করা, আর বড় patch-এ নির্ভরযোগ্যতা মাপা।
 
 ### ২১.৫ Supervisor-এর সম্ভাব্য প্রশ্ন (2026 প্রসঙ্গে)
 

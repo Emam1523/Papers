@@ -23,6 +23,56 @@
 
 ---
 
+## ★ সহজ ভাষায় পুরো Paper (প্রথমবার পড়ার জন্য)
+
+### ক. Paper-টা কী নিয়ে?
+- এটা কোনো ছোট paper নয়। এটা প্রায় 313 পৃষ্ঠার একটা বই-ধরনের লেখা (monograph), যেটা arXiv-এ preprint হিসেবে দেওয়া হয়েছে।
+- লেখক একজনই — Stephanie Jarmak। এখনো কোনো journal বা conference এটা peer review করেনি।
+- এটা নতুন কোনো algorithm বা নতুন benchmark বানানোর paper নয়। এটা একটা বড় review: লেখক আগের শত শত paper, company-র blog আর নিজের চালানো system থেকে প্রমাণ জড়ো করে একটা প্রশ্নের উত্তর খুঁজেছেন।
+- প্রশ্নটা হলো — coding agent (যে AI নিজে code লিখে, চালায়, ঠিক করে) কীভাবে মাপলে আর কীভাবে চালালে তাকে ভরসা করা যায়?
+- তিনি প্রমাণগুলোকে মান অনুযায়ী ভাগও করেছেন: কোনটা শক্ত প্রমাণ, কোনটা শুধু ইঙ্গিত।
+- তুলনা: এটা একটা ছাত্রের নোটবই নয়, বরং একজন অভিজ্ঞ ইঞ্জিনিয়ারের লেখা "রান্নাঘর কীভাবে নিরাপদে চালাতে হয়" ধরনের গাইড।
+
+### খ. সমস্যাটা কী ছিল?
+- আমরা সাধারণত agent-কে শুধু তার মূল AI model দিয়ে বিচার করি। Leaderboard-এ এক লাইনে একটা score লেখা থাকে।
+- কিন্তু বাস্তবে agent একটা পুরো ব্যবস্থা (system)। সেখানে model ছাড়াও আছে: কোন tool সে ব্যবহার করতে পারবে, কোথায় code চলবে, কে test করবে, কে অনুমতি দেবে।
+- তাই অনেক ব্যর্থতাকে আমরা "model দুর্বল" বলি, অথচ আসল দোষ থাকে অন্য কোথাও — দুর্বল test, পুরনো তথ্য, বা worker মরে গিয়ে একই কাজ দুবার হওয়া।
+- **একটা উদাহরণ:** একটা agent code ঠিক করে "done" বলল। Test পাস করল। কিন্তু test-টাই এত দুর্বল ছিল যে ভুল code-ও পাস করত। আমরা ভাবলাম agent ভালো। আসলে মাপার যন্ত্রটাই ভাঙা ছিল।
+- আরেকটা সমস্যা: একই agent একই কাজ আবার চালালে ফল আলাদা আসে। অথচ অনেকে মাত্র একবার চালিয়ে "২-৩ point উন্নতি হয়েছে" বলে দেয়।
+
+### গ. Paper কী solve করেছে?
+- Paper একটা ছয়-স্তরের নকশা দিয়েছে: measurement (মাপা) → grading (নম্বর দেওয়া) → containment (ক্ষতি সীমিত রাখা) → retrieval (তথ্য আনা) → review (মানুষের পরীক্ষা) → allocation (সম্পদ ভাগ)। মূল কথা: আগের স্তর ভুল হলে পরের স্তর দিয়ে তা সারানো যায় না।
+- লেখক 206টা practice-এর একটা catalog বানিয়েছেন, প্রতিটার পাশে প্রমাণের মান লেখা আছে।
+- সাথে আছে চালানো যায় এমন ছয়টা protocol আর পাঁচটা reusable skill।
+- দেখিয়েছেন কোন কোন জায়গায় প্রমাণ শক্ত (statistics, benchmark) আর কোথায় দুর্বল (retry, recovery)।
+- **গুরুত্বপূর্ণ সংখ্যা ১:** 60,000 SWE-bench Verified run-এ একই setup-এর single-run score 2.2 থেকে 6.0 percentage point পর্যন্ত ওঠানামা করেছে। মানে একবার চালিয়ে ২-৩ point "উন্নতি" দেখলে সেটা শুধু ভাগ্যও হতে পারে।
+- **গুরুত্বপূর্ণ সংখ্যা ২:** একটা model প্রতিবার "শেষ" বলেছে, কিন্তু বাইরের পরীক্ষায় মাত্র 44% task আসলে solve হয়েছিল। মানে ১০০টার মধ্যে ৫৬টায় সে ভুল করে "শেষ" বলেছে।
+- **গুরুত্বপূর্ণ সংখ্যা ৩:** SWE-bench Verified-এর audit-করা 138টা task-এর 59.4%-এ test-ই ত্রুটিপূর্ণ ছিল। মানে এই "ভালো" benchmark-ও পুরোপুরি নির্ভরযোগ্য নয়।
+
+### ঘ. কীভাবে solve করেছে?
+1. প্রথমে লেখক কয়েকটা প্রশ্ন ঠিক করেছেন (যেমন: variance, benchmark-এর মান, retry, retrieval)।
+2. তারপর scholarly paper, company blog, benchmark আর নিজের system-এর ঘটনা — চার ধরনের উৎস থেকে সংগ্রহ করেছেন: 164 + 100 + 29 + 17টা।
+3. প্রতিটা উৎস থেকে ছোট ছোট নির্দিষ্ট দাবি (claim) বের করেছেন, আর শর্তও লিখেছেন — কোন অবস্থায় দাবিটা খাটে।
+4. প্রতিটা দাবিকে চার ভাগের একটায় রেখেছেন: Strong, Directional, Corroborating, Null। তারপর নিজের দেওয়া grade আবার challenge করে 6টা grade কমিয়েছেন।
+5. দাবিগুলো থেকে practice বানিয়েছেন: 244টা প্রস্তাব থেকে 206টা record টিকেছে। 56টা বিস্তারিত chapter-এ গেছে।
+6. পুরো জিনিসটাকে ছয়-স্তরের dependency chain-এ সাজিয়েছেন, আর একটা "software factory" model দিয়ে ১১টা contract (নিয়ম) লিখেছেন।
+7. নিজের system থেকে কিছু মাপা ফল দিয়েছেন (যেমন CodeProbe, CodeScaleBench), কিন্তু এগুলোকে স্বাধীন প্রমাণ হিসেবে গোনেননি — শুধু উদাহরণ।
+8. শেষে সব practice-এর ID, protocol আর skill GitHub-এ রেখেছেন, যেন অন্যরা চালিয়ে দেখতে পারে। (এই analysis-এ repository খুলে যাচাই করা হয়নি।)
+
+### ঙ. এরপর কী করা যায়?
+- **লেখক নিজে বলেছেন:** grading-এ বাইরের মানুষ দিয়ে agreement (kappa) মাপা বাকি। ACM, IEEE আর Scopus-এ খোঁজা হয়নি। একটা recovery benchmark দরকার, যেখানে ইচ্ছা করে worker মেরে দেখা হবে সিস্টেম ঠিকমতো ফেরে কিনা।
+- **এখনো খোলা:** agent-এর লেখা patch-এ overfitting detector (যে patch test পাস করে কিন্তু আসলে ভুল) ঠিকমতো কাজ করে কিনা — monograph-এ আলোচনা নেই। Agent-এর code-এর security-ও প্রায় আলোচিত হয়নি।
+- **আমরা SPL3-তে করতে পারি:** SWE-bench-এর ছোট subset-এ agent-এর patch-এ শক্ত test চালিয়ে দেখা কত "সাফল্য" টেকে (survival fraction)।
+- **আমরা করতে পারি:** assurance verdict-কে artifact version, verifier version আর environment-এর সাথে বেঁধে রাখা, আর status রাখা accepted / rejected / indeterminate।
+- **আমরা করতে পারি:** patch-correctness judge-কে মানুষের label-এর বিপরীতে calibrate করা (kappa ও fixed FPR-এ TPR)।
+- **সাবধান:** assurance-এর ফল agent-কে feedback হিসেবে দিলে agent সেটাকেই ধোঁকা দিতে শিখতে পারে — এই ঝুঁকিটাও পরীক্ষার অংশ করা যায়।
+
+> **মনে রাখো:**
+> Model একা নয়, তার চারপাশের পুরো ব্যবস্থাকে মাপতে ও যাচাই করতে হবে — আর একবার চালিয়ে বা শুধু test পাস দেখে বিশ্বাস করা যাবে না।
+> আগের স্তরের ভুল পরের স্তর দিয়ে সারে না, তাই কাজ শুরু করতে হবে measurement ও grading থেকে।
+
+---
+
 ## ১. এক লাইনে Paper (TL;DR)
 
 **Coding agent-কে আমরা "model" হিসেবে মাপি কিন্তু "system" হিসেবে চালাই; তাই অনেক failure যেটাকে model-এর দোষ মনে হয় তা আসলে harness, execution environment, retrieval, state, permission, verifier বা review-এর দোষ — আর evaluation থেকে operation পর্যন্ত পুরো ব্যাপারটা একটা dependency chain, যেখানে আগের (upstream) স্তরের দুর্বলতা পরের (downstream) স্তরের কোনো machinery দিয়ে সারানো যায় না (repair asymmetry)।**
@@ -85,6 +135,8 @@ Monograph-টা অনেক field একসাথে ছুঁয়েছে 
 | **pass^k** | k বার চেষ্টা করলে **প্রতিবার** সফল হওয়ার সম্ভাবনা | Unsupervised কাজ — একবার fail মানেই সমস্যা |
 
 pass^k ধারণাটা tau-bench (Yao et al. 2024) থেকে; monograph-এর মূল বার্তা: **একই k trial দুটো ভিন্ন operational প্রশ্নের উত্তর দেয়; deployment-এর failure semantics অনুযায়ী metric বাছাই করতে হবে।** (সূত্র Section ৬-এ)
+
+**সহজ কথায়:** pass@k মানে 'একবারও পারলে চলবে', pass^k মানে 'প্রতিবার পারতে হবে'। Agent যদি কারো তদারকি ছাড়া চলে, তাহলে pass^k-ই আসল প্রশ্ন।
 
 ### ২.৭ Contamination, Solution Leakage, Weak Oracle, Construct Validity
 - **Contamination:** evaluation material model আগেই training-এ দেখেছে।
@@ -172,11 +224,13 @@ Monograph-এর Part III-তে লেখক "software factory"-কে এক�
 ### ৩.১ মূল সমস্যা
 1. **Model হিসেবে মাপা, system হিসেবে চালানো:** leaderboard-এ এক সারিতে একটা score থাকে, কিন্তু সেই score-এর পেছনের execution history (কতবার চালানো, কোন harness, কোন permission) হারিয়ে যায়।
 2. **ভুল জায়গায় দোষ:** লেখকের দাবি — অনেক "model failure" আসলে অন্য layer থেকে আসে: দুর্বল test, stale retrieval, flaky verifier, worker মরে গিয়ে duplicate PR।
-3. **একটা layer-এ উন্নতি end-to-end-এ পৌঁছায় না:** লেখকের নিজের benchmark-এ retrieval precision@10 তিনগুণের বেশি বেড়েছে, কিন্তু end-to-end reward বেড়েছে মাত্র +0.0349।
+3. **একটা layer-এ উন্নতি end-to-end-এ পৌঁছায় না:** লেখকের নিজের benchmark-এ retrieval precision@10 (প্রথম ১০টা ফলাফলের কতগুলো কাজের) তিনগুণের বেশি বেড়েছে, কিন্তু end-to-end reward বেড়েছে মাত্র +0.0349।
 4. **Statistical দুর্বলতা:** একটা run থেকে সিদ্ধান্ত, paired design নেই, power analysis নেই।
 5. **Benchmark নিজেই অবিশ্বস্ত:** SWE-bench Verified-এর audit-এ 138টা task-এর 59.4%-এ flawed test; SWE-Bench Pro-র প্রায় 30% task broken।
 6. **Agent-এর self-report বিশ্বাসযোগ্য নয়:** একটা model প্রতিটা trial-এ "done" বলেছে কিন্তু external oracle-এ মাত্র 44% resolved।
 7. **Evidence অসম:** operational দিক থেকে সবচেয়ে জরুরি practice (যেমন blast radius containment)-এর পেছনে controlled study প্রায় নেই।
+
+**সহজ কথায়:** মোট কথা — সমস্যাটা শুধু model-এর নয়, পুরো ব্যবস্থার; আর এখন পর্যন্ত এটা মাপার ও চালানোর নিয়মগুলো এলোমেলো ছিল।
 
 ### ৩.২ কেন এটা গুরুত্বপূর্ণ?
 Agent এখন production-এ PR খোলে, database migration করে, deploy করে। তখন প্রশ্ন শুধু "কত % task solve হলো" নয় — "এই নির্দিষ্ট পরিবর্তনটা কি বিশ্বাসযোগ্য, আবার চালালে একই হবে কি, ব্যর্থ হলে কি নিরাপদে ফেরা যাবে?" লেখক বলেন: **"Downstream confidence cannot repair evidence lost upstream."**
@@ -196,6 +250,8 @@ Monograph-এ RQ আকারে লেখা নেই; পড়ে আমি 
 - **RQ6:** Human review কোথায় বসালে আসলেই outcome বদলাতে পারে? (Part V)
 - **RQ7:** Multi-agent topology ও model routing কখন একক agent-এর চেয়ে ভালো — কোন evidence দিয়ে promote করা উচিত? (Part VI, research agenda)
 
+**সহজ কথায়:** সাতটা প্রশ্নের মোট মানে: score কী বোঝায়, কীভাবে তুলনা করব, grader কখন ভরসাযোগ্য, আর agent চালালে কোথায় কী ভাঙতে পারে।
+
 ---
 
 ## ৫. Methodology — Review Protocol ও Framework কীভাবে বানানো হয়েছে
@@ -212,16 +268,18 @@ Monograph-এ RQ আকারে লেখা নেই; পড়ে আমি 
 |---|---|---|
 | **Base review** | সাতটা topic thread: benchmark validity, failure taxonomy, evaluation statistics, oversight & accountability, context & retrieval, durable execution, scheduling & repository scoping | 118 scholarly works |
 | **Bounded update audit** | July 27 – August 5 (+ August 6-এর targeted check)-এর record screen | 39 screened → 11 admitted, 1 আগে থেকেই ছিল, 27 deferred/excluded |
-| **SE coverage probe** | OpenAlex metadata দিয়ে 8টা topic × ICSE, FSE, ASE, ISSTA, EMSE, TSE, TOSEM, CSCW | 148 unique candidate → 9 methodologically material work admitted (যেমন SEGRESS guideline, ABC framework, construct validity) |
+| **SE coverage probe** | OpenAlex (খোলা academic metadata database) metadata দিয়ে 8টা topic × ICSE, FSE, ASE, ISSTA, EMSE, TSE, TOSEM, CSCW | 148 unique candidate → 9 methodologically material work admitted (যেমন SEGRESS guideline, ABC framework, construct validity) |
 | **Distributed-systems synthesis** | citation-driven targeted selection (distributed systems, cluster scheduling, build systems + 3টা agent preprint) | 21 scholarly + 7 practitioner |
 | **অন্যান্য targeted** | repository-scale framing-এর জন্য 1 scholarly + 1 practitioner; cutoff-এর পরের 1টা factory case; inference serving-এর 4টা systems paper | — |
-| **Benchmark collection** | দুটো inventory merge, identity দিয়ে deduplicate, JSON Schema দিয়ে validate | 29 benchmark record (3টা repeated record বাদ) |
+| **Benchmark collection** | দুটো inventory merge, identity দিয়ে deduplicate, JSON Schema (data-র গঠন ঠিক আছে কিনা যাচাইয়ের নিয়ম) দিয়ে validate | 29 benchmark record (3টা repeated record বাদ) |
 | **মোট** | — | **164 scholarly, 100 practitioner, 29 benchmark, 17 author-system case** |
+
+**সহজ কথায়:** লেখক কয়েকটা আলাদা পথে paper খুঁজেছেন — মূল review, নতুন paper-এর audit, SE venue-র probe, আর কিছু targeted খোঁজ। সব মিলিয়ে 164টা scholarly paper, 100টা practitioner লেখা, 29টা benchmark আর 17টা নিজের system-এর case পেয়েছেন।
 
 **আমার হিসাব (scholarly যোগফল যাচাই):** 118 + 11 + 9 + 21 + 1 + 4 = 164 ✓। (practitioner-এর 100-এর পুরো ভাঙন main text-এ নেই।)
 
 **Search instrument:**
-- **Scholarly:** SciX (NASA-supported, Smithsonian Astrophysical Observatory পরিচালিত) + লেখকের local layer "SciX Agent" — 32.4 million record-এর SciX/arXiv corpus, 299.3 million citation link, 14.9 million record-এর full text; INDUS dense retrieval + BM25 lexical retrieval, reciprocal-rank fusion দিয়ে মেলানো।
+- **Scholarly:** SciX (NASA-supported, Smithsonian Astrophysical Observatory পরিচালিত) + লেখকের local layer "SciX Agent" — 32.4 million record-এর SciX/arXiv corpus, 299.3 million citation link, 14.9 million record-এর full text; INDUS dense retrieval (embedding দিয়ে অর্থ ধরে খোঁজা) + BM25 lexical retrieval, reciprocal-rank fusion দিয়ে মেলানো।
 - **Practitioner:** লেখক-পরিচালিত "Code Intelligence Digest" — July 26 cutoff-এ 162,350 normalized record, 149 source label, 43,953 record-এ full text।
 - **গুরুত্বপূর্ণ নিয়ম:** এই retrieval tool-গুলো শুধু কোনটা আগে পড়া হবে তা ঠিক করেছে; **evidence grade দেয়নি**। Retrieval rank screening-এর ক্রম ঠিক করেছে, screening-এর পরে কোনো বাড়তি গুরুত্ব পায়নি।
 
@@ -234,6 +292,8 @@ Monograph-এ RQ আকারে লেখা নেই; পড়ে আমি 
 | Scopus | Not performed | API key ও institutional token নেই |
 | DBLP title census (বিকল্প) | Performed | 8 topic × 8 venue stream (2018–2026) = 64 cell → 55 unique publication, যার 50টা আগের reference set ও OpenAlex probe-এ ছিল না; 34টা retained candidate August 6-এর পরে পাওয়া, পরের edition-এ deferred |
 | 40-DOI SciX sample | Performed | 40টার মধ্যে মাত্র 8টা exact DOI match (সবগুলো TSE); TSE-এর 26টা candidate-ই SciX-এ ছিল, অন্য venue-র 32টা ছিল না |
+
+**সহজ কথায়:** ACM, IEEE আর Scopus-এ খোঁজা যায়নি (access সমস্যা), লেখক এটা নিজেই বলেছেন। তাই review পুরো সম্পূর্ণ নয়; কিছু paper বাদ পড়ে থাকতে পারে।
 
 লেখকের সতর্কতা: এই probe দিয়ে corpus recall estimate করা যায় না; search **structured, not exhaustive**।
 
@@ -249,6 +309,8 @@ Monograph-এ RQ আকারে লেখা নেই; পড়ে আমি 
 9. Chapter-এর জন্য practice select
 10. শেষে citation audit
 
+**সহজ কথায়:** লেখক প্রতিটা claim আলাদা করে বের করেছেন, grade দিয়েছেন, তারপর নিজের grade-কে নিজেই challenge করেছেন। শেষে citation মিলিয়ে দেখেছেন।
+
 **Automation বনাম মানুষ (Table 1-এর সারাংশ):**
 
 | ধাপ | Mode | মানুষের সিদ্ধান্ত |
@@ -260,6 +322,8 @@ Monograph-এ RQ আকারে লেখা নেই; পড়ে আমি 
 | Challenge pass | Assisted | Automated pass composite claim, contrary finding, duplicate support flag করেছে; লেখক আবার পড়ে সিদ্ধান্ত নিয়েছেন |
 | Practice admission, chapter selection, prose | Human | লেখক |
 | Schema, checksum, identifier gate | Automated verification | Fail করলে release block |
+
+**সহজ কথায়:** বেশিরভাগ ধাপে automation সাহায্য করেছে, কিন্তু চূড়ান্ত সিদ্ধান্ত (কোন claim কোন grade পাবে) লেখক একাই নিয়েছেন।
 
 ### ৫.৪ Inclusion ও Evidence Grading
 - **Inclusion:** source-এ অন্তত একটা measured result, reproducible mechanism, operational incident, benchmark property বা concrete practice থাকতে হবে।
@@ -280,11 +344,15 @@ Monograph-এ RQ আকারে লেখা নেই; পড়ে আমি 
 | Companion-এ compact entry | 137 gated + 13 lead = 150 |
 | "Limited-support" চিহ্নিত companion entry | 29 |
 
+**সহজ কথায়:** 244টা candidate practice থেকে ধাপে ধাপে ছেঁটে 206টা record দাঁড়িয়েছে; তার মধ্যে 56টা main chapter-এ বিস্তারিত আছে।
+
 **Admission gate:** একটা record পাস করে যদি অন্তত (ক) একটা scholarly item, বা (খ) resolvable scholarly identity-সহ একটা non-author synthesis, বা (গ) আলাদা independence key-সহ দুটো practitioner item থাকে।
 
 **Developed set বাছাই:** তিনটা আলাদা ranking — (১) একটা bounded case দিয়ে শেখানো যায় কিনা, (২) engineering সিদ্ধান্তে কতটা প্রভাব ফেলে, (৩) 14টা mechanism cluster-এর coverage। অন্তত দুটো ranking-এ এলে developed set-এর base।
 
 **গুরুত্বপূর্ণ সংখ্যা:** consequence ranking-এ 52টা practice-এর উপর urgency rank আর "অন্তত একটা strong evidence আছে কিনা"-এর Spearman correlation = **−0.004** → evidence strength আর operational urgency প্রায় সম্পর্কহীন। লেখক তাই স্পষ্ট বলেন chapter set একটা **"authorial engineering judgment, not an evidence-derived consensus"**।
+
+**সহজ কথায়:** Spearman correlation (দুটো ranking কতটা মেলে তার মাপ) প্রায় ০ হওয়া মানে — যে practice বেশি জরুরি, তার পেছনে যে প্রমাণ বেশি থাকবে এমন কোনো নিয়ম নেই।
 
 ### ৫.৬ Author-System Case-এর Treatment
 - লেখকের নিজের system (CodeProbe, CodeScaleBench, memory system, trace-diagnostics corpus, fleet ledger ইত্যাদি) থেকে পাওয়া ফল সবসময় **illustration বা local measurement** — independent external evidence হিসেবে গোনা হয়নি, একা কোনো general recommendation সমর্থন করে না।
@@ -303,6 +371,8 @@ Monograph-এ RQ আকারে লেখা নেই; পড়ে আমি 
 | 5 | Review ও accountability | V (Ch 16–17) | challengeable decision | invalid review signal → ভুল configuration-এ বেশি কাজ যায় |
 | 6 | Allocation ও cost | VI (Ch 18–19) | measured commitment | future work আবার measurement layer-এ ফেরে |
 
+**সহজ কথায়:** ছয়টা layer সিঁড়ির মতো সাজানো: আগেরটা ভুল হলে পরেরগুলো ঠিক থাকলেও ফল ভরসাযোগ্য হয় না। তাই কাজ শুরু করতে হবে measurement থেকে।
+
 **Repair asymmetry (লেখকের ভাষায়):** পরের machinery যোগ করা আগের instrument সারানোর চেয়ে সহজ, অথচ সেই machinery-কে আগের (ত্রুটিপূর্ণ) instrument দিয়েই মাপা হয়। উদাহরণ (Chapter 20):
 - বেশি sample → production কাজ বাদ দেওয়া task distribution সারায় না।
 - বেশি judge → expert-রা অসংগতভাবে প্রয়োগ করা rubric সারায় না।
@@ -310,6 +380,8 @@ Monograph-এ RQ আকারে লেখা নেই; পড়ে আমি 
 - বেশি context → governing specification হারানো run সারায় না।
 - ভালো scheduling → কোন attempt publish করতে পারবে তা চিনতে না পারা ledger সারায় না।
 - বেশি observability → identity record না করা external effect সারায় না।
+
+**সহজ কথায়:** পরের স্তরে যত সরঞ্জামই যোগ করো, আগের স্তরের ভুল সারে না। ঘরের ভিত ভাঙা থাকলে ওপরে রঙ করলে লাভ নেই।
 
 #### ৫.৭.২ Software Factory Model ও Identity (Chapter 7)
 
@@ -323,6 +395,8 @@ Monograph-এ RQ আকারে লেখা নেই; পড়ে আমি 
 | `verification_id` | একটা verification execution — artifact, verifier version, environment, input সহ |
 | `effect_id` | একটা logical বাহ্যিক mutation; boundary-তে idempotency key এর রূপ হতে পারে |
 
+**সহজ কথায়:** প্রতিটা কাজ, চেষ্টা আর ফলের আলাদা পরিচয়-নম্বর রাখা হচ্ছে — যেন পরে বোঝা যায় কোন চেষ্টা কোন কাজের, আর কোন version-এর code-এর উপর কী যাচাই হয়েছে।
+
 **ছয়টা contract family (I1–I11):**
 
 | Family | Contract | সহজ মানে |
@@ -334,7 +408,11 @@ Monograph-এ RQ আকারে লেখা নেই; পড়ে আমি 
 | Visible liveness ও safe recovery | I9, I10 | admissible কাজ অদৃশ্যভাবে আটকে থাকবে না; recovery path-ও production code |
 | Causal attribution | I11 | গুরুত্বপূর্ণ transition কার, কোন attempt, কোন state, কোন authority — সব attributable |
 
+**সহজ কথায়:** এগুলো ১১টা নিয়ম, যার কোনোটাই model কতটা চালাক তা নিয়ে নয় — সবই কাজ হারিয়ে না যাওয়া, একই কাজ দুবার না হওয়া আর কে কী করল তা মনে রাখা নিয়ে।
+
 লেখকের মূল কথা: **"None of these contracts mention model quality."** Agent-এর "done" শুধু attempt-কে `outcome_ready` পর্যন্ত নিতে পারে; logical work complete করতে পারে শুধু independently observed evidence।
+
+**সহজ কথায়:** এই নিয়মগুলো মানলে model যতই চালাক হোক, একই কাজ দুবার হবে না আর কাজ হারাবে না। Agent 'done' বললেও কাজ শেষ বলা যাবে শুধু বাইরের প্রমাণ দেখে।
 
 #### ৫.৭.৩ Chapter-এর গঠন (প্রতিটা chapter একই ছাঁচে)
 1. **Evidence profile:** কতগুলো strong / directional / corroborating / null item, কোন ERCA record-এর বিপরীতে।
@@ -350,6 +428,8 @@ Monograph-এ RQ আকারে লেখা নেই; পড়ে আমি 
 5. 20টা failed বা unverifiable run পড়ো, যেখানে সম্ভব first upstream failure label করো।
 6. পরের promotion run-এর আগে success floor, cost ceiling, task ও baseline version, fault-containment guard লিখে রাখো।
 
+**সহজ কথায়:** ছয় ধাপের সারকথা: আগে একই task-এ সস্তা baseline আর নতুন system কয়েকবার চালাও, সব রেকর্ড করো, আর ফল দেখার আগেই পাস করার শর্ত লিখে রাখো।
+
 ### ৫.৮ কী Execute করা হয়েছে, কী হয়নি — এক নজরে
 
 | বিষয় | অবস্থা |
@@ -360,6 +440,8 @@ Monograph-এ RQ আকারে লেখা নেই; পড়ে আমি 
 | Evidence grading-এর external IRR | ❌ নেই — packet release করা, ফল নেই |
 | Author-system measurement (CodeScaleBench, CodeProbe ইত্যাদি) | ✅ করা হয়েছে, কিন্তু illustration হিসেবে |
 | Practice-গুলোর controlled effect পরীক্ষা | ❌ বেশিরভাগ practice-এর জন্য নয় — অনেক জায়গায় "local test চালাও" বলা |
+
+**সহজ কথায়:** কোনটা করা হয়েছে আর কোনটা হয়নি, এক নজরে। যা হয়নি তার মধ্যে সবচেয়ে বড় — grading-এ বাইরের মানুষের agreement মাপা।
 
 ### ৫.৯ এই Analysis-এর Coverage (আমি কী পড়েছি)
 
@@ -388,6 +470,8 @@ Monograph-এ RQ আকারে লেখা নেই; পড়ে আমি 
 | Glossary, Data and materials availability | সম্পূর্ণ |
 | References (249টা) | শুধু প্রয়োজনমতো দেখা |
 
+**সহজ কথায়:** 313 পৃষ্ঠার সবটা line-by-line পড়া হয়নি। Introduction ও Part I–II গভীরভাবে পড়া, বাকিগুলো skim — এই table-এ কোনটা কতটা পড়া তা লেখা আছে।
+
 ---
 
 ## ৬. Mathematical Formulation — সূত্র ও ব্যাখ্যা
@@ -399,6 +483,9 @@ Monograph-এ কিছু সূত্র সরাসরি আছে (paired 
 $$
 \bar{S} = \frac{1}{R}\sum_{r=1}^{R} S_r, \qquad s = \sqrt{\frac{1}{R-1}\sum_{r=1}^{R}\left(S_r - \bar{S}\right)^2}, \qquad \text{SEM} = \frac{s}{\sqrt{R}}
 $$
+
+**সহজ কথায়:** এই তিনটা সূত্র বলছে — একই system বারবার চালালে score-গুলোর গড় কত, score-গুলো কতটা ছড়িয়ে যায় (s), আর গড়টাকে কতটা বিশ্বাস করা যায় (SEM)। Run যত বেশি, SEM তত ছোট। নিচে প্রতিটা symbol-এর মানে।
+
 | Symbol | মানে |
 |---|---|
 | $R$ | কতবার একই configuration চালানো হলো |
@@ -418,9 +505,15 @@ Item $i$-এ system A ও B-এর score $x_i$, $y_i$:
 $$
 d_i = x_i - y_i, \qquad \bar{d} = \frac{1}{n}\sum_{i=1}^{n} d_i, \qquad SE(\bar{d}) = \frac{s_d}{\sqrt{n}}
 $$
+
+**সহজ কথায়:** প্রতিটা task-এ A আর B-এর score বিয়োগ করে সেই পার্থক্যগুলোর গড় বের করা হচ্ছে; SE মানে সেই গড়টা কতটা নড়বড়ে।
+
 $$
 \text{Var}(\bar{d}) = \frac{s_x^2 + s_y^2 - 2\,\text{Cov}(x, y)}{n}
 $$
+
+**সহজ কথায়:** দুই system একই task-এ একই রকম ভালো বা খারাপ করলে (Cov বড়) পার্থক্যের noise কমে যায়। তাই paired তুলনা unpaired-এর চেয়ে ধারালো।
+
 | Symbol | মানে |
 |---|---|
 | $d_i$ | item $i$-এ দুই system-এর score-এর পার্থক্য |
@@ -436,6 +529,8 @@ $$
 t = \frac{\bar{d}}{SE(\bar{d})}, \qquad \text{df} = n - 1
 $$
 
+**সহজ কথায়:** গড় পার্থক্যকে তার অনিশ্চয়তা দিয়ে ভাগ করা হচ্ছে। ভাগফল যথেষ্ট বড় হলে বলা যায় পার্থক্যটা শুধু noise নয়।
+
 **Worked example (paper-এর CodeProbe rerun):** প্রথম single run-এ পার্থক্য +0.054 (একটা task-এ +0.300)। প্রতি configuration 3 বার চালানোর পর: $\bar{d} = +0.0035$, 95% CI = [−0.0005, +0.0074], $n = 5$ task (paired unit), df = 4, $t = 2.41$, critical value 2.776 → **significant নয়**। যে task-এ +0.300 দেখা গিয়েছিল, সেখানে দুটো configuration-ই প্রতিবার 0.800 পেয়েছে — পার্থক্য 0.000।
 
 **আমার হিসাব (সংখ্যাগুলো পরস্পর সংগত কিনা যাচাই):**
@@ -449,6 +544,9 @@ Monograph power-এর ধারণা কথায় দিয়েছে; no
 $$
 \text{MDE} \approx \left(z_{1-\alpha/2} + z_{1-\beta}\right) \cdot SE
 $$
+
+**সহজ কথায়:** এই সূত্র বলছে — আপনার experiment সবচেয়ে ছোট কত percentage point পার্থক্য নির্ভরযোগ্যভাবে ধরতে পারবে। এর চেয়ে ছোট পার্থক্য দেখলে সেটা noise হতে পারে।
+
 | Symbol | মানে |
 |---|---|
 | $\alpha$ | false-positive rate (যেমন 0.05) → $z_{0.975} = 1.96$ |
@@ -469,14 +567,23 @@ $$
 $$
 P(\text{at least one pass in 2}) = 1 - (1-p)^2
 $$
+
+**সহজ কথায়:** দুবার চেষ্টা করলে অন্তত একবার পাস করার সম্ভাবনা। প্রথমে দুবারই ফেল করার সম্ভাবনা হিসাব করে, সেটা ১ থেকে বাদ দেওয়া হয়েছে।
+
 সাধারণভাবে (**আমার যোগ করা**, independence ধরে):
 $$
 \text{pass@}k = 1 - (1-p)^k, \qquad \text{pass}^k = p^k
 $$
+
+**সহজ কথায়:** pass@k হলো k বারে অন্তত একবার সফল হওয়ার সম্ভাবনা; pass^k হলো k বারের প্রতিবারই সফল হওয়ার সম্ভাবনা। প্রথমটা সহজ, দ্বিতীয়টা কঠিন — তাই দুটোর ফল অনেক আলাদা হয়।
+
 Repeated trial থেকে estimator — $n$ trial-এর মধ্যে $c$টা সফল (pass@k-এর estimator Chen et al. 2021-এর; pass^k-এর estimator tau-bench-এ ব্যবহৃত combinatorial রূপ — monograph এগুলো "appropriate combinatorial estimator" বলে উল্লেখ করেছে কিন্তু সূত্র দেয়নি):
 $$
 \hat{P}_{@k} = 1 - \frac{\binom{n-c}{k}}{\binom{n}{k}}, \qquad \hat{P}^{k} = \frac{\binom{c}{k}}{\binom{n}{k}}
 $$
+
+**সহজ কথায়:** আসল p জানা না থাকলে, n বারের মধ্যে c বার সফল হয়েছে — এই গোনা থেকেই pass@k ও pass^k-এর আনুমানিক মান বের করার সূত্র।
+
 | Symbol | মানে |
 |---|---|
 | $n$ | একটা task-এ মোট trial |
@@ -492,12 +599,18 @@ $$
 $$
 P(\text{false block}) = 1 - (1-\epsilon)^{N k}
 $$
+
+**সহজ কথায়:** Golden set-এ যত বেশি case আর যত বেশি k, noise-এর কারণে একটা ভালো candidate-ও ভুল করে আটকে যাওয়ার সুযোগ তত বাড়ে। সূত্রটা সেই ভুল-আটকানোর সম্ভাবনা বের করে।
+
 **আমার হিসাব:** $\epsilon = 0.01$, $N = 10$, $k = 3$ → $1 - 0.99^{30} \approx 0.26$। অর্থাৎ নিখুঁত candidate-ও প্রায় 26% সময় strict all-pass gate-এ আটকে যাবে — তাই flaky verifier ঠিক না করে k বাড়ানো বিপজ্জনক।
 
 ### ৬.৫ Cohen's Kappa (Chapter 5 — paper-এর সূত্র ও উদাহরণ)
 $$
 \kappa = \frac{p_o - p_e}{1 - p_e}
 $$
+
+**সহজ কথায়:** দুজন grader যতটা মিলেছে, তার থেকে শুধু ভাগ্যক্রমে মিলে যাওয়া অংশ বাদ দিলে আসল agreement কত থাকে — kappa সেটা মাপে। ১-এর কাছে হলে ভালো, ০-এর কাছে হলে প্রায় chance।
+
 | Symbol | মানে |
 |---|---|
 | $p_o$ | observed agreement — কত শতাংশ item-এ দুজন একই label দিয়েছে |
@@ -516,6 +629,9 @@ Defect = positive class:
 $$
 \text{TPR} = \frac{TP}{TP + FN}, \qquad \text{FPR} = \frac{FP}{FP + TN}, \qquad \text{TNR} = 1 - \text{FPR}
 $$
+
+**সহজ কথায়:** TPR বলে আসল defect-এর কতটা grader ধরতে পেরেছে। FPR বলে ভালো output-এর কতটাকে সে ভুল করে defect বলেছে। TNR হলো ভালো output-কে ঠিকভাবে ভালো বলার হার।
+
 **Worked example (paper-এর):** validation set-এ 40 defect, 80 non-defect; grader 32টা defect flag করে → TPR = 32/40 = 80%; 12টা non-defect-ও flag করে → FPR = 12/80 = 15%, TNR = 85%। অর্থাৎ 8টা defect মিস, 12টা ভালো output অকারণে review-এ।
 
 **"TPR at fixed FPR":** reviewer যদি সর্বোচ্চ 5% false alarm সহ্য করতে পারে, threshold এমনভাবে বাছাই করো যাতে FPR ≈ 5%, তারপর সেই threshold-এ TPR report করো।
@@ -524,6 +640,9 @@ $$
 $$
 \hat{R}_{\text{deploy}} = \sum_{s} \pi_s \, \hat{R}_s
 $$
+
+**সহজ কথায়:** Sample-এ বিভিন্ন ধরনের item (stratum) আলাদা সংখ্যায় নেওয়া হলে, আসল deployment-এ প্রতিটা ধরন যত অনুপাতে আসে সেই ওজন দিয়ে rate-গুলো যোগ করতে হয় — না হলে হিসাব বিকৃত হবে।
+
 $\pi_s$ = deployment-এ stratum $s$-এর অনুপাত, $\hat{R}_s$ = সেই stratum-এ মাপা rate।
 
 **Paper-এর উদাহরণ:** 1,000 item-এর stream-এ 950 routine, 30 borderline, 20 clear defect। Natural sample-এ 100টার মধ্যে মাত্র প্রায় 2টা defect → একটা মিস করলেই detection rate 50 percentage point বদলায়। Stratified sample (40, 40, 40) এই সমস্যা কমায়, কিন্তু aggregate-এর জন্য $\pi = (0.95, 0.03, 0.02)$ দিয়ে reweight করতে হবে।
@@ -533,6 +652,9 @@ Paired binary outcome-এ $b$ = A পাস/B ফেল, $c$ = A ফেল/B প
 $$
 \chi^2 = \frac{(b - c)^2}{b + c}, \qquad p_{\text{exact}} = 2\sum_{i=0}^{\min(b,c)}\binom{b+c}{i}\,0.5^{\,b+c}
 $$
+
+**সহজ কথায়:** McNemar শুধু সেই task-গুলো দেখে যেখানে দুই system-এর ফল আলাদা (b আর c)। b আর c প্রায় সমান হলে কেউ এগিয়ে নেই; একদিকে অনেক ঝুঁকলে পার্থক্য আসল।
+
 **Worked example (paper-এর data, p-value আমি নিজে হিসাব করে মিলিয়েছি):** Weng et al. (2026) — 17টা উদাহরণে helper function-এর signature বদলানো। Stale-only retrieval-এ Qwen2.5-Coder-7B-Instruct 15টা incompatible output দিয়েছে, current-only retrieval-এ 0টা। তাহলে $b = 15$, $c = 0$:
 $$
 p_{\text{exact}} = 2 \times 0.5^{15} = 2/32768 \approx 6.1 \times 10^{-5}
@@ -546,6 +668,9 @@ $$
 $$
 \text{eligible}(t, m) = 1 \quad \text{যদি } T_{\text{pub}}(t) > T_{\text{cut}}(m)
 $$
+
+**সহজ কথায়:** G(m) বলে public benchmark-এ model-টা private নতুন task-এর চেয়ে কতটা বেশি score পাচ্ছে — এই বাড়তি অংশই সম্ভাব্য মুখস্থ বিদ্যা। দ্বিতীয় সূত্র বলে: task যদি model-এর training cutoff-এর পরে public হয়, তবেই সেটা ন্যায্য পরীক্ষা।
+
 | Symbol | মানে |
 |---|---|
 | $G(m)$ | model $m$-এর inflation gap |
@@ -559,6 +684,9 @@ $$
 $$
 SF = \frac{N_{\text{still pass under stronger oracle}}}{N_{\text{old pass}}}
 $$
+
+**সহজ কথায়:** আগে যতগুলো patch পাস করেছিল, শক্ত test দিলে তার কত অংশ এখনো পাস করে — এটাই survival fraction। ০.৩২ মানে ১০০টা পুরনো সাফল্যের মাত্র ৩২টা টিকেছে।
+
 **আমার হিসাব (paper-এর সংখ্যা দিয়ে):**
 - SWE-Bench+ (একটা agent-model pair): resolve rate 12.47% → 3.97% → $SF \approx 3.97/12.47 \approx 0.318$, অর্থাৎ প্রায় 32% "success" টিকেছে।
 - SWE-ABS: top score 78.80% → 62.20% → 16.6 pp কমেছে, আপেক্ষিক পতন $16.6/78.80 \approx 21.1\%$।
@@ -568,9 +696,15 @@ $$
 $$
 \text{Precision@}k = \frac{\text{প্রথম } k \text{-তে প্রাসঙ্গিক item}}{k}, \qquad \text{Recall@}k = \frac{\text{প্রথম } k \text{-তে পাওয়া প্রয়োজনীয় item}}{\text{মোট প্রয়োজনীয় item}}
 $$
+
+**সহজ কথায়:** Precision@k বলে প্রথম k টা ফলাফলের কতগুলো সত্যিই কাজের। Recall@k বলে যতগুলো দরকারি item ছিল, তার কতগুলো প্রথম k-তে ধরা পড়েছে।
+
 $$
 \text{RRF}(d) = \sum_{j=1}^{J} \frac{1}{c + r_j(d)}
 $$
+
+**সহজ কথায়:** দুটো আলাদা খোঁজা-পদ্ধতির ranked list-কে score না মিলিয়ে শুধু rank দিয়ে মেলানো হচ্ছে। যে file দুই পদ্ধতিতেই ওপরের দিকে থাকে, তার total বেশি হয়।
+
 | Symbol | মানে |
 |---|---|
 | $J$ | retrieval channel সংখ্যা (যেমন BM25, embedding) |
@@ -586,6 +720,9 @@ Configuration $a$ configuration $b$-কে dominate করে যদি:
 $$
 A_a \geq A_b \;\land\; C_a \leq C_b \;\land\; \left(A_a > A_b \lor C_a < C_b\right)
 $$
+
+**সহজ কথায়:** a-কে b-এর চেয়ে ভালো বলা যাবে যদি a-এর accuracy কম না হয়, cost বেশি না হয়, আর অন্তত একটা দিকে সত্যিই ভালো হয়।
+
 $A$ = accuracy, $C$ = inference cost per task। লেখকের নিয়ম: score-per-dollar একটা ratio-তে নামিয়ে আনলে minimum accuracy-র নিচের সস্তা configuration-ও ভালো দেখাতে পারে — তাই দুটো axis আলাদা রেখে frontier আঁকো, তারপর constraint (minimum accuracy, cost ceiling) বসাও।
 
 **আগের sub-domain-এর সাথে সংযোগ (আমার পর্যবেক্ষণ):** Sub-domain 1-এর Lite table-এ (Agentless paper-এর Table 1) Agentless (32.00%, 0.70 USD) AutoCodeRover (19.00%, 0.45 USD)-কে dominate করে না (cost বেশি), কিন্তু SWE-agent GPT-4 (18.00%, 2.51 USD)-কে dominate করে।
@@ -597,10 +734,16 @@ $A$ = accuracy, $C$ = inference cost per task। লেখকের নিয়
 $$
 V_j = \prod_{i=1}^{j} v_i
 $$
+
+**সহজ কথায়:** ছয়টা layer-এর যেকোনো একটা দুর্বল হলে শেষ সিদ্ধান্তের বিশ্বাসযোগ্যতাও কমে — কারণ সব layer-এর সম্ভাবনা গুণ হয়।
+
 **Repair asymmetry:** layer $j$-এ যত machinery যোগ করা হোক, তা শুধু $v_j$ (বা তার পরের) বাড়াতে পারে; $v_1, \ldots, v_{j-1}$ বদলায় না। তাই
 $$
 V_j \leq \min_{i \leq j} v_i
 $$
+
+**সহজ কথায়:** শেষ ফল কখনো সবচেয়ে দুর্বল layer-এর চেয়ে ভালো হতে পারে না। পরের layer-এ যত কাজই করো, আগের ভাঙা layer এভাবেই সীমা টেনে দেয়।
+
 **আমার হিসাব:** প্রতিটা layer-এ $v_i = 0.9$ হলে $V_6 = 0.9^6 \approx 0.53$। যদি measurement layer $v_1 = 0.6$ (যেমন single run, unpaired), তবে পরের পাঁচটা layer নিখুঁত (1.0) হলেও $V_6 \leq 0.6$। এটাই "More judges do not repair a rubric…" কথাটার গাণিতিক রূপ।
 
 **সীমাবদ্ধতা:** বাস্তবে layer-গুলো independent নয়, আর "valid" binary নয় — এটা শুধু intuition-এর জন্য।
@@ -610,10 +753,16 @@ $$
 $$
 f(f(x)) = f(x)
 $$
+
+**সহজ কথায়:** একই কাজ দুবার করলেও ফল একবার করার মতোই থাকলে সেটা idempotent। যেমন lift-এর বোতাম দুবার চাপলেও lift একবারই আসে।
+
 **No-duplicate invariant (আমার formalization; contract I5):** প্রতিটা logical effect identity $e$-এর জন্য
 $$
 N_{\text{effect}}(e) \leq 1 \quad \forall e
 $$
+
+**সহজ কথায়:** প্রতিটা আলাদা বাইরের কাজ (যেমন একটা PR খোলা) সর্বোচ্চ একবার ঘটবে; কতবার ঘটেছে নিশ্চিত না হলে স্পষ্টভাবে বলতে হবে 'জানি না'।
+
 — নয়তো স্পষ্টভাবে `unknown_external_state`।
 
 **পাঁচটা kill point (paper-এর):** (1) dispatch-এর আগে; (2) dispatch-এর পরে কিন্তু external commitment-এর আগে; (3) commitment-এর পরে কিন্তু local acknowledgment-এর আগে; (4) acknowledgment-এর পরে কিন্তু durable state transition-এর আগে; (5) durable state transition-এর পরে। সবচেয়ে বিপজ্জনক "execute-then-log gap" হলো (3)–(4)।
@@ -664,6 +813,8 @@ $$
 | 19 | Fleet scheduling, routing | 2 | 17 | 2 | 0 | 4 |
 | | **মোট (আমার যোগফল)** | **65** | **122** | **18** | **3** | **56** |
 
+**সহজ কথায়:** Chapter 1–6 (statistics ও benchmark)-এ strong প্রমাণ বেশি; Chapter 7–9 (operation, retry)-এ প্রায় নেই। অর্থাৎ যেটা সবচেয়ে জরুরি, তার পেছনে প্রমাণ সবচেয়ে কম।
+
 **আমার পর্যবেক্ষণ:**
 - Profile-গুলো যোগ করলে 208টা item, যার 65টা (প্রায় 31%) strong। (এক item একাধিক chapter-এ গোনা হতে পারে, তাই এটা "unique source" সংখ্যা নয়।)
 - লেখক বলেছেন Part I-এ strong item 56%, Part III-এ মাত্র 10%। শুধু profile-এর সংখ্যা দিয়ে আমার হিসাবে Part I ≈ 18/33 ≈ 55%, Part III ≈ 3/47 ≈ 6% — Part III-এ পার্থক্যের সম্ভাব্য কারণ: Chapter 8-এর দুটো strong item (AgentS4D, Perry et al.) companion record-এর বিপরীতে গোনা, যা যোগ করলে 5/49 ≈ 10% হয়।
@@ -685,6 +836,8 @@ $$
 | Migration-evaluation framework | দুটো judge-কে Cohen's kappa দিয়ে gate (শুধু replay fixture-এ) | Ch 5 |
 | Search-visibility measurement project | Model update-কে deployment হিসেবে ধরে fixed prompt corpus replay | Ch 4 |
 
+**সহজ কথায়:** এগুলো লেখকের নিজের বানানো system। এদের ফল 'উদাহরণ' হিসেবে দেওয়া, স্বাধীন প্রমাণ হিসেবে গোনা হয়নি।
+
 ---
 
 ## ৮. Results — মূল ফলাফল
@@ -700,7 +853,11 @@ $$
 | Grade audit | 10 practice + 2 restored → 6 নামানো, 6 রাখা |
 | Urgency বনাম strong evidence (52 practice) | Spearman −0.004 |
 
+**সহজ কথায়:** Review-এর মোট ফল: 206টা practice record, তার 56টা বিস্তারিত।
+
 **Catalog-এর chapter-ভিত্তিক বণ্টন (Appendix A parse করে আমার গোনা; lead সহ):** Ch1: 13, Ch2: 8, Ch3: 22, Ch4: 7, Ch5: 4, Ch6: 10, Ch7: 0, Ch8: 9, Ch9: 17, Ch10: 13, Ch11: 10, Ch12: 8, Ch13: 11, Ch14: 10, Ch15: 9, Ch16: 11, Ch17: 17, Ch18: 10, Ch19: 17 → মোট 206 ✓। **Chapter 3 (benchmark validity)-এ সবচেয়ে বেশি record (22)** — এটা আমাদের CG6-এর জন্য গুরুত্বপূর্ণ।
+
+**সহজ কথায়:** Benchmark-এর মান (Chapter 3) নিয়ে সবচেয়ে বেশি 22টা record আছে — আমাদের CG6-এর জন্য এটাই সবচেয়ে কাজের অংশ।
 
 ### ৮.২ External Evidence-এর মূল সংখ্যা (Monograph যেভাবে রিপোর্ট করেছে)
 
@@ -714,6 +871,8 @@ $$
 | Seed (Dodge et al. 2020) | একই hyperparameter-এ 2,100 fine-tuning trial-এ seed-ভেদে বড় পার্থক্য | Strong |
 | Skill ablation (Tank ও Nama 2026) | প্রায় 6,000 run; ভালো skill জেতে মূলত কম regression ঘটিয়ে | Strong (সংকীর্ণ দাবিতে) |
 | Cheap baseline (Kapoor et al. 2024) | HumanEval-এ retry জটিল architecture-এর সমান, অনেক কম খরচে | Directional |
+
+**সহজ কথায়:** Run-এর ওঠানামা এত বড় যে ২–৩ pp 'উন্নতি' প্রায়ই শুধু noise। একটা run-এর ফলে ভরসা করা যায় না।
 
 **Benchmark validity ও oracle strength:**
 | Finding | সংখ্যা | Evidence group |
@@ -733,6 +892,8 @@ $$
 | Temporal split (LiveCodeBench, Jain et al. 2024) | Cutoff-এর পরের problem-এ কিছু model family-র performance উল্লেখযোগ্যভাবে কম | Strong |
 | SWE-bench-Live, SWE-rebench, SWE-MERA | Live/decontaminated pipeline সম্ভব; frozen ও fresh distribution ভিন্ন ফল দেয় | Directional |
 
+**সহজ কথায়:** অনেক benchmark-এর test দুর্বল; শক্ত test দিলে score কমে যায় আর ranking বদলায়। মানে 'test পাস' মানেই 'patch ঠিক' নয়।
+
 **আমার পর্যবেক্ষণ:** SWE-Bench+-এর 12.47% সংখ্যাটা আমাদের Paper 02 (SWE-agent + GPT-4 Turbo, full SWE-bench 12.47%)-এর সাথে হুবহু মেলে — তাই সম্ভবত ঐ pair-ই audit করা হয়েছিল (monograph শুধু "one agent and model pair" বলেছে; নিশ্চিত হতে SWE-Bench+ paper দেখতে হবে)। অর্থাৎ Sub-domain 1-এর SWE-agent-এর headline score-এর প্রায় দুই-তৃতীয়াংশ stronger audit-এ টেকেনি।
 
 **Grading, execution ও self-report:**
@@ -744,6 +905,8 @@ $$
 | Flaky CI (Ge ও Zhang 2026) | 1,960 Java project; 3.2% build rerun, তার 67.73% flaky; 1,055 project-এ অন্তত একটা | Directional (preprint) |
 | CoT monitoring (Baker et al. 2025) | Reasoning trace দেখে reward hacking ধরা action-only-এর চেয়ে অনেক ভালো; দুর্বল model শক্তিশালী model monitor করতে পেরেছে; কিন্তু monitor-এর বিরুদ্ধে RL চাপ দিলে agent hack লুকাতে শিখেছে | Strong |
 
+**সহজ কথায়:** Agent নিজে বলে 'শেষ হয়েছে', কিন্তু বাইরে থেকে দেখলে প্রায়ই হয়নি। তাই agent-এর কথা প্রমাণ নয়, দাবি।
+
 **Containment ও operation:**
 | Finding | সংখ্যা | Evidence group |
 |---|---|---|
@@ -754,6 +917,8 @@ $$
 | Failure attribution (Zhang et al. 2025) | 127 multi-agent system; সেরা method দায়ী agent 53.5%, decisive step মাত্র 14.2% | Strong |
 | Failure as process (Zhao et al. 2026) | 3,843 trajectory, 1,794 complete valid run, 63,000+ step | Directional (preprint) |
 
+**সহজ কথায়:** ক্ষমতা সীমিত না করলে agent নিরাপদ থাকে না। শুধু prompt-এ 'করো না' লিখে ক্ষতি আটকানো যায় না।
+
 **Retrieval ও context:**
 | Finding | সংখ্যা | Evidence group |
 |---|---|---|
@@ -763,6 +928,8 @@ $$
 | LongSWE-Bench (Rando et al. 2025) | Claude 3.5 Sonnet 32K-এ 29% → 256K-এ 3%; LongCodeQA-তে Qwen2.5-14B 512K-এ 70.2% → 1M-এ 40.0% | Strong |
 | Leng et al. (2024) | 20 model; বেশিরভাগ frontier model-এ accuracy প্রায় 64K-এ saturate | Strong |
 | SWE-QA topology (Oskooei et al. 2026) | Semantic search 65.2% বনাম planner-subagent 46.2%, অর্ধেকের কম খরচে; handoff loss subagent failure-এর 41.8% | Strong |
+
+**সহজ কথায়:** ভুল বা পুরনো তথ্য agent-এর কাছে পৌঁছালে ভালো model-ও ভুল code লেখে; আর context অনেক লম্বা হলে model-এর মান পড়ে যায়।
 
 ### ৮.৩ লেখকের নিজের Measurement ও Failure Case
 
@@ -784,6 +951,8 @@ $$
 | 14 | Research pipeline reference audit | Generated reference list-এ fabricated, mis-cited, untraceable source | Certainty ≠ existence |
 | 15 | Context-assembly practice ranking | 10টা practice তিনভাবে rank করে মাত্র 1টায় তিনটা ranking একমত | Field এখনো converge করেনি |
 
+**সহজ কথায়:** এই ১৫টা ঘটনা লেখকের নিজের ভুল ও পরীক্ষা থেকে। প্রতিটার একটাই শিক্ষা — যা মাপছি তা সত্যিই কাজটা মাপছে কিনা, সবসময় সন্দেহ করো।
+
 ### ৮.৪ Catalog Structure ও প্রতিনিধিত্বমূলক Developed Practice
 
 | Chapter | উদাহরণ developed practice (ERCA ID) |
@@ -803,6 +972,8 @@ $$
 | 16–17 | Verification surfaces cheaper than blind acceptance (153); Widen autonomy per action track record (145); Audit every human gate (154); Label AI-generated code (165) |
 | 18–19 | Default to single agent (093); Match topology to task (107); Route to cheapest sufficient model (187); Replay traces under competing policies (191) |
 
+**সহজ কথায়:** প্রতিটা chapter থেকে বাছা কয়েকটা practice-এর নাম; ERCA নম্বর দিয়ে পরে catalog-এ খুঁজে পাওয়া যায়।
+
 ### ৮.৫ লেখকের Personal Default (Table 20.1 — "transferred effect estimate নয়")
 
 | সিদ্ধান্ত | Starting point |
@@ -815,7 +986,11 @@ $$
 | Context restart | Shortest degradation length-এর 60%-এ |
 | Freshness | Code retrieval-এ exact repository-revision identity; source revision অজানা index reject |
 
+**সহজ কথায়:** এগুলো লেখকের নিজের শুরুর মান (যেমন k = 3 বার চালানো), সবার জন্য বাঁধা নিয়ম নয়। নিজের কাজে যাচাই করে নিতে হবে।
+
 **"Floor পর্যন্ত টিকে থাকা উচিত" এমন চারটা জিনিস:** (1) executable acceptance check; (2) ordinary ও recovery authority আলাদা; (3) task, input state, configuration, attempt ও accepted artifact-এর versioned identity; (4) সবচেয়ে সস্তা credible baseline-এর বিপরীতে paired comparison।
+
+**সহজ কথায়:** যা-ই বদলাক না কেন, এই চারটা জিনিস সবসময় রাখতে হবে: নিজে চালিয়ে যাচাই, ক্ষমতা আলাদা রাখা, সবকিছুর version-এর পরিচয়, আর সস্তা baseline-এর সাথে তুলনা।
 
 ---
 
@@ -830,6 +1005,8 @@ $$
 7. **Layer-এ উন্নতি end-to-end-এ নাও পৌঁছাতে পারে:** retrieval precision তিনগুণ, reward +0.0349 — তাই stage-level measurement দরকার।
 8. **Evidence strength ও urgency সম্পর্কহীন (ρ = −0.004):** containment-এর মতো জরুরি control-এর পেছনে controlled study নেই; লেখক mechanism-ভিত্তিক, locally testable justification দেন।
 
+**সহজ কথায়:** আটটা পয়েন্টের এক লাইন: একবার চালিয়ে বিশ্বাস করো না, test পাস মানে সঠিক নয়, agent-এর 'done' প্রমাণ নয়, আর verdict-কে নির্দিষ্ট version-এর সাথে বেঁধে রাখো।
+
 ---
 
 ## ১০. কেন এই কাজ অন্যগুলোর থেকে ভালো / আলাদা?
@@ -843,6 +1020,8 @@ $$
 | Operation (retry, recovery, permission) | না | না | না | **হ্যাঁ, distributed-systems contract সহ** |
 | Runnable artifact | Dataset, harness | Code | সাধারণত না | **Protocol, skill, catalog, ledger, schema** |
 | নিজের সীমা disclose | আংশিক | আংশিক | আংশিক | **খুব বিস্তারিত (search lane না চলা, IRR নেই)** |
+
+**সহজ কথায়:** অন্য paper একটা score বা একটা tool দেয়; এই monograph দেয় পুরো system কীভাবে মাপা ও চালানো উচিত তার evidence-সহ নিয়ম।
 
 **মূল শক্তি:**
 1. **System-level দৃষ্টিভঙ্গি:** model-এর বাইরে harness, verifier, state, permission-কে প্রথম-শ্রেণির reliability বিষয় হিসেবে ধরা।
@@ -917,6 +1096,8 @@ $$
 | E11 | **Evidence grading-এর IRR** — monograph-এর নিজের packet চালানো | Section 0.3.3 | Trustworthy AI for SE (meta-research) | ⭐⭐ |
 | E12 | **Recovery benchmark** (published fault menu, named kill placement) — লেখক নিজে বলেছেন এমন study দরকার | Ch 10, 20.2 | Coding-Agent Evaluation & Reliability | ⭐⭐ (SPL3-এর জন্য বড়) |
 
+**সহজ কথায়:** ১২টা gap-এর মধ্যে আমাদের জন্য সবচেয়ে কাজের E1, E2, E4, E10 (পাঁচ তারা)। এগুলো সবই agent patch-কে যাচাই করার সাথে সরাসরি জড়িত।
+
 ### ১৩.২ ১৩টা Research Lead — আমাদের Direction-এর সাথে Overlap ও SPL3 Feasibility
 
 (Lead মানে লেখকের ভাষায় "preserved for investigation, not recommendation" — gated practice নয়।)
@@ -937,6 +1118,8 @@ $$
 | ERCA-204 | Measure recovery under live load | 10 | কম | ❌ |
 | ERCA-205 | Detect retry storms and recovery starvation | 19 | কম | ❌ |
 
+**সহজ কথায়:** ১৩টা lead-এর বেশিরভাগ বড় company-র fleet চালানোর বিষয়। SPL3-তে কাজে লাগবে মূলত ERCA-203 (verifier-এর ফলে version বেঁধে রাখা)।
+
 **আমার পর্যবেক্ষণ:** 13টা lead-এর বেশিরভাগই distributed-systems/fleet operation-এর — আমাদের direction-এর সাথে সরাসরি মেলে শুধু **ERCA-203**, আংশিকভাবে **ERCA-194** ও **ERCA-197**। আমাদের জন্য বেশি গুরুত্বপূর্ণ আসলে gated practice-গুলো: ERCA-001 (strengthen weak oracles), 095 (golden set pass^k), 094 (ground in execution), 096 (calibrate judges), 111 (consensus ≠ verification), 038/039 (proxy), 069 (never trust "done"), 020/024/025 (statistics)।
 
 ---
@@ -952,6 +1135,8 @@ $$
 7. **Glossary ও chapter-এর সংজ্ঞা মেলানো** (যেমন monitorability tax)।
 8. **(আমার প্রস্তাব) pass^k-এর একটা ছোট public dataset** — কয়েকটা open agent-কে SWE-bench Lite subset-এ k বার চালিয়ে per-task outcome publish করা; এটা monograph-এর Table 20.1-এর নিয়মের প্রথম বাস্তব প্রয়োগ হতে পারে।
 
+**সহজ কথায়:** এই আটটা প্রস্তাবের মধ্যে ৩ ও ১ নম্বর আমাদের কাজের সবচেয়ে কাছের; ৮ নম্বরটা হাতে-কলমে ছোট করে করা যায়।
+
 ---
 
 ## ১৫. কোন Gap-এ Research করলে ভালো Result ও Publication আসতে পারে
@@ -966,6 +1151,8 @@ $$
 | **E3: pass^k-ভিত্তিক agent patch reliability** | ⚠️ সম্ভব কিন্তু API খরচ বেশি (k × task) | মাঝারি-উচ্চ | ⭐⭐⭐ |
 | **E5: Assurance detector-এর বিরুদ্ধে best-of-n gaming পরীক্ষা** | ⚠️ ছোট আকারে সম্ভব | উচ্চ | ⭐⭐⭐⭐ |
 | E12: Recovery benchmark | ❌ SPL3-এর জন্য বড় | উচ্চ | ⭐⭐⭐ |
+
+**সহজ কথায়:** সবচেয়ে বাস্তবসম্মত ও নতুন কাজ: agent patch-এ শক্ত test আর overfitting detector চালিয়ে দেখা কত 'সাফল্য' টেকে।
 
 **সম্ভাব্য venue (general guidance, যাচাই সাপেক্ষে):**
 - **Conference:** ICSE, FSE, ASE, ISSTA (top SE); তাদের workshop ও tool/demo track (যেমন LLM4Code-ধরনের workshop) — student-এর শুরু করার জন্য সহজ।
@@ -994,6 +1181,8 @@ $$
 | **CodeProbe** (public) | Merged PR থেকে task mining | নিজের repository থেকে ছোট golden set |
 | **CodeScaleBench** (Apache-2.0, GitHub + HuggingFace) | 370 paired task, বড় repository | খুব ভারী — শুধু reference বা ছোট subset |
 
+**সহজ কথায়:** লেখকের দেওয়া protocol ও skill-গুলোর কোনটা আমরা সরাসরি ব্যবহার করতে পারি তার তালিকা। (Repository খুলে যাচাই করা হয়নি।)
+
 (Data availability অংশে "six named runnable protocols" বলা আছে; উপরের ছয়টা `.md` file-ই সম্ভবত সেই ছয়টা — এটা **আমার অনুমান**, repository দেখে নিশ্চিত হতে হবে।)
 
 ### ১৬.২ Assurance Layer — Monograph অনুযায়ী Update করা Module Design
@@ -1009,6 +1198,8 @@ $$
 | 7. Repeated-run module | প্রতি task k = 3; pass@k ও pass^k দুটোই | Ch 1, 4 (020, 095) | CG4 |
 | 8. Statistics module | Paired McNemar, paired/cluster bootstrap, MDE, kappa, class-specific rate | Ch 1, 5 (024, 025) | CG8, CG10 |
 | 9. Report (multi-signal, scalar নয়) | প্রতিটা signal আলাদা দেখানো; disagreement highlight | Ch 6 (038) | CG7 |
+
+**সহজ কথায়:** Assurance layer-কে নয়টা ছোট module-এ ভাগ করা হয়েছে — task store থেকে report পর্যন্ত। প্রতিটার পেছনে monograph-এর একটা chapter আছে।
 
 ### ১৬.৩ Verification Record-এর একটা উদাহরণ (আমার design, monograph-এর field অনুসারে)
 ```yaml
@@ -1062,6 +1253,8 @@ raw_result_ref: runs/ver-0007/log.txt
 | CG9 | APCA-কে Python repository-level agent patch-এ | সরাসরি আলোচনা নেই | **অপরিবর্তিত** — খোলা gap, monograph-এর অনুপস্থিতি এটাকে আরও novel করে |
 | CG10 | Assurance tool-এর নিজের evaluation validity | Chapter 5: judge-কে instrument হিসেবে calibrate; agreement ≠ correctness; stratified validation; threshold selection আর reporting আলাদা data-তে | **অনেক শক্ত হলো** — সরাসরি পদ্ধতি পাওয়া গেল |
 
+**সহজ কথায়:** আগের ১০টা common gap-এর মধ্যে CG1, CG3, CG4, CG6, CG8, CG10 এই monograph-এর কারণে অনেক শক্ত হয়েছে; CG5 ও CG9 অপরিবর্তিত।
+
 **নতুন প্রস্তাবিত Common Gap (আমার প্রস্তাব):**
 - **CG11: Verifier health ও version-bound verdict** — test infrastructure flaky বা ভুল revision-এ চললে verdict অর্থহীন; assurance record-এ accepted/rejected/indeterminate আর (artifact, verifier, environment) binding। (Ch 6.4, ERCA-203, Ge ও Zhang)
 - **CG12: Assurance signal-এর বিরুদ্ধে optimization pressure** — agent বা selection process যদি assurance verdict দেখে retry করে, detector নিজেই gaming-এর target হয়। (Ch 6, Skalse, Baker et al.)
@@ -1080,6 +1273,8 @@ raw_result_ref: runs/ver-0007/log.txt
 | 🔧 **Refine 5** | Assurance layer-এর নিজের দাবি "উন্নতি" প্রমাণে সবচেয়ে সস্তা baseline (যেমন শুধু F2P/P2P test, বা শুধু একটা retry) এর বিপরীতে paired comparison | Ch 2 (012, 114) |
 | ⚠️ **Challenge 1** | Assurance verdict agent-এর retry loop-এ গেলে (best-of-n) সেটা নিজেই gaming-এর target — "monitor verdict should stay out of the reward" | Ch 6.3 |
 | ⚠️ **Challenge 2** | Monograph-এর মূল thesis: অনেক failure patch-এর বাইরে (harness, state, retrieval, permission) — শুধু patch-level assurance পুরো reliability সমস্যার একটা layer (grading) কভার করে; আমাদের scope স্পষ্টভাবে লিখতে হবে | Ch 0.2, 20 |
+
+**সহজ কথায়:** Monograph আমাদের direction-কে সমর্থন করে, কিছু জায়গায় সংশোধন করতে বলে, আর দুই জায়গায় সতর্ক করে — বিশেষ করে সব signal-কে এক score-এ গুলিয়ে ফেলা যাবে না।
 
 **Updated নির্দিষ্ট research প্রশ্ন (আমার প্রস্তাব):**
 > "SWE-bench-ধরনের Python repository-level agent patch-এর জন্য একটা multi-signal, version-bound assurance layer (stronger tests + calibrated static judge + security scan + repeated-run pass^k) কি শুধু official F2P/P2P test-এর তুলনায় overfitting patch বেশি ধরে, সঠিক patch কম বাতিল করে — paired, pre-registered evaluation-এ?"
@@ -1210,6 +1405,8 @@ A: Sponsor-এর audit-এ 138টা task-এর 59.4%-এ flawed test (পু�
 | "Done" একটা দাবি (Ch 4, 8) | 100% submit বনাম 44% resolved | Fable 5.1 "failing test disable করার সম্ভাবনা কম", আটকে গেলে বলে দেয় (কোম্পানির নিজের দাবি, qualitative); স্বাধীন মাপ নেই | §1 |
 | Harness = system-এর অংশ | মূল thesis | Sonnet 5.5 max effort-এ xhigh-এর চেয়ে কম পায় — code-review subagent timeout ও scope-এর বাইরের edit-এর কারণে (vendor footnote); FrontierCode-এ medium effort-এর উপরে score কমে | §1, §2 |
 
+**সহজ কথায়:** Monograph-এর দাবিগুলোর বেশিরভাগ দুই মাস পরের নতুন প্রমাণেও টিকে আছে; পুরনো হয়েছে মূলত নির্দিষ্ট সংখ্যা।
+
 **আমার হিসাব — vendor বনাম স্বাধীন, আর স্বাধীন বনাম স্বাধীন (Terminal-Bench 4.0, §2):**
 
 | Model | কোম্পানির দাবি | Vals.ai (স্বাধীন, avg@3) | Artificial Analysis (স্বাধীন, 3 run-এর গড় pass@1) | Vendor − সর্বনিম্ন স্বাধীন |
@@ -1217,6 +1414,8 @@ A: Sponsor-এর audit-এ 138টা task-এর 59.4%-এ flawed test (পু�
 | Claude Sonnet 5.5 | 70.6% | 64.14% | 63.6% | 7.0 pp |
 | Claude Opus 5.5 | 66.4% | 65.15% | 59.6% | 6.8 pp |
 | Kimi K3.1 Pro | — | 63.64% | 67.2% | — |
+
+**সহজ কথায়:** কোম্পানি যে score বলে আর স্বাধীন evaluator যা পায় তা মেলে না, আর দুই স্বাধীন evaluator-এর মধ্যেও ranking উল্টে যেতে পারে। তাই score-এর সাথে কে মেপেছে আর কীভাবে — তা লেখা জরুরি।
 
 **আমার পর্যবেক্ষণ:** দুই স্বাধীন evaluator-ই mini-SWE-agent ব্যবহার করে, তবু Opus 5.5-এ তাদের পার্থক্য 5.55 pp, আর এই তিন model-এর ranking **পুরো উল্টে যায়** — Vals-এ Opus > Sonnet > Kimi, Artificial Analysis-এ Kimi > Sonnet > Opus। Monograph-এর Ch 1-এর "pinned apparatus" যুক্তির (model, prompt, harness, evaluator version সব লিখে রাখা) এটা এখনকার সবচেয়ে পরিষ্কার উদাহরণ: "স্বাধীন" হলেই "একমত" নয়।
 
@@ -1255,6 +1454,8 @@ A: Sponsor-এর audit-এ 138টা task-এর 59.4%-এ flawed test (পু�
 | CG6 — benchmark quality | **আংশিক** | Vendor-রা Verified ছেড়েছে; DeepSWE scratch থেকে লেখা; কিন্তু নতুন benchmark-এ বর্তমান model-এর স্বাধীন coverage কম |
 | CG3 — generated test-এর মান | **খোলা** | Agent-লেখা test patch-এর 80.2%-এ দুর্বল বা কোনো explicit oracle নেই (স্বাধীন, পুরনো agent); agent-রা বেশি mock করে, 36% বনাম 26% (search-snippet only) |
 | CG2 — candidate selection | **খোলা** | Fact sheet-এ তথ্য নেই |
+
+**সহজ কথায়:** বেশিরভাগ gap এখনো খোলা — অর্থাৎ আমাদের SPL3 কাজের জায়গা এখনো আছে।
 
 ### ২১.৪ বর্তমান Model দিয়ে আবার পরীক্ষা করলে — SPL3 Idea
 

@@ -17,9 +17,70 @@
 | Models studied | GPT-4o mini, Claude 3.5 Haiku, Gemini 1.5 Flash, Llama 3.1 70B Instruct (মূল চারটি) + GPT-4o, Claude 3.5 Sonnet, Gemini 1.5 Pro, Llama 3.1 8B / 405B (RQ.2) + CodeLlama-7b-hf ও তার SafeCoder fine-tuned version (RQ.3) |
 | Main metrics | func@k, func-sec@k (unbiased pass@k estimator-এর adaptation) |
 
+## ★ সহজ ভাষায় পুরো Paper (প্রথমবার পড়ার জন্য)
+
+### ক. Paper-টা কী নিয়ে?
+
+- এটা একটা **benchmark paper**। Benchmark মানে এমন একটা "পরীক্ষার প্রশ্নপত্র", যা দিয়ে অনেক AI model-কে একই নিয়মে মাপা যায়।
+- বানিয়েছেন Columbia University-র গবেষকরা (Jinjun Peng, Baishakhi Ray ও আরও কয়েকজন)। প্রকাশ হয়েছে ২০২৫ সালের জানুয়ারিতে (arXiv preprint, অর্থাৎ conference-এ ছাপার আগের version)।
+- প্রশ্নপত্রের নাম **CWEval-Bench**। এতে ১১৯টা ছোট coding task আছে, ৫টা programming language-এ।
+- Paper-এর প্রশ্ন একটাই: AI যে code লেখে, সেটা কি শুধু "কাজ করে", নাকি "কাজ করে এবং নিরাপদও"?
+- তারা কয়েকটা জনপ্রিয় model (GPT-4o, Claude 3.5, Gemini 1.5, Llama 3.1) এই প্রশ্নপত্রে পরীক্ষা করে ফল দেখিয়েছে।
+
+### খ. সমস্যাটা কী ছিল?
+
+আগে AI-এর code-এর security মাপার benchmark ছিল (CyberSecEval, SecurityEval)। কিন্তু সেগুলোতে তিনটা বড় সমস্যা ছিল।
+
+- Task-এর বর্ণনা অস্পষ্ট ছিল। কখনো মাত্র এক লাইনের comment, যা পড়ে মানুষও বোঝে না code-টা আসলে কী করবে।
+- Code ঠিকমতো কাজ করছে কি না, সেটা আর security — দুটো আলাদা benchmark-এ মাপা হতো। ফলে "কাজ করে কিন্তু insecure" code ধরা পড়ত না।
+- Security বিচার হতো static analyzer দিয়ে। Static analyzer হলো এমন tool, যা code না চালিয়ে শুধু লেখার ধরন দেখে সন্দেহ করে। এটা প্রায়ই ভুল করে।
+
+**একটা উদাহরণ:** একটা function-কে বলা হলো, "URL-টা আমাদের domain-এর হলে redirect করো।" কেউ লিখল `endswith("example.com")`। এতে `attack-example.com`-ও পার হয়ে যায়, যা আসলে হ্যাকারের site। কিন্তু একই ভুলের একটু ভিন্ন করে লেখা version CodeQL (একটা static analyzer) ধরতে পারেনি। আবার একটা নিরাপদ code-কে সে ভুল করে বিপজ্জনক বলেছে।
+
+**উপমা:** পরীক্ষক যদি শুধু হাতের লেখা দেখে নম্বর দেয়, উত্তর না পড়ে, তাহলে যেমন ভুল হয়, static analyzer-ও তেমন।
+
+### গ. Paper কী solve করেছে?
+
+- একটা নতুন পদ্ধতি **CWEval** বানিয়েছে, যেখানে একই task-এর একই code-এ functionality আর security একসাথে test হয়।
+- Security বিচার হয় code **চালিয়ে** দেখা ফল (outcome) দিয়ে: timeout হলো কি না, memory error হলো কি না, database-এর data নষ্ট হলো কি না।
+- ১১৯টা task-এর benchmark (৩১টা CWE, অর্থাৎ ৩১ ধরনের weakness) তৈরি করেছে, প্রতিটা task-এর সাথে একটা নিরাপদ ও একটা insecure আদর্শ উত্তর দিয়ে।
+- চারটা model family মেপে দেখিয়েছে, কাজ-করা code আর নিরাপদ code-এর মধ্যে বড় ফাঁক আছে।
+
+**সবচেয়ে গুরুত্বপূর্ণ সংখ্যা:**
+
+- সব model-এ func@10 থেকে func-sec@10 প্রায় **৩০ percentage point** কমে যায়। সবচেয়ে বেশি ৩৫.৭৯ (Gemini 1.5 Flash)। মানে ১০০টা সঠিক-কাজ-করা সমাধানের মধ্যে প্রায় ৩০টা আসলে insecure।
+- GPT-4o-তে func@1 হলো ৮০.৮১, কিন্তু func-sec@1 মাত্র ৫০.২১। মানে ১০০ বারের মধ্যে ৮১ বার code কাজ করে, কিন্তু কাজ-করা-ও-নিরাপদ মাত্র ৫০ বার।
+- Security-র জন্য fine-tune করা CodeLlama-7b-তে func@1 ৩০.৭৭ থেকে নেমে ১৫.৩৫ হয়। মানে model নিরাপদ code শেখেনি, উল্টে কাজই কম করতে পারছে।
+
+### ঘ. কীভাবে solve করেছে?
+
+1. **আগে নিয়ম ঠিক করা:** প্রতিটা task-এ এমন কিছু থাকতে হবে যাতে vulnerability ঘটা সম্ভব। আর prompt-এ "secure করে লেখো" জাতীয় hint থাকবে না।
+2. **Task লেখা:** CWE-র documentation দেখে ছোট, self-contained task বানানো। অর্থাৎ বাইরের library ছাড়া একটা function।
+3. **স্পষ্ট বর্ণনা:** function signature, docstring (বর্ণনা) ও উদাহরণ দেওয়া। LLM দিয়ে যাচাই করা যে বর্ণনাটা বোঝা যায় কি না।
+4. **দুই রকম test:** functionality test সাধারণ input-output মেলানো। Security test হলো timeout, memory error (AddressSanitizer দিয়ে) ও data integrity দেখা।
+5. **দুটো আদর্শ উত্তর:** একটা নিরাপদ, একটা কাজ-করা-কিন্তু-insecure। এতে বোঝা যায় test দুটো ঠিকমতো কাজ করছে।
+6. **Language বাড়ানো:** একটা language-এর task অন্য language-এ আগে LLM দিয়ে অনুবাদ, তারপর হাতে ঠিক করা।
+7. **Model চালানো:** প্রতি task-এ বহুবার code বানিয়ে (n = 100) pass@k-এর মতো সূত্রে func@k ও func-sec@k হিসাব করা।
+8. **তুলনা:** বড় বনাম ছোট model, এবং "secure code লেখো" বাক্য যোগ করলে বা SafeCoder fine-tuning করলে কী হয়।
+
+### ঙ. এরপর কী করা যায়?
+
+- **লেখকরা বলেছেন:** benchmark আরও বড় করতে হবে, আর task বানানো automatic করতে হবে। এখন ১১৯টা হাতে বানানো।
+- **খোলা প্রশ্ন:** এই সব task এক function-এর। বাস্তব agent পুরো repository-তে patch লেখে। সেখানে এই ফাঁক কেমন, কেউ মাপেনি।
+- **খোলা প্রশ্ন:** security test নিজে কতটা সম্পূর্ণ, মানে সব ধরনের insecure code ধরে কি না, তা মাপা হয়নি। আর কোনো confidence interval নেই।
+- **খোলা প্রশ্ন:** Table-এর model গুলো ২০২৪ সালের। আজকের model-এ ফাঁক কমেছে কি না জানা নেই।
+- **SPL3-তে আমরা করতে পারি:** CWEval-এর ছোট subset আজকের ২–৩টা model-এ চালিয়ে func@k বনাম func-sec@k মাপা।
+- **SPL3-তে আমরা করতে পারি:** একই code-এ CodeQL ও outcome test চালিয়ে দেখা কে কতটা ঠিক ধরে (precision, recall)। তারপর ছোট agent-patch সেটে security test যোগ করা।
+
+> **মনে রাখো:**
+> "কাজ করে" আর "কাজ করে এবং নিরাপদ" এক কথা নয়। CWEval দেখিয়েছে অনেক কাজ-করা code আসলে insecure।
+> Security বিচারের ভালো উপায় হলো code চালিয়ে ফল দেখা, শুধু লেখার ধরন দেখা নয়।
+
 ## ১. TL;DR
 
 CWEval বলছে: security-critical code generation মাপতে হলে functionality আর security **একই task, একই generated code**-এ একসাথে test করতে হবে, এবং security-র verdict আসবে static analyzer থেকে নয়, বরং code চালিয়ে দেখা **outcome** (output, time, memory error, data integrity) থেকে। CWEval-Bench-এ সব model-এর func@10 থেকে func-sec@10 প্রায় 30 percentage point পড়ে যায় (Fig. 3; সর্বোচ্চ 35.79 pp Gemini 1.5 Flash-এ)। অর্থাৎ "কাজ করে" আর "কাজ করে এবং secure" — এই দুইয়ের মধ্যে বিশাল ফাঁক।
+
+**সহজ কথায়:** AI-এর লেখা code-এর প্রায় প্রতি তিনটার একটা কাজ করলেও নিরাপদ নয়। আর সেটা ধরার ভালো উপায় code চালিয়ে দেখা।
 
 **Supervisor-কে ৩০ সেকেন্ডে:**
 
@@ -39,15 +100,21 @@ CWEval বলছে: security-critical code generation মাপতে হলে
 - **func@k ও func-sec@k:** pass@k-এর দুটি variant (বিস্তারিত ৬-এ)।
 - **Security-awareness leakage:** task-এর prompt-এ "safe", "secure" জাতীয় hint থাকলে model আলাদা আচরণ করবে; CWEval ইচ্ছা করেই এই hint বাদ দেয়।
 
+**সহজ কথায়:** Static analysis হলো code না চালিয়ে পড়ে বিচার করা। Dynamic analysis হলো code চালিয়ে দেখা কী হলো। CWEval দ্বিতীয়টা বেছে নিয়েছে।
+
 ## ৩. Problem
 
-লেখকরা আগের security benchmark (CyberSecEval, SecurityEval) এর তিনটি সীমাবদ্ধতা চিহ্নিত করেন (Section I):
+লেখকরা আগের security benchmark (CyberSecEval, SecurityEval)-এর তিনটি সীমাবদ্ধতা চিহ্নিত করেন (Section I)। প্রতিটা বিস্তারিত দেখা যাক:
 
 1. **Poorly defined specification:** CyberSecEval vulnerable code open-source repo থেকে automatically mine করে; context হিসেবে আগের কয়েক লাইন বা LLM-generated summary দেয়, যা অস্পষ্ট। SecurityEval self-contained, কিন্তু description এক লাইনের comment, মানুষও ঠিক functionality বুঝতে পারে না। ফলে model-কে no-op code লিখেও "secure" দেখানো সম্ভব — security-র underestimation।
 2. **Rigorous functionality evaluation অসম্ভব:** অস্পষ্ট spec, external dependency-র জটিল setup, এবং comprehensive test না থাকা। তাই আগের কাজ functionality আর security আলাদা benchmark-এ মেপেছে (functionality: HumanEval-জাতীয়; security: আলাদা benchmark)। HumanEval-জাতীয় task algorithm-কেন্দ্রিক, file handling/process creation/sensitive data-র মতো security-critical operation কম। এতে এমন model ভালো score পায় যে algorithm ভালো পারে কিন্তু secure ও functional code লেখে না।
 3. **Security evaluation-এর instability:** সব বিদ্যমান benchmark static analyzer-এর উপর নির্ভর করে। CyberSecEval-এ 1916টির মধ্যে মাত্র 562টি reproduce হয় (analyzer incomplete snippet, syntax error, missing dependency-তে ব্যর্থ)। SecurityEval-এ CodeQL ব্যবহার সত্ত্বেও false negative ও false positive দুটোই আছে (Fig. 1)।
 
 Fig. 1-এর উদাহরণ (URL redirect, CWE-020): `in`, `startswith`, `endswith` ব্যবহার করা দুটি insecure implementation CodeQL ধরে (true positive); কিন্তু সামান্য ভিন্ন দুটি insecure implementation (যেমন `DOMAIN in target_netloc` চলক দিয়ে, বা split-join দিয়ে) ধরা পড়ে না (false negative); আবার একটি secure implementation ভুল করে flag হয় (false positive)।
+
+**সহজ কথায়:** False negative মানে চোর ধরা পড়ল না। False positive মানে নির্দোষকে চোর বলা হলো। CodeQL দুটোই করেছে, তাই তার উপর ভরসা করা যায় না।
+
+**সহজ কথায় (সারকথা):** আগের benchmark-এ প্রশ্ন অস্পষ্ট, functionality আলাদা মাপা, আর বিচারক (static analyzer) ভুল করে। CWEval এই তিনটাই ঠিক করতে চায়।
 
 ## ৪. Goal ও Research Questions
 
@@ -63,7 +130,9 @@ Fig. 1-এর উদাহরণ (URL redirect, CWE-020): `in`, `startswith`, `e
 
 ## ৫. Methodology (ধাপে ধাপে)
 
-**Problem formulation (Section III):** তিনটি উপাদান — task specification P, code implementation I, test oracle T। Functionality-র জন্য f+ (correct)/f− (incorrect), security-র জন্য s+ (secure)/s− (insecure)। Functionality oracle T_f^P এবং security oracle T_s^P। একটি implementation I_{f+,s+}^P হলো যা দুই oracle-ই pass করে; একইভাবে I_{f+,s−}, I_{f−,s+}, I_{f−,s−}।
+**Problem formulation (Section III):** প্রথমে সমস্যাটাকে গাণিতিকভাবে সাজানো হয়েছে (oracle মানে এমন test, যা code ঠিক না ভুল বলে দেয়)। তিনটি উপাদান — task specification P, code implementation I, test oracle T। Functionality-র জন্য f+ (correct)/f− (incorrect), security-র জন্য s+ (secure)/s− (insecure)। Functionality oracle T_f^P এবং security oracle T_s^P। একটি implementation I_{f+,s+}^P হলো যা দুই oracle-ই pass করে; একইভাবে I_{f+,s−}, I_{f−,s+}, I_{f−,s−}।
+
+**সহজ কথায়:** যেকোনো code চারটা খোপের একটাতে পড়ে: কাজ করে ও নিরাপদ, কাজ করে কিন্তু insecure, কাজ করে না কিন্তু নিরাপদ, বা কিছুই না। CWEval চায় প্রথম খোপটা।
 
 **A. Specification-এর তিন শর্ত:**
 
@@ -79,6 +148,8 @@ Fig. 1-এর উদাহরণ (URL redirect, CWE-020): `in`, `startswith`, `e
 - (I_ref)^P_{f+,s−} (কমপক্ষে একটি): সব functionality test pass করে কিন্তু অন্তত একটি security test fail করে — প্রমাণ যে vulnerability বাস্তব, reproducible এবং প্রোগ্রামাররা সম্ভবত এটি গ্রহণ করবে।
 - এগুলো spec ও oracle-এর cross-check; ভবিষ্যতে EvalPlus-স্টাইল differential testing ও oracle augmentation-এর ভিত্তি।
 
+**সহজ কথায়:** শিক্ষক যেমন প্রশ্ন দেওয়ার আগে নিজে একবার সঠিক উত্তর আর একটা ভুল-তবে-কাছাকাছি উত্তর দিয়ে marking scheme যাচাই করেন, এটাও তেমন।
+
 **D. Dataset creation (Section IV):**
 
 1. **Coding task design:** CWE-সংক্রান্ত documentation (MITRE CWE, CodeQL docs) থেকে; প্রতিটি task self-contained; "security semantics isolation" — third-party library dependency যথাসম্ভব বাদ (Fig. 2 দেখায় SecurityEval-এর Flask/redirect sample কীভাবে library-মুক্ত function-এ রূপান্তরিত)।
@@ -88,11 +159,15 @@ Fig. 1-এর উদাহরণ (URL redirect, CWE-020): `in`, `startswith`, `e
 
 **E. Fig. 2-এর উদাহরণ:** `get_target_for_redirect(target, domain)`; secure reference: `netloc == domain_netloc` অথবা `netloc.endswith('.' + domain_netloc)`। Insecure reference: `netloc.endswith(domain_netloc)`। Functionality test: ('https://music.example.com/player', 'example.com') → একই URL। Security test: ('https://attack-example.com', 'example.com') এবং ('https://attack.com/example.com', 'example.com') → ('https://example.com')। Secure reference সব pass করে; insecure reference functionality pass করে কিন্তু security test fail।
 
+**সহজ কথায়:** একই function-এ দুই ধরনের test আছে। সাধারণ URL ঠিকঠাক ফেরত এলে functionality পাস। `attack-example.com`-কে আটকালে security পাস। যে code প্রথমটা পারে কিন্তু দ্বিতীয়টা পারে না, সে-ই "কাজ করে কিন্তু insecure"।
+
 ## ৬. Math
 
 **৬.১ Notation (Section III):** P = specification; I^P = implementation; T_f^P, T_s^P = functionality ও security test oracle। I_{f+,s+}^P এমন যে T_f^P(I) = pass এবং T_s^P(I) = pass।
 
 **৬.২ Metrics (Section V-A):** দুটি metric pass@k-এর unbiased estimator দিয়ে হিসাব হয়।
+
+নিচের সূত্র হিসাব করে: "k বার চেষ্টা করলে অন্তত একবার কাজ-করা-ও-নিরাপদ code পাওয়ার সম্ভাবনা কত", তারপর সব problem-এর গড় নেয়।
 
 $$
 \text{func-sec@}k = \mathbb{E}_{\text{Problems}}\left[1 - \frac{\binom{n-c}{k}}{\binom{n}{k}}\right]
@@ -104,7 +179,11 @@ $$
 - E_Problems = সব problem-এর উপর গড়।
 - func@k একই সূত্র, কিন্তু c = শুধু functionality test pass করা sample সংখ্যা।
 
+**সহজ কথায়:** ১০ বার চেষ্টা করলে যদি অন্তত একবার সঠিক ও নিরাপদ উত্তর আসে, সেটাকে সফল ধরা হয়। এই সফল হওয়ার সম্ভাবনার গড়ই func-sec@10।
+
 **৬.৩ আমার সূত্র — ফাঁক (gap) ও retention:** (এগুলো paper-এ নেই; আমার হিসাব)
+
+প্রথম সূত্র দুই score-এর বিয়োগফল, অর্থাৎ security-র কারণে কতটা সাফল্য হারিয়ে গেল। দ্বিতীয় সূত্র ভাগফল, অর্থাৎ কাজ-করা সমাধানের কত অংশ নিরাপদ।
 
 $$
 \Delta_k = \text{func@}k - \text{func-sec@}k, \qquad R_k = \frac{\text{func-sec@}k}{\text{func@}k}
@@ -118,7 +197,11 @@ $$
 - func@10 = 90.71, func-sec@10 = 65.33 ⇒ Δ_10 = 90.71 − 65.33 = 25.38 pp; R_10 = 65.33 / 90.71 = 72.0%।
 - func@1 = 80.81, func-sec@1 = 50.21 ⇒ Δ_1 = 30.60 pp; R_1 = 62.1%। অর্থাৎ GPT-4o-র একটি functional উত্তরের প্রায় 38% insecure (আমার হিসাব)।
 
+**সহজ কথায়:** GPT-4o যে ১০০টা উত্তর ঠিকভাবে কাজ করায়, তার মধ্যে প্রায় ৩৮টা নিরাপদ নয়।
+
 **৬.৫ Estimator-এর সংখ্যাগত উদাহরণ (আমার হিসাব, কাল্পনিক c):** n = 100, k = 10, কোনো problem-এ c = 10 হলে ফল = 1 − C(90,10)/C(100,10) ≈ 0.6695। c = 5 হলে ≈ 0.4162; c = 2 হলে ≈ 0.1909। অর্থাৎ c ছোট হলেও k বড় করলে pass@k দ্রুত বাড়ে — এজন্য func-sec@50 বিভ্রান্তিকরভাবে বেশি দেখাতে পারে এবং practical risk-এর জন্য @1 বেশি অর্থবহ।
+
+**সহজ কথায়:** যত বেশি বার চেষ্টা করতে দেবে, তত সহজে একটা ভালো উত্তর মিলবে। কিন্তু বাস্তবে আমরা সাধারণত একবারই চেষ্টা করি, তাই @1 বেশি সত্যি ছবি দেয়।
 
 **৬.৬ CyberSecEval reproducibility (আমার হিসাব):** 562 / 1916 = 29.3%, অর্থাৎ paper-এর "less than a third"-এর সাথে সঙ্গতিপূর্ণ।
 
@@ -136,6 +219,8 @@ $$
 | Fine-tuning (RQ.3) | CodeLlama-7b-hf বনাম SafeCoder [23]-এর released fine-tuned checkpoint |
 | Statistics | কোনো confidence interval, seed বা significance test report করা হয়নি |
 
+**সহজ কথায়:** প্রতিটা task-এ একই model থেকে ১০০ বার code নেওয়া হয়েছে। Temperature হলো "কতটা এলোমেলো উত্তর দেবে" তার knob। Greedy মানে প্রতিবার সবচেয়ে সম্ভাব্য একটাই উত্তর। কিন্তু ফল কতটা নির্ভরযোগ্য, তার কোনো পরিসংখ্যান দেওয়া নেই।
+
 ## ৮. Results
 
 **৮.১ RQ.1 — Fig. 3 (best temperature; এই সংখ্যাগুলো figure-এর label থেকে পড়া, প্রতিটি label কোন bar-এর সেটা figure-এর layout থেকে অনুমানকৃত)**
@@ -149,6 +234,8 @@ $$
 | Llama-3.1-8B-Instruct | 60.50 | 33.61 | 80.54 | 48.70 | 31.84 |
 
 Paper-এর text: func@10 থেকে func-sec@10-এ প্রায় 30% পতন, সর্বোচ্চ 35.79% Gemini 1.5 Flash (আমার হিসাব মেলে: 84.65 − 48.86 = 35.79)। Llama 3.1 70B-র func@10 (86.50) Claude 3.5 Haiku-র (85.33) চেয়ে বেশি, কিন্তু func-sec@10 কম (52.59 বনাম 56.48) — functionality র‍্যাঙ্কিং আর security র‍্যাঙ্কিং আলাদা।
+
+**সহজ কথায়:** প্রতিটা model-এর func@10 আর func-sec@10 মধ্যে ২৮–৩৬ point ফাঁক। কেউই এর বাইরে নয়। আর যে model কাজে এগিয়ে, সে নিরাপত্তায় এগিয়ে থাকবে এমন নিশ্চয়তা নেই।
 
 **৮.২ RQ.2 — Table I (n = 100, temperature 0.8)**
 
@@ -164,6 +251,8 @@ Paper-এর text: func@10 থেকে func-sec@10-এ প্রায় 30% �
 | Llama 3.1 70B Instruct | 71.84 | 85.21 | 92.11 | 39.58 | 52.07 | 61.78 |
 | Llama 3.1 8B Instruct | 52.62 | 80.54 | 88.34 | 26.53 | 48.7 | 60.31 |
 
+**সহজ কথায়:** সব সারিতে func-sec সংখ্যা func-এর চেয়ে অনেক ছোট। সবচেয়ে ভালো GPT-4o-ও একবারের চেষ্টায় মাত্র ৫০.২১% নিরাপদ ও সঠিক।
+
 **৮.৩ Gap ও retention (আমার হিসাব, Table I থেকে)**
 
 | Model | Δ@1 pp | Δ@10 pp | Δ@50 pp | R@1 | R@10 |
@@ -177,6 +266,8 @@ Paper-এর text: func@10 থেকে func-sec@10-এ প্রায় 30% �
 | Llama 3.1 405B | 33.07 | 35.23 | 29.06 | 52.2% | 60.4% |
 | Llama 3.1 70B | 32.26 | 33.14 | 30.33 | 55.1% | 61.1% |
 | Llama 3.1 8B | 26.09 | 31.84 | 28.03 | 50.4% | 60.5% |
+
+**সহজ কথায়:** Δ হলো হারানো সাফল্য, R হলো টিকে থাকা অংশ। GPT-4o-তে ৬২% টিকে থাকে, Gemini 1.5 Flash-এ মাত্র ৫০%। অর্থাৎ Flash-এর কাজ-করা code-এর অর্ধেকই insecure।
 
 **৮.৪ RQ.3 — Table II (n = 100, temperature 0.8)**
 
@@ -193,6 +284,8 @@ Paper-এর text: func@10 থেকে func-sec@10-এ প্রায় 30% �
 | CodeLlama-7b-hf | 30.77 | 68.82 | 81.72 | 13.76 | 40.74 | 58.41 |
 | CodeLlama-7b-hf w/ SafeCoder | 15.35 | 33.75 | 41.80 | 7.37 | 18.26 | 24.24 |
 
+**সহজ কথায়:** Prompt-এ একটা বাক্য যোগ করলে func-sec সামান্য বাড়ে, আর func সামান্য কমে। কিন্তু SafeCoder fine-tuning-এ দুটোই প্রায় অর্ধেক হয়ে গেছে।
+
 **৮.৫ Security instruction-এর প্রভাব (আমার হিসাব, Table II)**
 
 | Model | Δ func-sec@1 | Δ func-sec@10 | Δ func@1 |
@@ -201,6 +294,8 @@ Paper-এর text: func@10 থেকে func-sec@10-এ প্রায় 30% �
 | Claude 3.5 Haiku | +3.90 | +9.80 | −2.17 |
 | Gemini 1.5 Flash | +0.84 | +1.16 | −2.47 |
 | Llama 3.1 70B | −2.66 | +1.40 | −6.05 |
+
+**সহজ কথায়:** "secure code লেখো" বললে GPT-4o mini ও Claude Haiku একটু ভালো করে। Llama 70B-তে @1-এ উল্টে খারাপ হয়েছে। তাই এই কৌশল সব model-এ কাজ করে না।
 
 ## ৯. Key findings
 
@@ -211,6 +306,8 @@ Paper-এর text: func@10 থেকে func-sec@10-এ প্রায় 30% �
 5. **Security fine-tuning আসলে security শেখাচ্ছে কি না সন্দেহজনক:** SafeCoder CodeLlama-7b-র func@1 30.77 → 15.35, func-sec@1 13.76 → 7.37 — লেখকদের অনুমান, model security-sensitive code লেখাই এড়াতে শিখছে। আলাদা benchmark-এ এটা ধরা পড়ে না।
 6. **Static analyzer অনির্ভরযোগ্য:** CodeQL-এ false negative ও false positive দুটোই (Fig. 1); CyberSecEval-এ 562/1916 reproducible।
 7. **Spec-এর মান নিয়ন্ত্রণ করা যায়:** security hint ছাড়া, কিন্তু functionality অস্পষ্টতা ছাড়া spec — তাই low func-sec-কে model-এর security দুর্বলতা হিসেবে পড়া যায়, "task বোঝেনি" নয়।
+
+**সহজ কথায়:** তিনটা মূল শিক্ষা। (১) কাজ-করা code প্রায়ই insecure। (২) বড় model একটু বেশি নিরাপদ, কিন্তু যথেষ্ট নয়। (৩) এক বাক্যের prompt বা SafeCoder-এর মতো fine-tuning সহজ সমাধান নয়।
 
 
 ## ১০. কেন বিকল্পের চেয়ে ভালো
@@ -227,6 +324,8 @@ Paper-এর text: func@10 থেকে func-sec@10-এ প্রায় 30% �
 
 মূল সুবিধা: joint metric আলাদা-benchmark pitfall (model security-sensitive কাজই এড়ায়) ধরে।
 
+**সহজ কথায়:** আগের benchmark শুধু একটা দিক মাপত। CWEval একই code-এ দুই দিক মাপে, আর বিচারক হিসেবে code চালানো ফল ব্যবহার করে। তাই ফাঁকি দেওয়া কঠিন।
+
 ## ১১. কখন কাজ করে / কখন ব্যর্থ
 
 **কাজ করে যখন:**
@@ -234,12 +333,16 @@ Paper-এর text: func@10 থেকে func-sec@10-এ প্রায় 30% �
 - Spec যথেষ্ট স্পষ্ট যে functional সফলতা নিশ্চিত।
 - Vulnerability-র একটি স্পষ্ট exploit input আছে।
 
+**সহজ কথায়:** ছোট, আলাদা-করা, চালিয়ে-দেখা-যায় এমন ভুলের জন্য CWEval ভালো কাজ করে।
+
 **ব্যর্থ হতে পারে (আমার পর্যবেক্ষণ, paper-এ স্পষ্ট বলা নেই):**
 - যে vulnerability exploit করতে জটিল state বা multi-step interaction লাগে (যেমন repo-level authentication flow) — task বড় না হলে ধরা কঠিন।
 - Oracle যা পরীক্ষা করেনি এমন variant (insecure কিন্তু test input-এ ধরা পড়ে না) — false negative সম্ভব; paper এই oracle-completeness কোনোভাবে মাপেনি।
 - Library-dependent real-world কোড, যেখানে security semantics isolation করা যায় না।
 
 ## ১২. Limitations
+
+নিচে প্রথমে লেখকরা নিজে যা মেনেছেন, তারপর আমার চোখে যা ধরা পড়েছে।
 
 **Authors-এর স্বীকৃত:**
 - Task সংখ্যা সীমিত (119) মানব সম্পদের কারণে; benchmark augment করা যেতে পারে।
@@ -257,6 +360,8 @@ Paper-এর text: func@10 থেকে func-sec@10-এ প্রায় 30% �
 8. **Security-instruction এক বাক্যে সীমাবদ্ধ:** ইচ্ছাকৃত, কিন্তু উপরের-সীমা (best-case prompting) জানা যায় না।
 9. **Paper-internal অসঙ্গতি:** ১৮ নম্বর Q8-এ তালিকা।
 
+**সহজ কথায়:** Paper ভালো, কিন্তু ছোট (১১৯ task), পুরোনো model-এর, আর পরিসংখ্যানে দুর্বল। আর test নিজে কতটা নির্ভুল, সেটা কেউ মাপেনি।
+
 ## ১৩. Research gaps
 
 | G-id | Gap | Evidence | Related CG / sub-domain |
@@ -271,6 +376,8 @@ Paper-এর text: func@10 থেকে func-sec@10-এ প্রায় 30% �
 | G8 | Benchmark contamination ও freshness পরীক্ষা নেই | Public GitHub release, task সংখ্যা স্থির 119 | CG6 |
 | G9 | Gaming: agent security-test না দেখে/দেখে কীভাবে আচরণ করে অজানা | Spec-এ hint নেই, কিন্তু hidden-test আচরণ পরীক্ষিত নয় | CG12, CG5 |
 
+**সহজ কথায়:** সবচেয়ে বড় ফাঁক হলো পুরো repository-তে agent-এর patch-এর security মাপার উপায় নেই। তাছাড়া test নিজের মান, variance আর contamination (benchmark আগে থেকে model-এর শেখা থাকা) নিয়ে প্রশ্ন বাকি।
+
 **নতুন CG প্রস্তাব (CG20):** "Joint functional-and-secure outcome verdict for agent patches" — static scanner-এর বদলে/সঙ্গে outcome-driven security oracle এবং functional pass-এর সাথে joint report (CWEval-এর func-sec ধারণার repo-level সম্প্রসারণ)।
 
 ## ১৪. Improvement ideas
@@ -283,12 +390,16 @@ Paper-এর text: func@10 থেকে func-sec@10-এ প্রায় 30% �
 6. **Time/memory budget-কে tunable parameter করা:** DoS oracle-এর threshold-sensitivity বিশ্লেষণ।
 7. **Prompt-variant study:** security hint-এর বিভিন্ন মাত্রা (generic, CWE-specific, example-সহ) এবং তার cost।
 
+**সহজ কথায়:** এই ধারণাগুলোর মূল কথা হলো CWEval-কে repo-level agent patch পর্যন্ত নিয়ে যাওয়া, আর test-কে নিজেই যাচাই করা।
+
 ## ১৫. Publication potential (SPL3-feasible)
 
 - **সম্ভাব্য contribution:** "Joint functional-and-secure verdict as a component of an assurance report for agent patches" — CWEval-এর outcome-driven নীতি একটি ছোট agent-patch dataset-এ প্রয়োগ এবং static scanner-এর সাথে পরিমাণগত তুলনা।
 - **SPL3-feasible অংশ:** 20–40টি CWE-সম্পর্কিত task-এ (CWEval-এর task পুনর্ব্যবহার, বা সরল extension) multi-model func vs func-sec gap পুনরায় মাপা; static scanner বনাম outcome oracle-এর precision/recall।
 - **Venue ধরন:** workshop বা student-research track (বাস্তবসম্মত); full conference-এর জন্য নতুন dataset বা নতুন finding লাগবে।
 - **ঝুঁকি:** CWEval-এর task public — contamination; novelty সীমিত যদি শুধু পুনরায় মাপা হয়; তাই agent-patch স্তরের joint verdict বা current-model gap মূল novelty হতে হবে।
+
+**সহজ কথায়:** শুধু আবার মাপলে নতুনত্ব কম। নতুন কিছু দিতে হলে agent patch-এ joint verdict বা আজকের model-এর ফাঁক দেখাতে হবে।
 
 ## ১৬. SPL3 implementation
 
@@ -301,7 +412,9 @@ Paper-এর text: func@10 থেকে func-sec@10-এ প্রায় 30% �
 5. Report: patch-প্রতি আলাদা signal (functional, security-outcome, security-static), যোগ করে একক score নয় (CG12-এর পাঠ); "could not verify" আলাদা outcome।
 6. Statistics: bootstrap CI, paired McNemar, একাধিক seed।
 
-**Cost-aware পরিকল্পনা:** n = 100 sample × 119 task × কয়েক model ব্যয়বহুল; SPL3-তে n = 10–20 ও 1–2 সস্তা model দিয়ে শুরু, পরে ছোট subset-এ বেশি n।
+**সহজ কথায়:** আগে CWEval নিজের মেশিনে চালাও। তারপর scanner-এর সাথে তুলনা করো। শেষে ছোট agent task-এ একই ধারণা চালাও।
+
+**Cost-aware পরিকল্পনা:** n = 100 sample × 119 task × কয়েক model ব্যয়বহুল (অনেক টাকা লাগবে); SPL3-তে n = 10–20 ও 1–2 সস্তা model দিয়ে শুরু, পরে ছোট subset-এ বেশি n।
 
 ## ১৭. Influence / link to earlier sub-domains
 
@@ -311,6 +424,8 @@ Paper-এর text: func@10 থেকে func-sec@10-এ প্রায় 30% �
 - **Sub-domain 4 (Test generation):** CoverUp/TestDecision-এর "coverage ≠ oracle strength" CWEval-এর "security oracle-ই আলাদা property মাপে" ধারণার প্রতিধ্বনি।
 - **Sub-domain 5 (Patch Validation):** Harden and Catch-এর hardening test ও HITL Judge-এর প্রসঙ্গ — security-ও একটি আলাদা validation signal হওয়া উচিত।
 - **Research direction-এর জন্য:** assurance report-এ "security scan" আইটেমকে static scanner থেকে outcome-driven dynamic oracle-এ আপগ্রেড করা (CG5 → CG20)।
+
+**সহজ কথায়:** এই paper আমাদের বড় ছবির একটা অংশ জোগায়: শুধু "test পাস করেছে" বললে হবে না, "নিরাপদও" বলতে হবে।
 
 ## ১৮. Supervisor Q&A
 
@@ -379,6 +494,8 @@ A. আছে: (ক) "four LLMs" বলা হলেও Fig. 3-এ Llama 3.1 8B �
 | Prompt injection | কথা হয়নি | Opus 5.5 injection success 54.61% safeguard ছাড়া, 11.13% সহ (V, vendor-reported) |
 | Gaming | বিবেচিত নয় | METR: ≥16% সফল long-task run cheat (I, আগের প্রজন্ম); Opus 5.5 card-এ hidden-tests reasoning ও git concealment (V) |
 
+**সহজ কথায়:** ২০২৫-এ ফাঁক ছিল function-level-এ প্রায় ৩০ point। ২০২৬-এ agent task-এ ফাঁক আরও বড় দেখা যাচ্ছে। সংখ্যাগুলো সরাসরি তুলনীয় নয়, শুধু দিক বোঝায়।
+
 ### ২১.২ এখনও সত্য / পুরোনো
 
 **এখনও সত্য:**
@@ -401,11 +518,15 @@ A. আছে: (ক) "four LLMs" বলা হলেও Fig. 3-এ Llama 3.1 8B �
 | Oracle completeness মাপা | কোনো current ডেটা নেই | CG13, G2 |
 | Prompt injection ও insecure code আলাদা অক্ষ | আলাদা মাপা হচ্ছে, একত্রে নয় | CG18 |
 
+**সহজ কথায়:** আজকের model-এ CWEval-ধরনের joint ডেটাই নেই। তাই ফাঁক বন্ধ হয়েছে কি না নিশ্চিত বলা যায় না। এটাই আমাদের জন্য সুযোগ।
+
 ### ২১.৪ SPL3 idea (current model, cost-aware)
 
 - Cost per task (Vals Terminal-Bench 4.0, I): Opus 5.5 13.20 USD, Kimi K3.1 Pro 4.57 USD, GPT-6.1 Sol 1.72 USD। CWEval-Bench-এর function-level task অনেক সস্তা (ছোট prompt); তাই 119 task × n = 20 sample একটি সস্তা model (GPT-6.1 Sol বা Kimi K3.1 Pro) এবং একটি শক্তিশালী model (Opus 5.5) দিয়ে চালানো সম্ভব।
 - পরিকল্পনা: (১) CWEval-এর core Python/C subset এই 2–3 model-এ n = 20, k = 1, 5, 10; (২) func-sec@k ও Δ_k, R_k report, bootstrap CI সহ; (৩) একই code-এ CodeQL চালিয়ে scanner বনাম outcome oracle-এর precision, recall, specificity; (৪) পরিমাণগত তুলনা: Δ আজকের model-এ 2025-এর ≈ 30 pp-র কাছে আছে, না কমেছে (বর্তমান model-এর তথ্য পাওয়া যায়নি — এটাই প্রধান নতুন ফল হতে পারে)।
 - Contamination সতর্কতা: CWEval public, তাই 2026 model train-এ দেখে থাকতে পারে; তাই কিছু fresh variant task নিজে লিখে তুলনা।
+
+**সহজ কথায়:** সস্তা ও দামি model দিয়ে ছোট আকারে চালাও। প্রশ্ন আগে থেকে মুখস্থ থাকলে ফল বেশি ভালো দেখাবে, তাই কিছু নতুন প্রশ্ন নিজে বানাও।
 
 ### ২১.৫ তিনটি Q&A
 

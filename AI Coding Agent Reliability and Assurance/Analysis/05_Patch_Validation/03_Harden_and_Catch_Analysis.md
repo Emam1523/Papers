@@ -17,15 +17,70 @@
 | Experiments | নেই। Meta-র deployment (ACH) নিয়ে শুধু গুণগত বর্ণনা (Section 2.5); কোনো সংখ্যাগত ফলাফল এই paper-এ নেই |
 | Code / data | নেই |
 
+## ★ সহজ ভাষায় পুরো Paper (প্রথমবার পড়ার জন্য)
+
+### ক. Paper-টা কী নিয়ে?
+
+- এটা কোনো experiment-এর paper নয়। এটা একটা **position paper** (লেখকেরা নিজেদের ভাবনা ও যুক্তি সাজিয়ে বলেন, কোনো পরীক্ষা চালান না)।
+- লিখেছেন Mark Harman, Peter O'Hearn আর Shubho Sengupta। প্রথম দুজন Meta-তে কাজ করেন।
+- এটা FSE 2025 সম্মেলনের keynote বক্তৃতার সঙ্গে লেখা হয়েছে।
+- বিষয়: LLM দিয়ে software test বানালে সেই test কতটা ভরসাযোগ্য হবে, আর কখন সেটা engineer-কে দেখানো নিরাপদ।
+- Paper নতুন কিছু **সংজ্ঞা** (definition) দেয়, test-কে ৮ ভাগে ভাগ করে, আর ৪টা খোলা প্রশ্ন (Research Challenge) রেখে যায়।
+
+### খ. সমস্যাটা কী ছিল?
+
+- আগের প্রায় সব automatic test-generator শুধু এমন test বানাত যা **এখনকার কোডে pass করে**। উদ্দেশ্য: ভবিষ্যতে কেউ কোড ভাঙলে যেন test ধরে ফেলে।
+- কিন্তু এখনকার কোডেই যদি bug থাকে, এই test সেটা কখনো ধরবে না। কারণ test-কে তো pass করতেই হবে!
+- উদাহরণ: একটা function ভুল করে `None` ফেরত দেয়। Test লেখা হলো `assertTrue(not locs)`। Python-এ `not None` মানে `True`। তাই bug থাকা সত্ত্বেও test pass করে।
+- এটা অনেকটা এমন: পরীক্ষার খাতা যে দেখছে, সে উত্তরপত্র না দেখে শুধু "আগের বছরের খাতার সঙ্গে মিল আছে কি না" দেখছে। আগের বছরেও ভুল থাকলে সে ভুল ধরা পড়বে না।
+- Paper এই ফাঁদের নাম দিয়েছে **Regression Only Trap**। আসল কঠিন কাজ হলো: নতুন code-change জমা পড়ার মুহূর্তেই এমন test বানানো, যা ওই change-এর bug ধরে।
+
+### গ. Paper কী solve করেছে?
+
+- **Hardening test** আর **Catching test** এই দুটো ধারণাকে স্পষ্ট সংজ্ঞা দিয়েছে। Hardening = এখন pass, ভবিষ্যৎ ভাঙন ঠেকায়। Catching = এখনই fail করে bug ধরে।
+- প্রতিটা test কতটা "সঠিক" তা বোঝাতে **weak** আর **strong** ভাগ করেছে। এর থেকে মোট **৮ রকম** test বের হয়েছে: ৫ রকম বিভ্রান্তিকর signal দেয়, মাত্র ৩ রকম নির্ভরযোগ্য।
+- মাপার নতুন উপায় প্রস্তাব করেছে: **R@P=α**। মানে precision অন্তত α রেখে যত বেশি recall পাওয়া যায়।
+- Meta-র deployment থেকে ঠিক করেছে কোন outcome-এ test land হবে, কোনটায় শুধু signal যাবে, আর কোনটা বাদ যাবে।
+- ফলের সবচেয়ে গুরুত্বপূর্ণ সংখ্যা:
+  - **α = 0.8**: মানে প্রতি ৪টা সত্যিকারের catch-এর সঙ্গে সর্বোচ্চ ১টা ভুল alarm।
+  - **৮ region, ৫ + ৩**: মানে ৮ রকম test-এর মধ্যে ৫টা ভরসা করা যায় না।
+  - **8 ঘণ্টা বনাম 1.75 ঘণ্টা**: CI-তে বিশ্লেষণের জন্য প্রায় ৮ ঘণ্টা সময় থাকে, অথচ প্রথম মানুষ-review আসে মাত্র দেড়-পৌনে দুই ঘণ্টায়।
+
+### ঘ. কীভাবে solve করেছে?
+
+1. আগে একটা ছোট গাণিতিক কাঠামো ঠিক করেছে: repository-র প্রতিটা version-এর একটা parent আছে, আর test pass/fail/build হতে পারে।
+2. "Timely test" ঠিক করেছে: যে test change জমা পড়ার সময়ই হাজির, সেটাই timely। যে test শুধু নতুন change-এর জন্য timely, সেটা JiTTest (Just-in-Time Test)।
+3. **Oracle** ধরেছে: "এই test-এর আসলে pass করা উচিত না fail?" এই রায় কে দেবে, তার সহজ উত্তর হলো PR-এর লেখক।
+4. Hardening আর catching-কে weak/strong ভাগ করে সংজ্ঞা দিয়েছে (Definition 6 থেকে 15)।
+5. Parent-এ আর child-এ test-এর অবস্থা (নেই / weak / strong) মিলিয়ে ৮টা region বের করেছে (Figure 1)।
+6. তিনটা table বানিয়েছে: কোন outcome-এ কী ঘটে (Table 1, 2) আর oracle না জানলে কী সিদ্ধান্ত নেওয়া ভালো (Table 3)।
+7. Oracle না থাকলে PR-এর title, comment, CI history থেকে LLM দিয়ে ইঙ্গিত **নিংড়ে** নেওয়ার (scavenging) ধারণা দিয়েছে।
+8. শেষে ৪টা Research Challenge দিয়ে বলেছে, এগুলো এখনো কেউ সমাধান করেনি।
+
+### ঙ. এরপর কী করা যায়?
+
+- **লেখকেরা বলেন:** Catching JiTTest Challenge সমাধান করতে হবে, আর weak/strong test স্বয়ংক্রিয়ভাবে আলাদা করতে হবে।
+- **এখনো খোলা:** কোনো experiment নেই। R@P=0.8 আদৌ পাওয়া যায় কি না, কেউ মাপেনি।
+- **খোলা:** Parsimonious PR (প্রায় কিছুই লেখা নেই এমন PR) থেকে oracle কীভাবে পাওয়া যাবে, আর LLM-এর নিজের লেখা summary দিয়ে নিজেকেই বিচার করার circularity।
+- **আমরা SPL3-তে পারি:** Agent-এর patch-কে "child" আর patch-এর আগের repo-কে "parent" ধরে test বানিয়ে দুই জায়গাতেই চালাতে পারি।
+- **আমরা পারি:** ছোট একটা SWE-rebench (GitHub-এর বাস্তব issue থেকে বানানো নতুন benchmark) subset-এ test-গুলোকে ৮ region-এ ফেলে কত test আসলে weak তা মাপতে পারি।
+- **আমরা পারি:** R@P=0.8 দিয়ে বিভিন্ন test-generator-এর তুলনা করতে পারি, আর test-লেখা agent-কে patch-লেখা agent থেকে আলাদা রাখতে পারি।
+
+> **মনে রাখো:**
+> শুধু "এখন pass করে" এমন test দিয়ে patch-এর সত্যিকারের ভুল ধরা যায় না। চাই এমন test, যা ভুল patch-এ fail করে আর সঠিক patch-এ pass করে।
+> এই paper পরীক্ষা করে না, শুধু সংজ্ঞা আর সমস্যার মানচিত্র দেয়। মাপার কাজটা আমাদের।
+
 ## ১. TL;DR
 
-**এক বাক্যে:** Paper বলে প্রচলিত test generation আসলে শুধু hardening test (ভবিষ্যৎ regression ঠেকানো) বানায়, তাই সে "Regression Only Trap"-এ আটকে থাকে। আসল বড় চ্যালেঞ্জ হলো pull request জমা পড়ার মুহূর্তে "catching" test বানানো, যা ওই PR-এর bug ধরে (Catching JiTTest Challenge)।
+**এক বাক্যে:** Paper বলে প্রচলিত test generation আসলে শুধু hardening test (ভবিষ্যৎ regression ঠেকানো; regression = আগে ঠিক চলা জিনিস নতুন পরিবর্তনে ভেঙে যাওয়া) বানায়, তাই সে "Regression Only Trap"-এ আটকে থাকে। আসল বড় চ্যালেঞ্জ হলো pull request (PR = কোড বদলের প্রস্তাব, যা review-এর জন্য জমা দেওয়া হয়) জমা পড়ার মুহূর্তে "catching" test বানানো, যা ওই PR-এর bug ধরে (Catching JiTTest Challenge)।
 
-- **Hardening test** = current revision-এ pass করে, কিন্তু ভবিষ্যতের কোনো buggy revision-এ (oracle অনুযায়ী) fail করতে পারে।
-- **Catching test** = current revision-এ fail করে। Strong হলে oracle-ও বলে এটা সত্যিই fail হওয়া উচিত।
+- **Hardening test** = current revision-এ (revision = কোডের একটি নির্দিষ্ট সংস্করণ) pass করে, কিন্তু ভবিষ্যতের কোনো buggy revision-এ (oracle অনুযায়ী) fail করতে পারে।
+- **Catching test** = current revision-এ fail করে। Strong হলে oracle-ও (oracle = test-এর আসলে pass না fail করা উচিত, সেই সঠিক রায়) বলে এটা সত্যিই fail হওয়া উচিত।
 - Weak/strong ভাগ থেকে ৮টি test category তৈরি হয়: ৫টি বিভ্রান্তিকর signal, ৩টি নির্ভরযোগ্য signal।
 - Precision এবং recall আলাদা বা F1 হিসেবে না মেপে **R@P=α** (precision অন্তত α রেখে সর্বোচ্চ recall) মাপার প্রস্তাব; উদাহরণে α = 0.8।
 - Oracle-কে "জানা বা অজানা" না ভেবে "খরচ করার মতো ক্রমিক resource" ভাবতে বলে; PR-এর non-executable text (title, comment) থেকে oracle "scavenge" করার ধারণা দেয়।
+
+**সহজ কথায়:** Paper বলে, শুধু "আগের মতোই চলছে" এমন test যথেষ্ট নয়। দরকার এমন test যা নতুন change-এর ভুল ধরতে পারে। কিন্তু কোনটা ভুল, তা জানার উপায়টাও ধাপে ধাপে খরচ করে জোগাড় করতে হয়।
 
 **Supervisor-কে ৩০ সেকেন্ডে:**
 
@@ -55,6 +110,8 @@
 - আসল অমীমাংসিত সমস্যা: PR জমা পড়ার মুহূর্তে এমন test বানানো যা ওই PR-এর bug ধরে, কিন্তু সঠিক PR-এ false alarm দেয় না। এখানে oracle-এর একমাত্র উৎস প্রায়ই PR নিজে, যা খুব সংক্ষিপ্ত।
 - Deployment প্রশ্নও অমীমাংসিত: কোন outcome-এ test land হবে, কোনটায় শুধু signal যাবে, কোনটা discard হবে।
 
+**সহজ কথায়:** সবাই সহজ পথটা নিয়েছে, তাই test শুধু পুরোনো আচরণ পাহারা দেয়। নতুন change-এর bug ধরার কাজটা কেউ ঠিকমতো করেনি। আর test land (মূল code-base-এ যোগ) করব কি না, সেই সিদ্ধান্তও পরিষ্কার ছিল না।
+
 ## ৪. Goal ও Research Questions
 
 **Goal:** hardening/catching ধারণাগুলো formal করা, test outcome-এর case-by-case বিশ্লেষণে deployment নীতি বের করা, এবং open research challenge চিহ্নিত করা।
@@ -67,6 +124,8 @@ Paper-এর চারটি Research Challenge (প্রতিটি paper-এ
 | RC2 | Weak hardening থেকে strong hardening স্বয়ংক্রিয়ভাবে আলাদা করা (partial oracle ব্যবহার করে human oracle effort কমানো) | ৫.১ |
 | RC3 | Regression catching এবং false positive স্বয়ংক্রিয়ভাবে আলাদা করা (strictly weak catching-এর ঝুঁকি কমানো) | ৫.১ |
 | RC4 | **Catching JiTTest Challenge:** buggy PR ও তার parent দেওয়া থাকলে এমন test বানানো যা PR-এর bug ধরে, non-buggy PR-এ false positive-এর ঝুঁকি কম রেখে। মান = JiTTest-এর R@P=α, যেমন α = 0.8 | ৬ |
+
+**সহজ কথায়:** চারটা প্রশ্নের মধ্যে RC4-ই আসল বড় প্রশ্ন। বাকি তিনটা তার প্রস্তুতি: test-কে ঠিক ভাগে ফেলা, weak আর strong আলাদা করা, আর সত্যিকারের catch আর ভুল alarm আলাদা করা।
 
 Paper-এর RQ-ধরনের অন্তর্নিহিত প্রশ্ন: (ক) কখন একটি test-signal engineer-কে দেখানো নিরাপদ, (খ) parsimonious PR থেকেও কি fake catch বাদ দেওয়ার মতো oracle তথ্য মেলে।
 
@@ -84,12 +143,16 @@ Paper-এর "পদ্ধতি" হলো একটি **বিশ্লেষ
 8. **Oracle scavenging:** LLM দিয়ে code ও natural language (comment, PR title, CI history) একসঙ্গে পড়ে oracle সংকেত বের করা (Section 6.2–6.4)।
 9. **Latent bug অনুসন্ধান (Section 6.5):** কোডের একটি অংশ delete করে নতুন PR হিসেবে re-insert করলে JiTTest দিয়ে latent bug পাওয়া যায়; বারবার করে পুরো code base হাঁটা যায়।
 
+**সহজ কথায়:** Paper-এর পদ্ধতি কোনো program নয়। এটা চিন্তার একটা কাঠামো: আগে শব্দগুলোর সংজ্ঞা, তারপর test-এর ৮ ভাগ, তারপর কোন ভাগে কী করা উচিত তার সিদ্ধান্ত-table।
+
 **Meta-র deployment-এর যা বলা আছে (Section 2):**
 
 - Sapienz: ২০১৭ থেকে client-side end-to-end test; Fausta: ২০২১ থেকে WhatsApp server-side।
 - Unit-level: TestGen-LLM (FSE 2024), ACH (mutation-guided, FSE 2025, arXiv 2501.12862)।
 - ACH ছয়টি assurance দেয়: (১) Buildable, (২) Valid Regression Test (pass ও non-flaky), (৩) Hardening (এমন fault ধরে যা অন্য কোনো existing test ধরে না), (৪) Additional Coverage, (৫) Relevant, (৬) Fashion Following। প্রথম চারটি verifiable/falsifiable; শেষ দুটি আকাঙ্ক্ষামূলক।
 - ACH-এ mutant নিশ্চিতভাবে killed হয়, তাই equivalent mutant সমস্যা এড়ানো যায়।
+
+**সহজ কথায়:** ACH মানে Meta-র একটা test-বানানো tool। সে ইচ্ছা করে কোডে ছোট bug বসায়, তারপর এমন test বানায় যা সেই bug ধরে। তাই test-এর যে সত্যিই কাজ আছে, তার প্রমাণ থাকে।
 - Engineer-এর রায়: irrelevant মনে হওয়া test-ও coverage বাড়ালে বেশি গ্রহণযোগ্য ছিল (গুণগত পর্যবেক্ষণ; সংখ্যা [5, 29]-এ, এই paper-এ নেই)।
 
 **Timing যুক্তি (Section 2.4):**
@@ -97,6 +160,8 @@ Paper-এর "পদ্ধতি" হলো একটি **বিশ্লেষ
 - Real time-এর utility-ভিত্তিক সংজ্ঞা (Definition 1, [8] থেকে): consumer অপেক্ষার সময় কমলেও আরও ভালো করতে পারে না।
 - PR-এর প্রথম মানব-response-এর median সময় 1.75 ঘণ্টা (study [42]; এতে instant bot ধরা, তাই কম ধরা হয়ে থাকতে পারে); industry aspiration প্রায় 8 ঘণ্টা ([62])।
 - তাই JiTTest-এ প্রায় 8 ঘণ্টা static ও dynamic analysis-এর সুযোগ আছে।
+
+**সহজ কথায়:** মানুষ review করতে আসার আগেই আমাদের হাতে প্রায় ৮ ঘণ্টা থাকে। এই সময়ে কোড না চালিয়ে (static) এবং চালিয়ে (dynamic) দুভাবেই test বানানো ও যাচাই করা যায়।
 
 ## ৬. Math (formalism)
 
@@ -109,6 +174,8 @@ Paper-এর "পদ্ধতি" হলো একটি **বিশ্লেষ
 - True negative: Passes_r(t) এবং Oracle_r(t) = pass।
 - False negative: Passes_r(t) এবং Oracle_r(t) = fail।
 
+**সহজ কথায়:** Test fail করলে আর oracle-ও বললে "fail-ই ঠিক", তাহলে signal সত্য। Test pass করল অথচ আসলে fail করা উচিত ছিল, তাহলে test bug মিস করেছে (false negative)।
+
 **৬.২ Weak ও strong hardening (Definition 6, 7).**
 
 $$
@@ -118,6 +185,8 @@ $$
 $$
 \mathrm{SHardening}_r(t) \iff \mathrm{Hardening}_r(t) \land \mathrm{Oracle}_r(t) = \text{pass}
 $$
+
+এই দুই formula হিসাব করে: একটা test ভবিষ্যতের অন্তত একটা buggy version ধরতে পারে কি না (weak), আর ধরার পাশাপাশি এখনকার version-এও সঠিকভাবে pass করে কি না (strong)।
 
 - r' = r-এর কোনো সম্ভাব্য ভবিষ্যৎ child (mutant-এর মতো)। Weak hardening মানে "অন্তত একটি buggy child-এ ঠিকভাবে fail করবে"।
 - Strong হলে এর সঙ্গে current revision-এও pass করা সঠিক (true negative)।
@@ -133,6 +202,8 @@ $$
 \mathrm{PRHardening}_r(t) \iff \mathrm{Hardening}_r(t) \land \forall r'.\ \big(\mathrm{Oracle}_{r'}(t) = \text{fail} \to \mathrm{Fails}_{r'}(t)\big)
 $$
 
+এই দুই formula হিসাব করে: precision-এর দিক থেকে test fail করলে কি সবসময় সত্যিই bug থাকে, আর recall-এর দিক থেকে bug থাকলে কি test সবসময় fail করে।
+
 - দুটি মিলিয়ে perfect precision and recall: প্রতিটি সম্ভাব্য ভবিষ্যৎ revision-এ test fail করে **ঠিক তখনই** যখন revision buggy।
 - Paper বলে perfect precision অর্জনযোগ্য নয় (প্রশ্নগুলো মূলত undecidable) এবং exhaustive testing অসম্ভব বলে perfect recall-ও নয়।
 
@@ -146,11 +217,15 @@ $$
 \mathrm{SCatching}_r(t) \iff \mathrm{Fails}_r(t) \land \mathrm{Oracle}_r(t) = \text{fail}
 $$
 
+এই দুই formula হিসাব করে: test এখনকার version-এই fail করছে কি না (catching), আর strong হলে oracle-ও কি বলে যে fail করাই ঠিক।
+
 **৬.৫ Regression catching (Definition 12, 13).** Catching এবং parent-এর জন্য hardening, দুটিই। Strong রূপ paper নিজে সরল করেছে:
 
 $$
 \mathrm{SRCatching}_r(t) \iff \mathrm{Passes}_{P}(t) \land \mathrm{Fails}_r(t) \land \mathrm{Oracle}_r(t) = \text{fail}
 $$
+
+এই formula হিসাব করে: parent-এ pass করে আর child-এ সঠিকভাবে fail করে, এমন test কি না। অর্থাৎ child-ই নতুন regression ঘটিয়েছে।
 
 ব্যাখ্যা: parent P-তে pass করছে এবং r-এ সঠিকভাবে fail করছে। (Hardening_P-এর ∃-শর্ত এখানে r নিজেই সাক্ষী হিসেবে সন্তুষ্ট করে দেয়, তাই বাদ গেছে।)
 
@@ -160,6 +235,8 @@ $$
 \mathrm{SFCatching}_r(t) \iff \big(\neg \mathrm{Builds}_{P}(t) \lor \mathrm{Fails}_{P}(t)\big) \land \mathrm{Fails}_r(t) \land \mathrm{Oracle}_r(t) = \text{fail}
 $$
 
+এই formula হিসাব করে: test নতুন functionality-র bug ধরছে কি না। Parent-এ test হয় build হয় না (কারণ method নতুন), নয়তো parent-এ fail করে, আর child-এ সঠিকভাবে fail করে।
+
 Weak রূপে শেষ শর্ত বদলে "∃ সহোদর revision r'' (Parent(r'') = P) যেখানে t সঠিকভাবে fail করে" বসে; এটাই সংজ্ঞার অস্বস্তিকর অতিরিক্ত শর্ত যা paper নিজেও উল্লেখ করেছে।
 
 **৬.৭ Just-in-Time test (Definition 3, 4).**
@@ -167,6 +244,8 @@ Weak রূপে শেষ শর্ত বদলে "∃ সহোদর revis
 $$
 \mathrm{JiT}_r(t) \iff \mathrm{Timely}_r(t) \land \neg \mathrm{Timely}_{P}(t)
 $$
+
+এই formula হিসাব করে: test কি শুধু child-এর জন্য সময়মতো হাজির, parent-এর জন্য নয়। এই শর্ত পূরণ হলেই সেটা JiTTest।
 
 **৬.৮ Real time (Definition 1).** ফল U-তে consumer-এর utility হলে, অপেক্ষার সময় d কমলে U আর বাড়ে না, তখন ফল "real time"।
 
@@ -180,12 +259,16 @@ $$
 R@P{=}\alpha \;=\; \max\{\, R(\tau) \;:\; P(\tau) \geq \alpha \,\}
 $$
 
+প্রথম formula দুটো হিসাব করে: দেখানো signal-এর কত অংশ সত্য (precision), আর মোট সত্যিকারের bug-এর কত অংশ ধরা পড়ল (recall)। শেষ formula বলে: precision অন্তত α রেখে সর্বোচ্চ কতটা recall পাওয়া যায়।
+
 - τ = test-এর signal দেখানোর কোনো সিদ্ধান্ত-সীমা (threshold) বা নীতি; α = ন্যূনতম precision।
 - P ≥ α হলে false positive ও true positive-এর অনুপাত:
 
 $$
 \frac{FP}{TP} \leq \frac{1-\alpha}{\alpha}
 $$
+
+এই formula হিসাব করে: precision α-র ওপরে থাকলে ভুল alarm আর সত্য alarm-এর অনুপাত সর্বোচ্চ কত হতে পারে।
 
 - F1 = 2PR/(P+R) নিষিদ্ধ করা হয়নি, তবে paper বলে F1 precision ও recall-কে বিনিময়যোগ্য পণ্য ধরে নেয়, যা industry deployment-এ ঠিক নয়।
 - Recall সরাসরি মাপা যায় না; অনুমান করা হয় mutation testing (fault space sampling) বা production-এ leak-through (false negative-এর নিম্নসীমা) দিয়ে।
@@ -199,6 +282,8 @@ $$
 3. পরের PR (Example 5) constructor-এ None বসিয়ে দিলে Example 2 fail করে, Oracle = fail, parent-এ pass করত; অতএব Strong Regression Catching (Region 6)। Example 1 ওই PR-এ pass করে, কিছুই ধরে না।
 
 **(খ) Precision threshold α = 0.8 (paper-এর সংখ্যা).** FP/TP ≤ (1 − 0.8)/0.8 = 0.25, অর্থাৎ ১:৪। (আমার হিসাব)। মানে প্রতি ৪টি সত্যিকারের catch-এর বিপরীতে সর্বোচ্চ ১টি false alarm। Paper বলে engineer ২০% সময় friction সহ্য করবে যদি বাকি ৮০% সত্যিকার catch হয়।
+
+**সহজ কথায়:** α = 0.8 মানে ১০টা signal-এর মধ্যে ৮টা সত্য হতে হবে। বাকি ২টা ভুল হলে engineer বিরক্ত হলেও মেনে নেবে।
 
 **(গ) কাল্পনিক R@P (আমার হিসাব, paper-এর তথ্য নয়).** ধরি কোনো JiTTest generator ১০টি signal দেখাল: ৮টি true positive, ২টি false positive। P = 8/10 = 0.8, α = 0.8 পূরণ হয়। ১০০টি injected mutant-এর মধ্যে ৮টি ধরা পড়লে recall অনুমান R = 8/100 = 0.08, অতএব এই generator-এর R@P=0.8 ≈ 0.08। এই সংখ্যা সম্পূর্ণ উদাহরণ; উদ্দেশ্য দেখানো যে precision শর্ত পূরণ হলেও recall-এর আলাদা মান থাকে।
 
@@ -221,6 +306,8 @@ $$
 | Metric প্রস্তাব | R@P=α, α = 0.8 (conservative পছন্দ) |
 | Statistics | নেই |
 
+**সহজ কথায়:** এই paper-এ কোনো dataset, model বা পরিসংখ্যান নেই। সব উদাহরণ কাল্পনিক product database থেকে নেওয়া।
+
 ## ৮. Results (কাঠামোগত ফলাফল; সংখ্যাগত experiment নেই)
 
 **৮.১ আনুষ্ঠানিক ফলাফল ও সংখ্যা**
@@ -235,6 +322,8 @@ $$
 | Engineer review-এ বাদ পড়া সমস্যাজনক category | ৩ / ৫ (Region 1, 3, 5) | Section 5.1 |
 | Research Challenge | ৪ | Section 4, 5.1, 6 |
 | Table 1 / 2 / 3 সারি | ১০ / ২৪ / ৮ (আমার গণনা) | Table 1–3 |
+
+**সহজ কথায়:** সংখ্যাগুলো কোনো পরীক্ষার ফল নয়, সংজ্ঞা আর বিশ্লেষণের গণনা। বেশি মনে রাখার মতো: α = 0.8, ৮ region, ৪ Research Challenge।
 
 **৮.২ Table 1 (timely hardening test; PDF-এর column ভেঙে গিয়েছিল, নিচে আমার পুনর্গঠন)**
 
@@ -251,6 +340,8 @@ $$
 | no build | pass, – | – | 2 | Strong hardening retire: child tested functionality সরিয়েছে |
 | no build | fail, – | – | 1 | Strictly weak hardening retire: test আগে থেকেই দুর্বল ছিল |
 
+**সহজ কথায়:** এই table বলে, একটা hardening test child-এ চালালে ১০ রকম ফল হতে পারে। কোনটা সত্য signal (true), কোনটা ভুল (false), তা oracle-এর রায় দেখে বোঝা যায়। "Retire" মানে test-টা আর কাজের নেই, তাই সরিয়ে ফেলা।
+
 **৮.৩ Table 2 (JiTTest, ২৪ সারি, ৫ category) — সারসংক্ষেপ**
 
 | Category | শর্ত (parent / child) | সারি | Paper-এর সিদ্ধান্ত |
@@ -260,6 +351,8 @@ $$
 | 3 New Functionality | parent-এ build হয় না | 4 | child-এ pass করলে land করা নিরাপদ; fail করলে নতুন functionality-র bug-এর ইঙ্গিত |
 | 4 Cannot Land | child-এ build হয় না | 4 | land করা যাবে না, কিন্তু signal engineer-কে দেওয়া ভালো |
 | 5 Likely Discard | দুই জায়গাতেই fail | 4 | সাধারণত discard (সবচেয়ে অনিশ্চিত সিদ্ধান্ত) |
+
+**সহজ কথায়:** নতুন test-এর ক্ষেত্রে ফলের ধরন ৫ ভাগে ভাগ হয়। Parent-এ pass হলে ঝুঁকি বেশি। Parent-এ fail আর child-এ pass হলে তুলনামূলক নিরাপদ। দুই জায়গাতেই fail হলে সাধারণত ফেলে দেওয়া হয়, কিন্তু এটাই সবচেয়ে অনিশ্চিত সিদ্ধান্ত।
 
 **৮.৪ Table 3 (oracle জানা না থাকলে প্রস্তাবিত ৮টি সিদ্ধান্ত)**
 
@@ -273,6 +366,8 @@ $$
 | pass / no build | Give Signal | ভুলভাবে বলে parent ঠিক ছিল | নিশ্চিত করে behaviour সরানো হয়েছে |
 | fail / no build | Give Signal | ভুলভাবে বলে parent ভুল ছিল | fix নথিভুক্ত করতে সাহায্য করে |
 | fail / fail | Discard Test | বর্তমান revision-এর bug-catch হারায় | বিভ্রান্তিকর test হারায় |
+
+**সহজ কথায়:** Oracle না জানলেও এই table থেকে সহজ নিয়ম পাওয়া যায়। দুই জায়গাতেই pass করলে test land করো। Child-এ fail করলে engineer-কে জানাও। Build না হলে শুধু signal দাও। দুই জায়গাতেই fail করলে ফেলে দাও।
 
 **৮.৫ Actionable conclusions (paper-এর নিজের)**
 
@@ -299,6 +394,8 @@ $$
 8. Parsimonious PR-ও যথেষ্ট oracle ইঙ্গিত দিতে পারে (title, comment, CI history), আর LLM code ও natural language একসঙ্গে পড়ে সেই সেতু হতে পারে।
 9. Catching JiTTest দিয়ে delete-and-reinsert কৌশলে legacy code-এর latent bug-ও খোঁজা সম্ভব।
 
+**সহজ কথায়:** মূল কথাগুলো একসঙ্গে: hardening আর catching আলাদা জিনিস, আর শুধু "pass করে" এমন test মিথ্যা ভরসা দেয়। মানুষের ছোট একটা পরীক্ষাই ৫টা সমস্যার মধ্যে ৩টা দূর করে দেয়।
+
 ## ১০. Alternatives-এর চেয়ে কেন ভালো
 
 - **Coverage-ভিত্তিক generator (EvoSuite, Klee, CoverUp ধরনের):** coverage কার্যকরভাবে fault-revealing নয়; paper hardening-কে "অন্তত একটি bug ধরে" দিয়ে সংজ্ঞায়িত করে।
@@ -307,6 +404,8 @@ $$
 - **"Oracle জানা/অজানা" দ্বিমুখী ভাবনা:** oracle-কে ক্রমিক ও ব্যয়বহুল resource হিসেবে দেখার ফলে human review-এর সুনির্দিষ্ট মূল্য ও সুফল হিসাব করা যায়।
 - **শুধু code summarisation:** circularity-র ঝুঁকি (LLM দিয়ে summary, আবার LLM দিয়েই test)। Paper মানুষের লেখা non-executable text-কে অগ্রাধিকার দেয়।
 - সীমা: এগুলো "ভালো" এই দাবির empirical প্রমাণ paper-এ নেই; এগুলো সংজ্ঞাগত ও যুক্তিগত সুবিধা।
+
+**সহজ কথায়:** অন্য পদ্ধতিগুলো coverage বাড়ায় বা শুধু স্পষ্ট crash ধরে। এই paper-এর সুবিধা হলো সে জিজ্ঞেস করে, test আসলে bug ধরে কি না। তবে এটা যুক্তির সুবিধা, পরীক্ষায় প্রমাণিত নয়।
 
 ## ১১. কখন কাজ করে / ব্যর্থ হয়
 
@@ -320,6 +419,8 @@ $$
 | Test parent ও child দুটিতেই fail | সাধারণত discard; paper নিজেই এটাকে "least certain" বলে |
 | Latent bug খোঁজা (delete-and-reinsert) | নতুন non-executable text নেই; CI history ও পুরোনো comment ঘাঁটতে হয় |
 | Failed error propagation থাকলে | Hardening test হঠাৎ এমন "regression" ধরে যা আসলে পুরোনো bug |
+
+**সহজ কথায়:** Engineer-এর review আর PR-এ ভালো বর্ণনা থাকলে পদ্ধতিটা ভালো কাজ করে। PR প্রায় ফাঁকা থাকলে, test পরস্পর নির্ভরশীল হলে, বা oracle নিয়ে মতভেদ থাকলে কাজ কঠিন হয়ে যায়।
 
 ## ১২. Limitations
 
@@ -343,6 +444,8 @@ $$
 - Agent-এর patch-এর ক্ষেত্রে gaming ঝুঁকি আলোচিত নয়: Generator যদি ইচ্ছাকৃতভাবে বা নিজের অজান্তে test-কে এমনভাবে বানায় যাতে সবসময় pass করে, তাহলে কী হবে।
 - Security বা non-functional bug (performance, concurrency) নিয়ে কিছু নেই।
 
+**সহজ কথায়:** লেখকেরা নিজেরাই বলেছেন, তাঁদের সিদ্ধান্ত-তালিকা সম্পূর্ণ নয়। আমার মতে সবচেয়ে বড় দুর্বলতা: কোনো সংখ্যাগত প্রমাণ নেই, আর agent-এর লেখা patch-এর কোনো human author না থাকায় oracle কে ঠিক করবে তা অস্পষ্ট।
+
 ## ১৩. Research gaps
 
 | G-id | Gap | Evidence | সম্পর্কিত CG / folder |
@@ -359,6 +462,8 @@ $$
 | G10 | Agent-লেখা patch-এ "author oracle" কে হবে | Section 3.2 (আমার পর্যবেক্ষণ) | CG1, CG12 |
 | G11 | Friction/pseudo false positive-এর সংখ্যাগত মডেল নেই | Section 3.5 | CG8, CG10 |
 
+**সহজ কথায়:** এই table-এ ১১টা ফাঁক আছে। বেশিরভাগই বলে: paper ধারণা দিয়েছে, কিন্তু কেউ মাপেনি বা স্বয়ংক্রিয় করেনি। CG হলো আমাদের প্রজেক্টের নিজস্ব research gap-এর নম্বর।
+
 ## ১৪. Improvement ideas
 
 1. **Patch-targeted catching test pipeline:** Agent patch P-এর জন্য issue-text ও patch diff থেকে test বানাও; parent (pre-patch) ও child (post-patch) দুটিতেই চালাও; Table 2-এর ৫ category-তে ফল ফেলো।
@@ -370,6 +475,8 @@ $$
 7. **Gaming-প্রতিরোধ:** Test-writing agent patch-writing agent থেকে বিচ্ছিন্ন রাখো; patch agent test-এর ভেতর কী আছে দেখতে পাবে না।
 8. **Delete-and-reinsert** কৌশল লোকাল repo-তে latent bug ও "hidden fail" যাচাইয়ে পরীক্ষা করো।
 
+**সহজ কথায়:** ধারণাগুলো আমাদের প্রজেক্টে সরাসরি বসানো যায়। Agent-এর patch-এর জন্য test বানাও, parent আর child-এ চালাও, ফল ৫ ভাগে ফেলো, আর precision ও recall আলাদা করে দেখাও। (mutation = কোডে ইচ্ছা করে বসানো ছোট bug; lint = কোড-এর ভুল স্বয়ংক্রিয়ভাবে খোঁজার tool।)
+
 ## ১৫. Publication potential (SPL3-feasible)
 
 - **Workshop/short paper:** "Region taxonomy-based audit of agent-generated tests on SWE-rebench tasks": কতটা test strictly weak, কতটা functionality catching, তার মাপ।
@@ -377,6 +484,8 @@ $$
 - **Negative-result সম্ভাবনা:** ভালো ধারণা, তবু LLM-generated catching test-এর precision 0.8-এ পৌঁছায় না, এটা দেখালেও প্রকাশযোগ্য।
 - **Tool paper (অপেক্ষাকৃত কঠিন):** পূর্ণ assurance report prototype।
 - সীমা: Paper একটি keynote-পেপার; তাই এর উপর ভিত্তি করে দাবি করলে "এই taxonomy নিয়ে আমরা প্রথমবার মাপলাম" ধরনের দাবিই নিরাপদ।
+
+**সহজ কথায়:** এই paper-এর ওপর ভিত্তি করে "আমরা প্রথম মাপলাম" ধরনের দাবি করা নিরাপদ। কারণ paper নিজে কিছু মাপেনি। আর ভালো ধারণা কাজ না করলেও সেই negative result ছাপানো যায়।
 
 ## ১৬. SPL3 implementation
 
@@ -391,9 +500,11 @@ $$
    - no build → pass/fail: নতুন functionality test।
    - fail → fail: patch fix করেনি বা test ভুল; "যাচাই করা গেল না" লেবেল।
 6. **Oracle-strength:** Patch-এর আশপাশে mutant বানাও; test কয়টা মারে সেটা মাপো।
-7. **Evaluation:** Ground truth = gold patch-এর hidden test ও ম্যানুয়াল label। Precision ও recall আলাদা; R@P=0.8; paired test (McNemar)।
+7. **Evaluation:** Ground truth = gold patch-এর hidden test ও ম্যানুয়াল label। Precision ও recall আলাদা; R@P=0.8; paired test (McNemar = একই task-এ দুই পদ্ধতির ফল তুলনার পরিসংখ্যান পরীক্ষা)।
 8. **Risk:** LLM-বানানো test নিজেই ভুল হতে পারে; তাই পরিমাপ করতে হবে test-এর নিজের সঠিকতা (gold patch-এ pass করে কি না)।
 9. **Cost-aware:** ছোট model দিয়ে test generation, শুধু অনিশ্চিত ক্ষেত্রে বড় model।
+
+**সহজ কথায়:** কাজটা ছোট করে শুরু করো: ২০–৫০টা task, কয়েকটা সঠিক ও ভুল patch, প্রতিটা test ৩ বার চালানো। তারপর ফলকে ৫ ভাগে ফেলে gold patch-এর hidden test-এর সঙ্গে মিলিয়ে দেখো।
 
 ## ১৭. Influence ও আগের sub-domain-এর সঙ্গে সংযোগ
 
@@ -402,6 +513,8 @@ $$
 - **Sub-domain 3 (Evaluation):** Verifier health ও gamed score; এই paper-এর "pseudo false positive", "মিথ্যা নিরাপত্তাবোধ" সেই আলোচনার পরিপূরক।
 - **Sub-domain 4 (Test generation):** CoverUp-এর "coverage ≠ oracle" সরাসরি এই paper-এর coverage dilemma; Oracle-Guided Selection-এর distinguishing test এখানে "catching test"-এর বিশেষ রূপ; TestDecision-এর reward-এ assertion strength নেই, এই paper সেই ফাঁক সংজ্ঞায়িত করে।
 - এই paper-এ CoverUp ও HITS পরোক্ষভাবে উল্লেখ আছে ([70], [83]), এবং Oracle-guided program selection ([27]) উল্লেখ আছে (oracle inference উদাহরণে)।
+
+**সহজ কথায়:** এই paper আগের তিনটা sub-domain-এর একই সমস্যার ("plausible মানেই সঠিক নয়") test-ভিত্তিক সংজ্ঞা দেয়। তাই সবগুলোর সঙ্গে এর যোগ আছে।
 
 ## ১৮. Supervisor Q&A
 
@@ -428,6 +541,8 @@ $$
 
 **প্র৮: Fail → fail কেন discard?**
 উ: Paper বলে ঐ test-এর আসল bug ধরার সম্ভাবনা কম, false positive-এর ঝুঁকি বেশি। আমাদের ক্ষেত্রে বরং "যাচাই করা গেল না" লেবেল দেওয়া ভালো।
+
+**সহজ কথায়:** Supervisor-কে মনে রাখার মতো তিন কথা বলো: (১) এটা position paper, experiment নেই; (২) Hardening বনাম catching আর weak বনাম strong-ই মূল; (৩) আমাদের কাজ হলো এগুলো agent-patch-এ মাপা।
 
 ## ১৯. Glossary
 
@@ -483,6 +598,8 @@ $$
 | Benchmark | উল্লেখ নেই | SWE-bench Verified saturated (Vals.ai 97.0%, archived, I) |
 | Gaming | আলোচিত নয় | METR: দীর্ঘ কাজের সফল run-এর ≥16% cheat (I, আগের প্রজন্ম); Opus 5.5 card-এ "hidden tests" যুক্তি ও git concealment (V) |
 
+**সহজ কথায়:** ২০২৫-এ paper যে ঝুঁকিগুলো আলোচনাই করেনি (weak oracle, gaming, over-mock), ২০২৬-এ সেগুলোর বাস্তব প্রমাণ পাওয়া গেছে। তাই paper-এর ধারণা এখন আরও জরুরি।
+
 ### ২১.২ এখনও সত্য / পুরোনো
 
 - **এখনও সত্য:** ওপরে দেখা ৮০.২% দুর্বল oracle ফল paper-এর weak-hardening ও coverage dilemma-র সংখ্যাগত সমর্থন, অন্তত আগের প্রজন্মের agent-এর জন্য।
@@ -490,6 +607,8 @@ $$
 - **পুরোনো বা অপরীক্ষিত:** Paper-এর Meta-কেন্দ্রিক সংখ্যা (1.75h/8h) 2026-এর agentic PR flow-এ প্রযোজ্য কি না জানা নেই, কারণ agent তাৎক্ষণিক PR পাঠায় ও review পদ্ধতি বদলেছে (এই বিষয়ে context.md-তে তথ্য পাওয়া যায়নি)।
 - **অপরীক্ষিত:** Current-model-এর SWT-bench/TDD-Bench ফল নেই; তাই paper-এর Catching JiTTest যুক্তি LLM-এর আধুনিক সংস্করণে প্রয়োগ করে দেখা বাকি।
 - বর্তমান model-এর তথ্য পাওয়া যায়নি: catching JiTTest-এ R@P=0.8-এর সঙ্গে মেলে এমন কোনো সংখ্যা।
+
+**সহজ কথায়:** পুরোনো (২০২৫) paper-এর ধারণা আজও খাটে, কারণ weak oracle আর gaming-এর প্রমাণ মিলেছে। কিন্তু Meta-র সময়ের সংখ্যা (1.75h, 8h) agent-এর যুগে খাটে কি না, জানা নেই।
 
 ### ২১.৩ আজকের দিনে খোলা gap
 
@@ -501,13 +620,17 @@ $$
 | Judge-এর precision (over-fix flag-এ 5–10% precision, S) | oracle scavenging-কে judge-এর ওপর ছাড়া ঝুঁকিপূর্ণ | CG1, CG7 |
 | Security-সম্পর্কিত catching test | SusVibes: FuncPass 62–84% বনাম SecPass 7.8–17.3% (I, Opus 4.6/GPT-5.4 যুগ) | CG5 |
 
+**সহজ কথায়:** যে ফাঁকগুলো এখনো খোলা: নতুন model-এর catching test কতটা সঠিক, weak oracle এখন কেমন, আর gaming ঠেকানো যায় কি না। এগুলোই আমাদের কাজের জায়গা।
+
 ### ২১.৪ SPL3 idea (বর্তমান model, cost-aware)
 
 - **বড় model** (যেমন Opus 5.5, cost প্রতি task 13.20 USD, Vals Terminal-Bench 4.0, I) শুধু পাতলা সংখ্যক কঠিন task-এ।
 - **সাশ্রয়ী model** (Kimi K3.1 Pro 4.57 USD; GPT-6.1 Sol 1.72 USD, I) test generation ও scavenging-এ ব্যবহার করে ব্যয় কমানো।
 - Pipeline: issue text → সাশ্রয়ী model দিয়ে ৩–৫ test → parent/child execution → Table 2 category → অনিশ্চিত হলে বড় model-এর দ্বিতীয় মত → "যাচাই করা গেল না" বিকল্প।
-- মাপ: R@P=0.8, প্রতিবার ৫ run (variance: pass@1 ও pass@5-এর ফাঁক 12–18 pt, I)।
+- মাপ: R@P=0.8, প্রতিবার ৫ run (variance: pass@1 (প্রথমবারেই সঠিক) ও pass@5 (৫ বারের মধ্যে অন্তত একবার সঠিক)-এর ফাঁক 12–18 pt, I)।
 - আমার হিসাব নয়, শুধু অনুমান: খরচ-সীমা ঠিক করতে প্রথমে পাইলটে প্রতি task-এ গড় token মাপতে হবে; context.md-তে এর কোনো সংখ্যা নেই।
+
+**সহজ কথায়:** খরচ কমাতে ছোট model দিয়ে test বানাও, কঠিন ক্ষেত্রে বড় model ব্যবহার করো। আর ফল যাচাইয়ে প্রতিবার ৫ বার চালিয়ে মাপো। (cost = প্রতি task-এ খরচ; USD মানে মার্কিন ডলার।)
 
 ### ২১.৫ তিনটি Q&A
 
@@ -519,3 +642,5 @@ $$
 
 **প্র৩: Gaming ঠেকাতে paper কী সাহায্য করে?**
 উ: সরাসরি করে না। তবে strong hardening ও PR-নির্দিষ্ট oracle scavenging মেনে চললে এমন test-ই গ্রহণযোগ্য হয় যা মানুষ বা স্বাধীন judge যাচাই করতে পারে; এর সঙ্গে generator-agent আলাদা রাখা আমাদের সংযোজন।
+
+**সহজ কথায়:** Paper-এর ধারণা এখনো কাজের, কিন্তু আজকের model-এর ওপর মাপা হয়নি। তাই সেই মাপাটাই আমাদের সুযোগ।
